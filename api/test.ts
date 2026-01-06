@@ -9,10 +9,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(200).end();
   }
 
+  // Debug URL parsing
+  const url = new URL(req.url || '', `https://${req.headers.host}`);
+  const pathParts = url.pathname.split('/').filter(Boolean);
+
   return res.status(200).json({
     url: req.url,
+    host: req.headers.host,
+    pathname: url.pathname,
+    search: url.search,
+    pathParts: pathParts,
     query: req.query,
-    path: req.query.path,
     method: req.method,
     timestamp: new Date().toISOString()
   });
