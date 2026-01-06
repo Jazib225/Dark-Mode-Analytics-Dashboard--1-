@@ -10,11 +10,28 @@ const isDev = import.meta.env.DEV;
 
 // Use backend proxy in dev for testing, CORS proxy in production
 const CORS_PROXY = "https://api.allorigins.win/raw?url=";
-const BACKEND_PROXY = isDev ? "http://localhost:3001/api/proxy" : "/api/proxy";
+const BACKEND_PROXY = "http://localhost:3001/api/proxy";
 
-const GAMMA_API = isDev ? `${BACKEND_PROXY}/gamma` : "https://gamma-api.polymarket.com";
-const CLOB_API = isDev ? `${BACKEND_PROXY}/clob` : "https://clob.polymarket.com";
-const DATA_API = isDev ? `${BACKEND_PROXY}/data` : "https://data-api.polymarket.com";
+// Base API URLs
+const GAMMA_BASE = "https://gamma-api.polymarket.com";
+const CLOB_BASE = "https://clob.polymarket.com";
+const DATA_BASE = "https://data-api.polymarket.com";
+
+// Helper to build URLs that work in both dev and prod
+function buildApiUrl(base: string, path: string, proxyPath: string): string {
+  if (isDev) {
+    // In dev, use backend proxy
+    return `${BACKEND_PROXY}/${proxyPath}${path}`;
+  } else {
+    // In prod, use CORS proxy with full URL encoded
+    return `${CORS_PROXY}${encodeURIComponent(`${base}${path}`)}`;
+  }
+}
+
+// Convenience functions for each API
+const gammaUrl = (path: string) => buildApiUrl(GAMMA_BASE, path, "gamma");
+const clobUrl = (path: string) => buildApiUrl(CLOB_BASE, path, "clob");
+const dataUrl = (path: string) => buildApiUrl(DATA_BASE, path, "data");
 
 async function fetchWithTimeout(
   url: string,
@@ -40,7 +57,7 @@ export async function getTrendingMarkets(timeframe: "1h" | "24h" | "7d" | "1m" =
   try {
     // Use Gamma API with active=true&closed=false to get live markets
     const response = await fetchWithTimeout(
-      `${GAMMA_API}/markets?limit=200&active=true&closed=false`
+      gammaUrl("/markets?limit=200&active=true&closed=false")
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
@@ -94,7 +111,7 @@ export async function getActiveMarkets(limit = 100) {
   try {
     // Use Gamma API with active=true&closed=false to get live markets
     const response = await fetchWithTimeout(
-      `${GAMMA_API}/markets?limit=${limit}&active=true&closed=false`
+      gammaUrl(`/markets?limit=${limit}&active=true&closed=false`)
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
@@ -126,7 +143,7 @@ export async function getActiveMarkets(limit = 100) {
 
 export async function getMarketById(id: string) {
   try {
-    const response = await fetchWithTimeout(`${GAMMA_API}/markets/${id}`);
+    const response = await fetchWithTimeout(gammaUrl(`/markets/${id}`));
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     return data || {};
@@ -139,7 +156,7 @@ export async function getMarketById(id: string) {
 export async function searchMarkets(query: string, limit = 50) {
   try {
     const response = await fetchWithTimeout(
-      `${GAMMA_API}/markets?limit=${limit}`
+      gammaUrl(`/markets?limit=${limit}`)
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
@@ -161,7 +178,7 @@ export async function searchMarkets(query: string, limit = 50) {
 export async function getMarketStats(id: string) {
   try {
     const response = await fetchWithTimeout(
-      `${GAMMA_API}/markets/${id}/stats`
+      gammaUrl(`/markets/${id}/stats`)
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return await response.json();
@@ -173,7 +190,7 @@ export async function getMarketStats(id: string) {
 
 export async function getCategories() {
   try {
-    const response = await fetchWithTimeout(`${GAMMA_API}/markets/categories`);
+    const response = await fetchWithTimeout(gammaUrl("/markets/categories"));
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     return Array.isArray(data) ? data : (data?.data || data?.categories || []);
@@ -189,7 +206,7 @@ export async function getCategories() {
 export async function getOrderBook(assetId: string) {
   try {
     const response = await fetchWithTimeout(
-      `${CLOB_API}/orderbooks/${assetId}`
+      clobUrl(`/orderbooks/${assetId}`)
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return await response.json();
@@ -201,7 +218,7 @@ export async function getOrderBook(assetId: string) {
 
 export async function getPriceQuote(assetId: string) {
   try {
-    const response = await fetchWithTimeout(`${CLOB_API}/prices/${assetId}`);
+    const response = await fetchWithTimeout(clobUrl(`/prices/${assetId}`));
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return await response.json();
   } catch (error) {
@@ -216,7 +233,7 @@ export async function getPriceQuote(assetId: string) {
 export async function getPortfolio(address: string) {
   try {
     const response = await fetchWithTimeout(
-      `${DATA_API}/portfolios/${address}`
+      dataUrl(`/portfolios/${address}`)
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     return await response.json();
@@ -229,7 +246,7 @@ export async function getPortfolio(address: string) {
 export async function getPositions(address: string) {
   try {
     const response = await fetchWithTimeout(
-      `${DATA_API}/portfolios/${address}/positions`
+      dataUrl(`/portfolios/${address}/positions`)
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
@@ -247,7 +264,7 @@ export async function getActivity(
 ) {
   try {
     const response = await fetchWithTimeout(
-      `${DATA_API}/portfolios/${address}/activity?limit=${limit}&offset=${offset}`
+      dataUrl(`/portfolios/${address}/activity?limit=${limit}&offset=${offset}`)
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
@@ -261,7 +278,7 @@ export async function getActivity(
 export async function getRecentTrades(limit = 50, offset = 0) {
   try {
     const response = await fetchWithTimeout(
-      `${DATA_API}/activity?limit=${limit}&offset=${offset}`
+      dataUrl(`/activity?limit=${limit}&offset=${offset}`)
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
