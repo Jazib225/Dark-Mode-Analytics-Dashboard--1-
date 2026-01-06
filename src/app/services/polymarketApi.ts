@@ -11,18 +11,39 @@ const isDev = import.meta.env.DEV;
 // Helper to build URLs that work in both dev and prod
 function buildApiUrl(path: string, service: string): string {
   if (isDev) {
-    // Local dev: use Express server proxy
+    // Local dev: use Express server proxy (path-based)
     return `http://localhost:3001/api/proxy/${service}${path}`;
   } else {
-    // Production: use single Vercel API route
-    return `/api/proxy/${service}${path}`;
+    // Production: use Vercel API route (query-based)
+    const params = new URLSearchParams();
+    params.append('service', service);
+    params.append('path', path);
+    return `/api/proxy?${params.toString()}`;
   }
 }
 
+// Helper to add additional query params to the URL
+function addQueryParams(baseUrl: string, additionalParams: Record<string, string>): string {
+  const url = new URL(baseUrl, window.location.origin);
+  for (const [key, value] of Object.entries(additionalParams)) {
+    url.searchParams.append(key, value);
+  }
+  return url.toString().replace(url.origin, '');
+}
+
 // Convenience functions for each API
-const gammaUrl = (path: string) => buildApiUrl(path, "gamma");
-const clobUrl = (path: string) => buildApiUrl(path, "clob");
-const dataUrl = (path: string) => buildApiUrl(path, "data");
+const gammaUrl = (path: string, params?: Record<string, string>) => {
+  const baseUrl = buildApiUrl(path, "gamma");
+  return params ? addQueryParams(baseUrl, params) : baseUrl;
+};
+const clobUrl = (path: string, params?: Record<string, string>) => {
+  const baseUrl = buildApiUrl(path, "clob");
+  return params ? addQueryParams(baseUrl, params) : baseUrl;
+};
+const dataUrl = (path: string, params?: Record<string, string>) => {
+  const baseUrl = buildApiUrl(path, "data");
+  return params ? addQueryParams(baseUrl, params) : baseUrl;
+};
 
 async function fetchWithTimeout(
   url: string,
@@ -48,7 +69,7 @@ export async function getTrendingMarkets(timeframe: "1h" | "24h" | "7d" | "1m" =
   try {
     // Use Gamma API with active=true&closed=false to get live markets
     const response = await fetchWithTimeout(
-      gammaUrl("/markets?limit=200&active=true&closed=false")
+      gammaUrl("/markets", { limit: "200", active: "true", closed: "false" })
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
@@ -102,7 +123,7 @@ export async function getActiveMarkets(limit = 100) {
   try {
     // Use Gamma API with active=true&closed=false to get live markets
     const response = await fetchWithTimeout(
-      gammaUrl(`/markets?limit=${limit}&active=true&closed=false`)
+      gammaUrl("/markets", { limit: limit.toString(), active: "true", closed: "false" })
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
@@ -147,7 +168,7 @@ export async function getMarketById(id: string) {
 export async function searchMarkets(query: string, limit = 50) {
   try {
     const response = await fetchWithTimeout(
-      gammaUrl(`/markets?limit=${limit}`)
+      gammaUrl("/markets", { limit: limit.toString() })
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
@@ -255,7 +276,7 @@ export async function getActivity(
 ) {
   try {
     const response = await fetchWithTimeout(
-      dataUrl(`/portfolios/${address}/activity?limit=${limit}&offset=${offset}`)
+      dataUrl(`/portfolios/${address}/activity`, { limit: limit.toString(), offset: offset.toString() })
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
@@ -269,7 +290,7 @@ export async function getActivity(
 export async function getRecentTrades(limit = 50, offset = 0) {
   try {
     const response = await fetchWithTimeout(
-      dataUrl(`/activity?limit=${limit}&offset=${offset}`)
+      dataUrl("/activity", { limit: limit.toString(), offset: offset.toString() })
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();

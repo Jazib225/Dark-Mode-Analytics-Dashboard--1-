@@ -17,26 +17,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    // Parse the URL path: /api/proxy/gamma/markets -> service=gamma, apiPath=markets
-    const url = new URL(req.url || '', `https://${req.headers.host}`);
-    const pathParts = url.pathname.split('/').filter(Boolean); // ['api', 'proxy', 'gamma', 'markets']
+    // Get service and path from query parameters
+    const service = req.query.service as string;
+    const path = req.query.path as string;
     
-    if (pathParts.length < 3) {
-      return res.status(400).json({ error: 'Invalid path format. Expected: /api/proxy/service/path' });
+    if (!service || !path) {
+      return res.status(400).json({ 
+        error: 'Missing required parameters. Use: ?service=gamma&path=/markets&other=params' 
+      });
     }
-    
-    const service = pathParts[2]; // 'gamma'
-    const apiPath = pathParts.slice(3).join('/'); // 'markets'
     
     const baseUrl = API_BASES[service];
     if (!baseUrl) {
       return res.status(400).json({ error: `Unknown service: ${service}` });
     }
 
-    // Build target URL with query string
-    let targetUrl = `${baseUrl}/${apiPath}`;
-    if (url.search) {
-      targetUrl += url.search;
+    // Build query string from remaining parameters (excluding service and path)
+    const queryParams = new URLSearchParams();
+    for (const [key, value] of Object.entries(req.query)) {
+      if (key !== 'service' && key !== 'path' && typeof value === 'string') {
+        queryParams.append(key, value);
+      }
+    }
+    
+    // Build target URL
+    let targetUrl = `${baseUrl}${path}`;
+    const queryString = queryParams.toString();
+    if (queryString) {
+      targetUrl += `?${queryString}`;
     }
     
     console.log(`Proxying to: ${targetUrl}`);
