@@ -175,20 +175,77 @@ export async function getMarketById(id: string) {
 
 export async function searchMarkets(query: string, limit = 50) {
   try {
+    // Fetch all active events to get comprehensive market list for searching
     const response = await fetchWithTimeout(
-      gammaUrl("/markets", { limit: limit.toString() })
+      gammaUrl("/events", { limit: "500", active: "true", closed: "false" })
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     
-    const allMarkets = Array.isArray(data) ? data : (data?.data || data?.markets || []);
-    const lowerQuery = query.toLowerCase();
+    // Extract all markets from events
+    let allMarkets: any[] = [];
+    if (Array.isArray(data)) {
+      data.forEach((event: any) => {
+        if (Array.isArray(event.markets)) {
+          allMarkets = allMarkets.concat(event.markets);
+        }
+      });
+    }
     
-    return allMarkets.filter((m: any) => 
-      m.title?.toLowerCase().includes(lowerQuery) || 
-      m.question?.toLowerCase().includes(lowerQuery) ||
-      m.name?.toLowerCase().includes(lowerQuery)
-    );
+    const lowerQuery = query.toLowerCase().trim();
+    const queryWords = lowerQuery.split(/\s+/).filter(w => w.length > 0);
+    
+    // Score markets based on relevance
+    const scoredMarkets = allMarkets
+      .filter((m: any) => {
+        const title = (m.question || m.title || "").toLowerCase();
+        // Must have title and be active
+        return title && m.active !== false && m.closed !== true;
+      })
+      .map((m: any) => {
+        const title = (m.question || m.title || "").toLowerCase();
+        let score = 0;
+        
+        // Exact phrase match gets highest score
+        if (title.includes(lowerQuery)) {
+          score += 100;
+        }
+        
+        // Score based on word matches
+        queryWords.forEach(word => {
+          if (title.includes(word)) {
+            score += 10;
+            // Bonus for word at start
+            if (title.startsWith(word)) {
+              score += 5;
+            }
+          }
+        });
+        
+        // Bonus for volume (popular markets)
+        const volume = parseFloat(String(m.volumeNum || m.volume24hr || 0));
+        if (volume > 1000000) score += 3;
+        else if (volume > 100000) score += 2;
+        else if (volume > 10000) score += 1;
+        
+        return { ...m, _searchScore: score };
+      })
+      .filter((m: any) => m._searchScore > 0)
+      .sort((a: any, b: any) => b._searchScore - a._searchScore)
+      .slice(0, limit)
+      .map((m: any) => ({
+        ...m,
+        id: m.id || m.conditionId || Math.random().toString(),
+        title: m.question || m.title || "Unknown Market",
+        lastPriceUsd: m.bestBid ? parseFloat(String(m.bestBid)) : (m.lastTradePrice ? parseFloat(String(m.lastTradePrice)) : 0.5),
+        volumeUsd: parseFloat(String(m.volumeNum || m.volume24hr || 0)),
+        volume24hr: parseFloat(String(m.volume24hr || 0)),
+        volume7d: parseFloat(String(m.volume1wk || 0)),
+        volume1mo: parseFloat(String(m.volume1mo || 0)),
+      }));
+    
+    console.log(`Search for "${query}" found ${scoredMarkets.length} results`);
+    return scoredMarkets;
   } catch (error) {
     console.error("Failed to search markets:", error);
     return [];

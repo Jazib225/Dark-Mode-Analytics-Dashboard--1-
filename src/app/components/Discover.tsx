@@ -1,7 +1,7 @@
-import { useState, useEffect } from "react";
-import { Search, Bookmark } from "lucide-react";
+import { useState, useEffect, useRef, useCallback } from "react";
+import { Search, Bookmark, Clock, X, TrendingUp } from "lucide-react";
 import { BookmarkedMarket } from "../App";
-import { getTrendingMarkets, getActiveMarkets } from "../services/polymarketApi";
+import { getTrendingMarkets, searchMarkets } from "../services/polymarketApi";
 
 interface DiscoverProps {
   toggleBookmark: (market: BookmarkedMarket) => void;
@@ -18,6 +18,14 @@ interface DisplayMarket {
   volume?: string;
   volumeUsd?: string;
   volumeNum?: number;
+}
+
+interface SearchHistoryItem {
+  id: string;
+  name: string;
+  probability: number;
+  volume: string;
+  timestamp: number;
 }
 
 type TimeFilter = "24h" | "7d" | "1m";
@@ -59,6 +67,133 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
   const [markets, setMarkets] = useState<DisplayMarket[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Search state
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isSearchFocused, setIsSearchFocused] = useState(false);
+  const [searchResults, setSearchResults] = useState<DisplayMarket[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>(() => {
+    // Load search history from localStorage
+    try {
+      const saved = localStorage.getItem("polymarket_search_history");
+      return saved ? JSON.parse(saved) : [];
+    } catch {
+      return [];
+    }
+  });
+  
+  const searchRef = useRef<HTMLDivElement>(null);
+  const searchInputRef = useRef<HTMLInputElement>(null);
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Save search history to localStorage whenever it changes
+  useEffect(() => {
+    localStorage.setItem("polymarket_search_history", JSON.stringify(searchHistory));
+  }, [searchHistory]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setIsSearchFocused(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Search for markets with debounce
+  const handleSearch = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setSearchResults([]);
+      return;
+    }
+    
+    setIsSearching(true);
+    try {
+      const results = await searchMarkets(query);
+      const displayResults = results.map((m: any) => convertApiMarketToDisplay(m, timeFilter));
+      setSearchResults(displayResults);
+    } catch (err) {
+      console.error("Search error:", err);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  }, [timeFilter]);
+
+  // Debounced search on query change
+  useEffect(() => {
+    if (searchDebounceRef.current) {
+      clearTimeout(searchDebounceRef.current);
+    }
+    
+    if (searchQuery.trim()) {
+      searchDebounceRef.current = setTimeout(() => {
+        handleSearch(searchQuery);
+      }, 300);
+    } else {
+      setSearchResults([]);
+    }
+    
+    return () => {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+    };
+  }, [searchQuery, handleSearch]);
+
+  // Add market to search history
+  const addToSearchHistory = (market: DisplayMarket) => {
+    const historyItem: SearchHistoryItem = {
+      id: market.id,
+      name: market.name || market.title || "Unknown",
+      probability: Number(market.probability) || 0,
+      volume: market.volume || "$0",
+      timestamp: Date.now(),
+    };
+    
+    setSearchHistory(prev => {
+      // Remove duplicate if exists
+      const filtered = prev.filter(item => item.id !== market.id);
+      // Add to beginning and keep only last 10
+      return [historyItem, ...filtered].slice(0, 10);
+    });
+  };
+
+  // Clear search history
+  const clearSearchHistory = () => {
+    setSearchHistory([]);
+  };
+
+  // Remove single item from history
+  const removeFromHistory = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSearchHistory(prev => prev.filter(item => item.id !== id));
+  };
+
+  // Handle market selection from search
+  const handleMarketSelect = (market: DisplayMarket) => {
+    addToSearchHistory(market);
+    setSearchQuery("");
+    setIsSearchFocused(false);
+    onMarketClick(market);
+  };
+
+  // Handle selecting from history
+  const handleHistorySelect = (item: SearchHistoryItem) => {
+    // Convert history item to display market format
+    const market: DisplayMarket = {
+      id: item.id,
+      name: item.name,
+      probability: item.probability,
+      volume: item.volume,
+    };
+    setSearchQuery("");
+    setIsSearchFocused(false);
+    onMarketClick(market);
+  };
 
   useEffect(() => {
     const fetchMarkets = async () => {
@@ -95,13 +230,143 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
   return (
     <div className="max-w-[1800px] mx-auto space-y-8">
       {/* Search */}
-      <div className="relative">
-        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600" />
+      <div ref={searchRef} className="relative">
+        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-600 z-10" />
         <input
+          ref={searchInputRef}
           type="text"
-          placeholder="Search by wallet or market..."
-          className="w-full bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-lg px-12 py-3 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-700/50 shadow-inner"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          onFocus={() => setIsSearchFocused(true)}
+          placeholder="Search markets on Polymarket..."
+          className={`w-full bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 px-12 py-3 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-700/50 shadow-inner transition-all ${
+            isSearchFocused ? "rounded-t-lg rounded-b-none border-b-transparent" : "rounded-lg"
+          }`}
         />
+        {searchQuery && (
+          <button
+            onClick={() => {
+              setSearchQuery("");
+              setSearchResults([]);
+              searchInputRef.current?.focus();
+            }}
+            className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-600 hover:text-gray-400 transition-colors z-10"
+          >
+            <X className="w-4 h-4" />
+          </button>
+        )}
+        
+        {/* Search Dropdown */}
+        {isSearchFocused && (
+          <div className="absolute top-full left-0 right-0 bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 border-t-0 rounded-b-lg shadow-xl shadow-black/30 z-50 max-h-[400px] overflow-y-auto">
+            {/* Show history when no query */}
+            {!searchQuery.trim() && searchHistory.length > 0 && (
+              <div>
+                <div className="flex items-center justify-between px-4 py-2 border-b border-gray-800/30">
+                  <span className="text-xs text-gray-500 uppercase tracking-wide">Recent Searches</span>
+                  <button
+                    onClick={clearSearchHistory}
+                    className="text-xs text-gray-600 hover:text-gray-400 transition-colors"
+                  >
+                    Clear all
+                  </button>
+                </div>
+                {searchHistory.map((item) => (
+                  <div
+                    key={item.id}
+                    onClick={() => handleHistorySelect(item)}
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-gradient-to-r hover:from-[#111111] hover:to-transparent cursor-pointer group transition-all"
+                  >
+                    <Clock className="w-4 h-4 text-gray-600 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-gray-300 truncate">{item.name}</div>
+                      <div className="flex items-center gap-4 text-xs text-gray-600 mt-0.5">
+                        <span className="text-[#4a6fa5]">{item.probability}%</span>
+                        <span className="text-green-600">{item.volume}</span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => removeFromHistory(item.id, e)}
+                      className="opacity-0 group-hover:opacity-100 text-gray-600 hover:text-gray-400 transition-all"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {/* Show empty state when no history */}
+            {!searchQuery.trim() && searchHistory.length === 0 && (
+              <div className="px-4 py-8 text-center">
+                <Search className="w-8 h-8 text-gray-700 mx-auto mb-3" />
+                <p className="text-sm text-gray-500">Search for any market on Polymarket</p>
+                <p className="text-xs text-gray-600 mt-1">Your recent searches will appear here</p>
+              </div>
+            )}
+            
+            {/* Show loading state */}
+            {searchQuery.trim() && isSearching && (
+              <div className="px-4 py-6 text-center">
+                <div className="animate-spin w-5 h-5 border-2 border-gray-700 border-t-gray-400 rounded-full mx-auto mb-2"></div>
+                <p className="text-sm text-gray-500">Searching markets...</p>
+              </div>
+            )}
+            
+            {/* Show search results */}
+            {searchQuery.trim() && !isSearching && searchResults.length > 0 && (
+              <div>
+                <div className="px-4 py-2 border-b border-gray-800/30">
+                  <span className="text-xs text-gray-500 uppercase tracking-wide">
+                    {searchResults.length} market{searchResults.length !== 1 ? "s" : ""} found
+                  </span>
+                </div>
+                {searchResults.map((market) => (
+                  <div
+                    key={market.id}
+                    onClick={() => handleMarketSelect(market)}
+                    className="flex items-center gap-3 px-4 py-3 hover:bg-gradient-to-r hover:from-[#111111] hover:to-transparent cursor-pointer transition-all"
+                  >
+                    <TrendingUp className="w-4 h-4 text-gray-600 flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-gray-300 truncate">{market.name || market.title}</div>
+                      <div className="flex items-center gap-4 text-xs text-gray-600 mt-0.5">
+                        <span className="text-[#4a6fa5]">{market.probability}%</span>
+                        <span className="text-green-600">{market.volume}</span>
+                      </div>
+                    </div>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        toggleBookmark({
+                          id: market.id,
+                          name: market.name || market.title || "Unknown",
+                          probability: Number(market.probability) || 0,
+                        });
+                      }}
+                      className="text-gray-600 hover:text-[#4a6fa5] transition-all"
+                    >
+                      <Bookmark
+                        className={`w-3.5 h-3.5 ${
+                          isBookmarked(market.id) ? "fill-current text-[#4a6fa5]" : ""
+                        }`}
+                      />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+            
+            {/* No results */}
+            {searchQuery.trim() && !isSearching && searchResults.length === 0 && (
+              <div className="px-4 py-8 text-center">
+                <Search className="w-8 h-8 text-gray-700 mx-auto mb-3" />
+                <p className="text-sm text-gray-500">No markets found for "{searchQuery}"</p>
+                <p className="text-xs text-gray-600 mt-1">Try a different search term</p>
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Trending Markets */}
@@ -182,7 +447,10 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
                 markets.map((market, index) => (
                   <tr
                     key={market.id}
-                    onClick={() => onMarketClick(market)}
+                    onClick={() => {
+                      addToSearchHistory(market);
+                      onMarketClick(market);
+                    }}
                     className={`border-b border-gray-800/30 hover:bg-gradient-to-r hover:from-[#111111] hover:to-transparent transition-all duration-150 cursor-pointer ${
                       index === markets.length - 1 ? "border-b-0" : ""
                     }`}
