@@ -25,26 +25,34 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const service = pathSegments[0]; // 'gamma', 'clob', or 'data'
-    const apiPath = '/' + pathSegments.slice(1).join('/'); // '/markets', etc.
+    const apiPath = pathSegments.slice(1).join('/'); // 'markets', etc.
     
     const baseUrl = API_BASES[service];
     if (!baseUrl) {
       return res.status(400).json({ error: `Unknown service: ${service}` });
     }
 
-    // Build the target URL with query parameters
-    const queryString = req.url?.includes('?') 
-      ? '?' + req.url.split('?')[1].replace(/path=[^&]+&?/, '').replace(/&$/, '')
-      : '';
+    // Build query string from all query params except 'path'
+    const queryParams: Record<string, string> = {};
+    for (const [key, value] of Object.entries(req.query)) {
+      if (key !== 'path' && typeof value === 'string') {
+        queryParams[key] = value;
+      }
+    }
+    const queryString = new URLSearchParams(queryParams).toString();
     
-    const targetUrl = `${baseUrl}${apiPath}${queryString}`;
+    // Build target URL exactly like local server
+    let targetUrl = `${baseUrl}/${apiPath}`;
+    if (queryString) {
+      targetUrl += `?${queryString}`;
+    }
     
     console.log(`Proxying to: ${targetUrl}`);
 
     const response = await fetch(targetUrl, {
       method: req.method || 'GET',
       headers: {
-        'Content-Type': 'application/json',
+        'User-Agent': 'Polymarket-Dashboard/1.0',
         'Accept': 'application/json',
       },
     });
