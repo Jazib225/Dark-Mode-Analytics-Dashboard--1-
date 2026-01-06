@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Bookmark, ChevronDown } from "lucide-react";
 import { BookmarkedMarket } from "../App";
 import { MarketDetail } from "./MarketDetail";
-import { marketsApi } from "../services/api";
+import { getActiveMarkets } from "../services/polymarketApi";
 
 interface MarketsProps {
   toggleBookmark: (market: BookmarkedMarket) => void;
@@ -16,25 +16,29 @@ interface DisplayMarket {
   name: string;
   probability: number;
   volume: string;
+  volumeUsd?: string;
   volumeNum?: number;
-  change24h: string;
-  smartWalletActivity: string;
+}
+
+function formatVolume(volume: number): string {
+  if (volume >= 1000000) {
+    return `$${(volume / 1000000).toFixed(2)}M`;
+  } else if (volume >= 1000) {
+    return `$${(volume / 1000).toFixed(2)}K`;
+  }
+  return `$${volume.toFixed(2)}`;
 }
 
 function convertApiMarketToDisplay(market: any): DisplayMarket {
-  const volume = market.volumeNum || 0;
-  const volumeStr = volume > 1000000 ? `$${(volume / 1000000).toFixed(1)}M` : 
-                    volume > 1000 ? `$${(volume / 1000).toFixed(0)}K` : 
-                    `$${volume}`;
+  const volumeNum = parseFloat(String(market.volumeUsd || 0));
   
   return {
     id: market.id,
     name: market.title || market.name || "Unknown",
     probability: Math.round(parseFloat(String(market.lastPriceUsd || 0.5)) * 100),
-    volume: volumeStr,
-    volumeNum: volume,
-    change24h: "+0%",
-    smartWalletActivity: "Medium",
+    volume: formatVolume(volumeNum),
+    volumeUsd: market.volumeUsd,
+    volumeNum: volumeNum,
   };
 }
 
@@ -50,8 +54,14 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMa
       try {
         setLoading(true);
         setError(null);
-        const data = await marketsApi.listMarkets({ limit: 100 });
-        const displayMarkets = (data || []).map(convertApiMarketToDisplay);
+        const data = await getActiveMarkets(100);
+        const displayMarkets = (data || [])
+          .filter((m: any) => m.active && !m.closed) // Only active markets
+          .map(convertApiMarketToDisplay)
+          .sort((a: any, b: any) => {
+            // Sort by volume (highest first)
+            return (b.volumeNum || 0) - (a.volumeNum || 0);
+          });
         setAllMarkets(displayMarkets);
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to fetch markets";

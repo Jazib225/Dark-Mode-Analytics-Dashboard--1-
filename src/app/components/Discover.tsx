@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Search, Bookmark } from "lucide-react";
 import { BookmarkedMarket } from "../App";
-import { marketsApi } from "../services/api";
+import { getTrendingMarkets, getActiveMarkets } from "../services/polymarketApi";
 
 interface DiscoverProps {
   toggleBookmark: (market: BookmarkedMarket) => void;
@@ -14,28 +14,33 @@ interface DisplayMarket {
   title?: string;
   name?: string;
   probability?: number | string;
-  probability_num?: number;
-  lastPriceUsd?: number | string;
   volume?: string;
+  volumeUsd?: string;
   volumeNum?: number;
-  volumeChange?: string;
-  smartWalletActivity?: string;
 }
 
 type TimeFilter = "24h" | "7d" | "1m";
 
 function convertApiMarketToDisplay(market: any): DisplayMarket {
-  // Handle both API and mock formats
   return {
     id: market.id,
     name: market.title || market.name,
     title: market.title || market.name,
     probability: market.lastPriceUsd
-      ? (parseFloat(String(market.lastPriceUsd)) * 100).toFixed(0)
+      ? (parseFloat(String(market.lastPriceUsd)) * 100).toFixed(1)
       : market.probability,
-    volumeChange: market.volumeNum ? "+0%" : market.volumeChange,
-    smartWalletActivity: "Medium",
+    volumeUsd: market.volumeUsd,
+    volume: formatVolume(parseFloat(String(market.volumeUsd || 0))),
   };
+}
+
+function formatVolume(volume: number): string {
+  if (volume >= 1000000) {
+    return `$${(volume / 1000000).toFixed(2)}M`;
+  } else if (volume >= 1000) {
+    return `$${(volume / 1000).toFixed(2)}K`;
+  }
+  return `$${volume.toFixed(2)}`;
 }
 
 export function Discover({ toggleBookmark, isBookmarked, onWalletClick }: DiscoverProps) {
@@ -49,8 +54,17 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick }: Discov
       try {
         setLoading(true);
         setError(null);
-        const data = await marketsApi.getTrendingMarkets(timeFilter);
-        const displayMarkets = (data || []).map(convertApiMarketToDisplay);
+        // Get trending markets (they're already sorted by trending, we'll also sort by volume)
+        const data = await getTrendingMarkets(timeFilter);
+        const displayMarkets = (data || [])
+          .filter((m: any) => m.active && !m.closed) // Only active markets
+          .map(convertApiMarketToDisplay)
+          .sort((a: any, b: any) => {
+            // Sort by volume (highest first)
+            const volA = parseFloat(String(a.volumeUsd || 0));
+            const volB = parseFloat(String(b.volumeUsd || 0));
+            return volB - volA;
+          });
         setMarkets(displayMarkets);
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to fetch markets";
@@ -127,10 +141,7 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick }: Discov
                   Probability
                 </th>
                 <th className="text-right py-4 px-5 text-gray-500 font-light tracking-wide uppercase">
-                  {timeFilter === "24h" ? "24h" : timeFilter === "7d" ? "7d" : "1m"} Volume Δ
-                </th>
-                <th className="text-right py-4 px-5 text-gray-500 font-light tracking-wide uppercase">
-                  Smart Wallet Activity
+                  24h Volume
                 </th>
                 <th className="w-10"></th>
               </tr>
@@ -138,20 +149,20 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick }: Discov
             <tbody>
               {loading ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-gray-500">
+                  <td colSpan={4} className="py-8 text-center text-gray-500">
                     Loading markets...
                   </td>
                 </tr>
               ) : error ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-red-500">
+                  <td colSpan={4} className="py-8 text-center text-red-500">
                     Error: {error}
                   </td>
                 </tr>
               ) : markets.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-gray-500">
-                    No markets found
+                  <td colSpan={4} className="py-8 text-center text-gray-500">
+                    No active markets found
                   </td>
                 </tr>
               ) : (
@@ -169,20 +180,7 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick }: Discov
                       {market.probability}%
                     </td>
                     <td className="py-3.5 px-5 text-right text-green-500 font-light">
-                      {market.volumeChange || "+0%"}
-                    </td>
-                    <td className="py-3.5 px-5 text-right">
-                      <span
-                        className={`font-light ${
-                          market.smartWalletActivity === "High"
-                            ? "text-green-500"
-                            : market.smartWalletActivity === "Medium"
-                            ? "text-yellow-600"
-                            : "text-gray-600"
-                        }`}
-                      >
-                        {market.smartWalletActivity || "Medium"}
-                      </span>
+                      {market.volume}
                     </td>
                     <td className="py-3.5 px-5 text-right">
                       <button
