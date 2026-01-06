@@ -73,7 +73,7 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick }: Discov
         }
         
         const displayMarkets = data
-          .filter((m: any) => m && !m.closed) // Only non-null, active markets
+          .filter((m: any) => m && m.title) // Only markets with titles
           .map((m: any) => convertApiMarketToDisplay(m, timeFilter))
           .slice(0, 50); // Top 50 trending markets
         

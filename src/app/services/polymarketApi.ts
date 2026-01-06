@@ -38,14 +38,14 @@ async function fetchWithTimeout(
  */
 export async function getTrendingMarkets(timeframe: "1h" | "24h" | "7d" | "1m" = "24h") {
   try {
-    // Use CLOB API which has more recent market data
+    // Use Gamma API with active=true&closed=false to get live markets
     const response = await fetchWithTimeout(
-      `${CLOB_API}/markets`
+      `${GAMMA_API}/markets?limit=200&active=true&closed=false`
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     
-    // Handle both array and paginated responses
+    // Handle different response formats - Gamma returns array directly
     let markets: any[] = [];
     if (Array.isArray(data)) {
       markets = data;
@@ -55,29 +55,35 @@ export async function getTrendingMarkets(timeframe: "1h" | "24h" | "7d" | "1m" =
       markets = data.data;
     }
     
-    // Filter for active markets (accepting_orders = true or active = true, not closed)
-    const active = markets
-      .filter((m: any) => {
-        // Keep markets that are either:
-        // 1. Accepting orders, OR
-        // 2. Active and not closed
-        return (m.accepting_orders === true) || (m.active === true && m.closed !== true);
-      })
+    console.log(`Fetched ${markets.length} active markets from Gamma API`);
+    
+    // Determine volume field based on timeframe
+    const volumeField = timeframe === "24h" ? "volume24hr" 
+                      : timeframe === "7d" ? "volume1wk" 
+                      : timeframe === "1m" ? "volume1mo"
+                      : "volume24hr";
+    
+    // Filter for markets with questions and sort by volume
+    const activeMarkets = markets
+      .filter((m: any) => m.question && m.question.length > 5)
       .map((m: any) => ({
         ...m,
-        // Use question as title if not available
-        title: m.question || m.title,
-        // Use a dummy lastPriceUsd if not available for probability display
-        lastPriceUsd: m.lastPriceUsd || 0.5,
-        // Set dummy volume fields if not in response
-        volumeUsd: m.volumeUsd || 0,
-        volume24hr: m.volume24hr || 0,
-        volume7d: m.volume7d || 0,
-        volume1mo: m.volume1mo || 0,
+        id: m.id || m.questionID || m.conditionId || Math.random().toString(),
+        title: m.question || "Unknown Market",
+        // Use bestBid for probability, default to 0.5
+        lastPriceUsd: m.bestBid ? parseFloat(String(m.bestBid)) : (m.lastTradePrice ? parseFloat(String(m.lastTradePrice)) : 0.5),
+        // Use real volume data from API
+        volumeUsd: parseFloat(String(m[volumeField] || m.volumeNum || 0)),
+        volume24hr: parseFloat(String(m.volume24hr || 0)),
+        volume7d: parseFloat(String(m.volume1wk || 0)),
+        volume1mo: parseFloat(String(m.volume1mo || 0)),
       }))
+      .sort((a: any, b: any) => (b.volumeUsd || 0) - (a.volumeUsd || 0))
       .slice(0, 50);
     
-    return active;
+    console.log(`Filtered to ${activeMarkets.length} active markets with questions`);
+    
+    return activeMarkets.length > 0 ? activeMarkets : [];
   } catch (error) {
     console.error("Failed to fetch trending markets:", error);
     return [];
@@ -86,21 +92,29 @@ export async function getTrendingMarkets(timeframe: "1h" | "24h" | "7d" | "1m" =
 
 export async function getActiveMarkets(limit = 100) {
   try {
+    // Use Gamma API with active=true&closed=false to get live markets
     const response = await fetchWithTimeout(
-      `${GAMMA_API}/markets?limit=${limit}`
+      `${GAMMA_API}/markets?limit=${limit}&active=true&closed=false`
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     
-    const allMarkets = Array.isArray(data) ? data : (data?.data || data?.markets || []);
+    let markets: any[] = Array.isArray(data) ? data : (data?.data || data?.markets || []);
     
-    // Filter for active markets and sort by volume (highest first)
-    const activeMarkets = allMarkets
-      .filter((m: any) => !m.closed && m.volumeUsd && parseFloat(m.volumeUsd) > 0)
-      .sort(
-        (a: any, b: any) =>
-          (parseFloat(b.volumeUsd) || 0) - (parseFloat(a.volumeUsd) || 0)
-      )
+    // Filter and map markets
+    const activeMarkets = markets
+      .filter((m: any) => m.question && m.question.length > 5)
+      .map((m: any) => ({
+        ...m,
+        id: m.id || m.questionID || m.conditionId || Math.random().toString(),
+        title: m.question || "Unknown Market",
+        lastPriceUsd: m.bestBid ? parseFloat(String(m.bestBid)) : (m.lastTradePrice ? parseFloat(String(m.lastTradePrice)) : 0.5),
+        volumeUsd: parseFloat(String(m.volumeNum || m.volume24hr || 0)),
+        volume24hr: parseFloat(String(m.volume24hr || 0)),
+        volume7d: parseFloat(String(m.volume1wk || 0)),
+        volume1mo: parseFloat(String(m.volume1mo || 0)),
+      }))
+      .sort((a: any, b: any) => (b.volumeUsd || 0) - (a.volumeUsd || 0))
       .slice(0, limit);
     
     return activeMarkets;
