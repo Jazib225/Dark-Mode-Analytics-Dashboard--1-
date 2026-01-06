@@ -9,6 +9,12 @@ interface MarketsProps {
   isBookmarked: (marketId: string) => boolean;
   onWalletClick?: (address: string) => void;
   initialMarketId?: string | null;
+  initialMarketData?: {
+    id: string;
+    name: string;
+    probability: number;
+    volume: string;
+  } | null;
 }
 
 interface DisplayMarket {
@@ -42,7 +48,7 @@ function convertApiMarketToDisplay(market: any): DisplayMarket {
   };
 }
 
-export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMarketId }: MarketsProps) {
+export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMarketId, initialMarketData }: MarketsProps) {
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(initialMarketId || null);
   const [sortBy, setSortBy] = useState<"trending" | "category" | "bookmarked">("trending");
   const [allMarkets, setAllMarkets] = useState<DisplayMarket[]>([]);
@@ -83,7 +89,20 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMa
   }, []);
 
   if (selectedMarketId) {
-    const selectedMarket = allMarkets.find((m) => m.id === selectedMarketId);
+    // Use initialMarketData if it matches, otherwise find from allMarkets
+    let selectedMarket: DisplayMarket | undefined;
+    
+    if (initialMarketData && initialMarketData.id === selectedMarketId) {
+      selectedMarket = {
+        id: initialMarketData.id,
+        name: initialMarketData.name,
+        probability: initialMarketData.probability,
+        volume: initialMarketData.volume,
+      };
+    } else {
+      selectedMarket = allMarkets.find((m) => m.id === selectedMarketId);
+    }
+    
     if (selectedMarket) {
       return (
         <MarketDetail
@@ -91,9 +110,9 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMa
           isBookmarked={isBookmarked(selectedMarketId)}
           toggleBookmark={() =>
             toggleBookmark({
-              id: selectedMarket.id,
-              name: selectedMarket.name,
-              probability: selectedMarket.probability,
+              id: selectedMarket!.id,
+              name: selectedMarket!.name,
+              probability: selectedMarket!.probability,
             })
           }
           onBack={() => setSelectedMarketId(null)}

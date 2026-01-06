@@ -1,5 +1,5 @@
-import { ArrowLeft, Bookmark } from "lucide-react";
-import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
+import { ArrowLeft, Bookmark, TrendingUp, TrendingDown, DollarSign, Users, Activity, Minus, Plus } from "lucide-react";
+import { XAxis, YAxis, Tooltip, ResponsiveContainer, Area, AreaChart } from "recharts";
 import { useState } from "react";
 
 interface MarketDetailProps {
@@ -8,7 +8,8 @@ interface MarketDetailProps {
     name: string;
     probability: number;
     volume: string;
-    change24h: string;
+    change24h?: string;
+    volumeUsd?: string;
   };
   isBookmarked: boolean;
   toggleBookmark: () => void;
@@ -17,57 +18,20 @@ interface MarketDetailProps {
 }
 
 const probabilityData = [
-  { time: "00:00", probability: 58 },
-  { time: "04:00", probability: 61 },
-  { time: "08:00", probability: 63 },
-  { time: "12:00", probability: 65 },
-  { time: "16:00", probability: 64 },
-  { time: "20:00", probability: 67 },
+  { time: "Jan 1", probability: 45 },
+  { time: "Jan 2", probability: 52 },
+  { time: "Jan 3", probability: 58 },
+  { time: "Jan 4", probability: 55 },
+  { time: "Jan 5", probability: 63 },
+  { time: "Jan 6", probability: 67 },
 ];
 
 const recentTrades = [
-  {
-    timestamp: "2026-01-05 14:23:17",
-    wallet: "0x742d...3a1f",
-    side: "YES",
-    size: "$12,500",
-    price: "0.67",
-  },
-  {
-    timestamp: "2026-01-05 14:21:43",
-    wallet: "0x8f3c...9b2d",
-    side: "NO",
-    size: "$8,200",
-    price: "0.33",
-  },
-  {
-    timestamp: "2026-01-05 14:18:09",
-    wallet: "0x4a9b...7e5c",
-    side: "YES",
-    size: "$15,700",
-    price: "0.66",
-  },
-  {
-    timestamp: "2026-01-05 14:15:32",
-    wallet: "0x1c7d...4f8a",
-    side: "YES",
-    size: "$6,400",
-    price: "0.65",
-  },
-  {
-    timestamp: "2026-01-05 14:12:58",
-    wallet: "0x6e2f...1b9c",
-    side: "NO",
-    size: "$9,100",
-    price: "0.34",
-  },
-];
-
-const topTraders = [
-  { wallet: "0x742d...3a1f", position: "YES", size: "$47,300", avgPrice: "0.64", pnl: "+$8,920" },
-  { wallet: "0x8f3c...9b2d", position: "YES", size: "$38,200", avgPrice: "0.62", pnl: "+$7,450" },
-  { wallet: "0x4a9b...7e5c", position: "NO", size: "$29,800", avgPrice: "0.36", pnl: "-$1,240" },
-  { wallet: "0x1c7d...4f8a", position: "YES", size: "$23,500", avgPrice: "0.63", pnl: "+$3,870" },
+  { timestamp: "2026-01-06 14:23:17", wallet: "0x742d...3a1f", side: "YES", size: "$12,500" },
+  { timestamp: "2026-01-06 14:21:43", wallet: "0x8f3c...9b2d", side: "NO", size: "$8,200" },
+  { timestamp: "2026-01-06 14:18:09", wallet: "0x4a9b...7e5c", side: "YES", size: "$15,700" },
+  { timestamp: "2026-01-06 14:15:32", wallet: "0x1c7d...4f8a", side: "YES", size: "$6,400" },
+  { timestamp: "2026-01-06 14:12:58", wallet: "0x6e2f...1b9c", side: "NO", size: "$9,100" },
 ];
 
 export function MarketDetail({
@@ -79,216 +43,161 @@ export function MarketDetail({
 }: MarketDetailProps) {
   const [tradeAmount, setTradeAmount] = useState("");
   const [tradeSide, setTradeSide] = useState<"YES" | "NO">("YES");
+  const [shareQuantity, setShareQuantity] = useState(0);
+
+  const yesPrice = market.probability / 100;
+  const noPrice = 1 - yesPrice;
+  const currentPrice = tradeSide === "YES" ? yesPrice : noPrice;
+
+  const calculateShares = (amount: string) => {
+    const numAmount = parseFloat(amount) || 0;
+    return numAmount > 0 ? Math.floor(numAmount / currentPrice) : 0;
+  };
+
+  const calculateAmount = (shares: number) => {
+    return (shares * currentPrice).toFixed(2);
+  };
+
+  const handleAmountChange = (value: string) => {
+    setTradeAmount(value);
+    setShareQuantity(calculateShares(value));
+  };
+
+  const handleSharesChange = (change: number) => {
+    const newShares = Math.max(0, shareQuantity + change);
+    setShareQuantity(newShares);
+    setTradeAmount(calculateAmount(newShares));
+  };
+
+  const potentialPayout = shareQuantity * 1;
+  const potentialProfit = potentialPayout - (parseFloat(tradeAmount) || 0);
+  const returnPercent = tradeAmount && parseFloat(tradeAmount) > 0 
+    ? ((potentialProfit / parseFloat(tradeAmount)) * 100).toFixed(1) 
+    : "0";
 
   return (
     <div className="max-w-[1800px] mx-auto">
-      <div className="grid grid-cols-[1fr,360px] gap-8">
-        {/* Left Column - Market Data */}
-        <div className="space-y-8">
-          {/* Header */}
-          <div className="flex items-start justify-between">
-            <div className="flex items-start gap-4">
+      {/* Back Button */}
+      <button
+        onClick={onBack}
+        className="flex items-center gap-2 text-gray-500 hover:text-gray-300 transition-colors mb-6"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        <span className="text-sm font-light">Back to Markets</span>
+      </button>
+
+      {/* Main Split Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* LEFT SIDE - Market Info & Chart */}
+        <div className="space-y-6">
+          {/* Market Header */}
+          <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl p-6 shadow-xl shadow-black/20">
+            <div className="flex items-start justify-between mb-4">
+              <h1 className="text-xl font-light tracking-tight text-gray-100 leading-relaxed pr-4">
+                {market.name}
+              </h1>
               <button
-                onClick={onBack}
-                className="mt-1 text-gray-500 hover:text-gray-300 transition-colors"
+                onClick={toggleBookmark}
+                className="text-gray-600 hover:text-[#4a6fa5] transition-all duration-200 flex-shrink-0"
               >
-                <ArrowLeft className="w-4 h-4" />
+                <Bookmark className={`w-5 h-5 ${isBookmarked ? "fill-current text-[#4a6fa5]" : ""}`} />
               </button>
-              <div>
-                <h1 className="text-2xl font-light tracking-tight text-gray-100 mb-2">
-                  {market.name}
-                </h1>
-                <div className="flex items-center gap-6 text-xs text-gray-500 font-light">
-                  <span>
-                    Volume: <span className="text-gray-400">{market.volume}</span>
-                  </span>
-                  <span
-                    className={market.change24h.startsWith("+") ? "text-green-500" : "text-red-500"}
-                  >
-                    24h: {market.change24h}
-                  </span>
+            </div>
+
+            {/* Market Stats */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
+              <div className="bg-gradient-to-br from-[#111111] to-[#0a0a0a] rounded-lg p-4 border border-gray-800/30">
+                <div className="flex items-center gap-2 text-gray-500 text-xs mb-1">
+                  <Activity className="w-3 h-3" />
+                  <span>Probability</span>
+                </div>
+                <div className="text-xl font-light text-[#4a6fa5]">{market.probability}%</div>
+              </div>
+              <div className="bg-gradient-to-br from-[#111111] to-[#0a0a0a] rounded-lg p-4 border border-gray-800/30">
+                <div className="flex items-center gap-2 text-gray-500 text-xs mb-1">
+                  <DollarSign className="w-3 h-3" />
+                  <span>Volume</span>
+                </div>
+                <div className="text-xl font-light text-gray-300">{market.volume}</div>
+              </div>
+              <div className="bg-gradient-to-br from-[#111111] to-[#0a0a0a] rounded-lg p-4 border border-gray-800/30">
+                <div className="flex items-center gap-2 text-gray-500 text-xs mb-1">
+                  {(market.change24h || "+0").startsWith("+") ? (
+                    <TrendingUp className="w-3 h-3 text-green-500" />
+                  ) : (
+                    <TrendingDown className="w-3 h-3 text-red-500" />
+                  )}
+                  <span>24h Change</span>
+                </div>
+                <div className={`text-xl font-light ${(market.change24h || "+0").startsWith("+") ? "text-green-500" : "text-red-500"}`}>
+                  {market.change24h || "+0%"}
                 </div>
               </div>
+              <div className="bg-gradient-to-br from-[#111111] to-[#0a0a0a] rounded-lg p-4 border border-gray-800/30">
+                <div className="flex items-center gap-2 text-gray-500 text-xs mb-1">
+                  <Users className="w-3 h-3" />
+                  <span>Traders</span>
+                </div>
+                <div className="text-xl font-light text-gray-300">2,847</div>
+              </div>
             </div>
-            <button
-              onClick={toggleBookmark}
-              className="text-gray-600 hover:text-[#4a6fa5] transition-all duration-200"
-            >
-              <Bookmark className={`w-4 h-4 ${isBookmarked ? "fill-current text-[#4a6fa5]" : ""}`} />
-            </button>
           </div>
 
-          {/* Probability Chart */}
+          {/* Price Chart */}
           <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl p-6 shadow-xl shadow-black/20">
             <div className="flex items-center justify-between mb-6">
               <h3 className="text-sm font-light tracking-wide text-gray-400 uppercase">
-                Probability
+                Price History
               </h3>
-              <div className="text-3xl font-light text-[#4a6fa5] tracking-tight">
-                {market.probability}%
+              <div className="flex gap-2">
+                {["1D", "1W", "1M", "ALL"].map((period) => (
+                  <button
+                    key={period}
+                    className="px-3 py-1 text-xs font-light text-gray-500 hover:text-gray-300 hover:bg-gray-800/30 rounded transition-all"
+                  >
+                    {period}
+                  </button>
+                ))}
               </div>
             </div>
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={probabilityData}>
-                <XAxis
-                  dataKey="time"
-                  stroke="#3a3a3a"
-                  tick={{ fill: "#666", fontSize: 10 }}
-                  axisLine={false}
-                />
-                <YAxis
-                  stroke="#3a3a3a"
-                  tick={{ fill: "#666", fontSize: 10 }}
-                  axisLine={false}
-                  domain={[0, 100]}
-                />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "#0d0d0d",
-                    border: "1px solid #3a3a3a",
-                    borderRadius: 8,
-                    fontSize: 11,
-                  }}
-                  labelStyle={{ color: "#999" }}
-                />
-                <Line
-                  type="monotone"
-                  dataKey="probability"
-                  stroke="#4a6fa5"
-                  strokeWidth={2}
-                  dot={false}
-                />
-              </LineChart>
+            <ResponsiveContainer width="100%" height={280}>
+              <AreaChart data={probabilityData}>
+                <defs>
+                  <linearGradient id="colorProbability" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#4a6fa5" stopOpacity={0.3}/>
+                    <stop offset="95%" stopColor="#4a6fa5" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
+                <XAxis dataKey="time" stroke="#3a3a3a" tick={{ fill: "#666", fontSize: 10 }} axisLine={false} tickLine={false} />
+                <YAxis stroke="#3a3a3a" tick={{ fill: "#666", fontSize: 10 }} axisLine={false} tickLine={false} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
+                <Tooltip contentStyle={{ backgroundColor: "#0d0d0d", border: "1px solid #3a3a3a", borderRadius: 8, fontSize: 11 }} labelStyle={{ color: "#999" }} formatter={(value: number) => [`${value}%`, "Probability"]} />
+                <Area type="monotone" dataKey="probability" stroke="#4a6fa5" strokeWidth={2} fillOpacity={1} fill="url(#colorProbability)" />
+              </AreaChart>
             </ResponsiveContainer>
           </div>
 
-          {/* Recent Trades */}
-          <div>
-            <h3 className="text-lg font-light tracking-tight text-gray-300 mb-4 uppercase">
-              Recent Trades
-            </h3>
-            <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl overflow-hidden shadow-xl shadow-black/20">
+          {/* Recent Activity */}
+          <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl shadow-xl shadow-black/20">
+            <div className="p-4 border-b border-gray-800/50">
+              <h3 className="text-sm font-light tracking-wide text-gray-400 uppercase">Recent Trades</h3>
+            </div>
+            <div className="max-h-[300px] overflow-y-auto">
               <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-gray-800/50 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
-                    <th className="text-left py-4 px-5 text-gray-500 font-light tracking-wide uppercase">
-                      Timestamp
-                    </th>
-                    <th className="text-left py-4 px-5 text-gray-500 font-light tracking-wide uppercase">
-                      Wallet
-                    </th>
-                    <th className="text-left py-4 px-5 text-gray-500 font-light tracking-wide uppercase">
-                      Side
-                    </th>
-                    <th className="text-right py-4 px-5 text-gray-500 font-light tracking-wide uppercase">
-                      Size
-                    </th>
-                    <th className="text-right py-4 px-5 text-gray-500 font-light tracking-wide uppercase">
-                      Price
-                    </th>
+                <thead className="sticky top-0 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
+                  <tr className="border-b border-gray-800/50">
+                    <th className="text-left py-3 px-4 text-gray-500 font-light">Time</th>
+                    <th className="text-left py-3 px-4 text-gray-500 font-light">Wallet</th>
+                    <th className="text-left py-3 px-4 text-gray-500 font-light">Side</th>
+                    <th className="text-right py-3 px-4 text-gray-500 font-light">Size</th>
                   </tr>
                 </thead>
                 <tbody>
                   {recentTrades.map((trade, index) => (
-                    <tr
-                      key={index}
-                      className={`border-b border-gray-800/30 hover:bg-gradient-to-r hover:from-[#111111] hover:to-transparent transition-all duration-150 ${
-                        index === recentTrades.length - 1 ? "border-b-0" : ""
-                      }`}
-                    >
-                      <td className="py-3.5 px-5 text-gray-500 font-mono font-light text-[11px]">
-                        {trade.timestamp}
-                      </td>
-                      <td
-                        className="py-3.5 px-5 text-gray-400 font-mono font-light cursor-pointer hover:text-[#4a6fa5] transition-colors"
-                        onClick={() => onWalletClick?.(trade.wallet)}
-                      >
-                        {trade.wallet}
-                      </td>
-                      <td className="py-3.5 px-5">
-                        <span
-                          className={`font-normal ${
-                            trade.side === "YES" ? "text-green-500" : "text-red-500"
-                          }`}
-                        >
-                          {trade.side}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-5 text-right text-gray-300 font-light">
-                        {trade.size}
-                      </td>
-                      <td className="py-3.5 px-5 text-right text-gray-400 font-light">
-                        {trade.price}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          {/* Top Traders */}
-          <div>
-            <h3 className="text-lg font-light tracking-tight text-gray-300 mb-4 uppercase">
-              Top Traders in This Market
-            </h3>
-            <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl overflow-hidden shadow-xl shadow-black/20">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr className="border-b border-gray-800/50 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
-                    <th className="text-left py-4 px-5 text-gray-500 font-light tracking-wide uppercase">
-                      Wallet
-                    </th>
-                    <th className="text-left py-4 px-5 text-gray-500 font-light tracking-wide uppercase">
-                      Position
-                    </th>
-                    <th className="text-right py-4 px-5 text-gray-500 font-light tracking-wide uppercase">
-                      Size
-                    </th>
-                    <th className="text-right py-4 px-5 text-gray-500 font-light tracking-wide uppercase">
-                      Avg Price
-                    </th>
-                    <th className="text-right py-4 px-5 text-gray-500 font-light tracking-wide uppercase">
-                      PnL
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {topTraders.map((trader, index) => (
-                    <tr
-                      key={index}
-                      className={`border-b border-gray-800/30 hover:bg-gradient-to-r hover:from-[#111111] hover:to-transparent transition-all duration-150 ${
-                        index === topTraders.length - 1 ? "border-b-0" : ""
-                      }`}
-                    >
-                      <td
-                        className="py-3.5 px-5 text-gray-300 font-mono font-light cursor-pointer hover:text-[#4a6fa5] transition-colors"
-                        onClick={() => onWalletClick?.(trader.wallet)}
-                      >
-                        {trader.wallet}
-                      </td>
-                      <td className="py-3.5 px-5">
-                        <span
-                          className={`font-normal ${
-                            trader.position === "YES" ? "text-green-500" : "text-red-500"
-                          }`}
-                        >
-                          {trader.position}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-5 text-right text-gray-300 font-light">
-                        {trader.size}
-                      </td>
-                      <td className="py-3.5 px-5 text-right text-gray-400 font-light">
-                        {trader.avgPrice}
-                      </td>
-                      <td
-                        className={`py-3.5 px-5 text-right font-light ${
-                          trader.pnl.startsWith("+") ? "text-green-500" : "text-red-500"
-                        }`}
-                      >
-                        {trader.pnl}
-                      </td>
+                    <tr key={index} className="border-b border-gray-800/30 hover:bg-gray-800/20 transition-colors">
+                      <td className="py-2.5 px-4 text-gray-500 font-mono text-[10px]">{trade.timestamp.split(" ")[1]}</td>
+                      <td className="py-2.5 px-4 text-gray-400 font-mono cursor-pointer hover:text-[#4a6fa5] transition-colors" onClick={() => onWalletClick?.(trade.wallet)}>{trade.wallet}</td>
+                      <td className="py-2.5 px-4"><span className={`font-medium ${trade.side === "YES" ? "text-green-500" : "text-red-500"}`}>{trade.side}</span></td>
+                      <td className="py-2.5 px-4 text-right text-gray-300">{trade.size}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -297,89 +206,119 @@ export function MarketDetail({
           </div>
         </div>
 
-        {/* Right Column - Trading Panel */}
-        <div className="space-y-4">
-          <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl p-6 sticky top-8 shadow-xl shadow-black/20">
-            <h3 className="text-sm font-light tracking-wide text-gray-400 mb-6 uppercase">
-              Trade
-            </h3>
+        {/* RIGHT SIDE - Trading Panel */}
+        <div className="lg:sticky lg:top-8 h-fit">
+          <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl shadow-xl shadow-black/20 overflow-hidden">
+            <div className="p-6 border-b border-gray-800/50 bg-gradient-to-b from-[#111111] to-transparent">
+              <h2 className="text-lg font-light tracking-wide text-gray-200">Place Order</h2>
+              <p className="text-xs text-gray-500 mt-1">Buy shares to predict the outcome</p>
+            </div>
 
-            {/* Side Selection */}
-            <div className="grid grid-cols-2 gap-3 mb-6">
-              <button
-                onClick={() => setTradeSide("YES")}
-                className={`py-3 text-xs font-normal tracking-wide rounded transition-all ${
-                  tradeSide === "YES"
-                    ? "bg-gradient-to-br from-green-900/40 to-green-900/20 border border-green-700/50 text-green-400 shadow-sm"
-                    : "bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-800/30 text-gray-500 hover:border-gray-700/50"
+            <div className="p-6 space-y-6">
+              {/* Outcome Selection */}
+              <div>
+                <label className="block text-xs text-gray-500 mb-3 font-light uppercase tracking-wide">Select Outcome</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => { setTradeSide("YES"); setShareQuantity(0); setTradeAmount(""); }}
+                    className={`relative py-4 px-4 text-sm font-normal tracking-wide rounded-lg transition-all ${
+                      tradeSide === "YES"
+                        ? "bg-gradient-to-br from-green-900/40 to-green-900/20 border-2 border-green-500/50 text-green-400 shadow-lg shadow-green-900/20"
+                        : "bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-800/30 text-gray-500 hover:border-gray-700/50 hover:text-gray-400"
+                    }`}
+                  >
+                    <div className="text-lg font-medium">YES</div>
+                    <div className={`text-xs mt-1 ${tradeSide === "YES" ? "text-green-500/70" : "text-gray-600"}`}>${yesPrice.toFixed(2)} per share</div>
+                    {tradeSide === "YES" && <div className="absolute top-2 right-2 w-2 h-2 bg-green-500 rounded-full"></div>}
+                  </button>
+                  <button
+                    onClick={() => { setTradeSide("NO"); setShareQuantity(0); setTradeAmount(""); }}
+                    className={`relative py-4 px-4 text-sm font-normal tracking-wide rounded-lg transition-all ${
+                      tradeSide === "NO"
+                        ? "bg-gradient-to-br from-red-900/40 to-red-900/20 border-2 border-red-500/50 text-red-400 shadow-lg shadow-red-900/20"
+                        : "bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-800/30 text-gray-500 hover:border-gray-700/50 hover:text-gray-400"
+                    }`}
+                  >
+                    <div className="text-lg font-medium">NO</div>
+                    <div className={`text-xs mt-1 ${tradeSide === "NO" ? "text-red-500/70" : "text-gray-600"}`}>${noPrice.toFixed(2)} per share</div>
+                    {tradeSide === "NO" && <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full"></div>}
+                  </button>
+                </div>
+              </div>
+
+              {/* Amount Input */}
+              <div>
+                <label className="block text-xs text-gray-500 mb-3 font-light uppercase tracking-wide">Amount (USD)</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-sm text-gray-500 font-medium">$</span>
+                  <input
+                    type="text"
+                    value={tradeAmount}
+                    onChange={(e) => handleAmountChange(e.target.value)}
+                    placeholder="0.00"
+                    className="w-full bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-800/50 rounded-lg pl-8 pr-4 py-4 text-lg text-gray-200 placeholder-gray-600 focus:outline-none focus:border-gray-700/50 focus:ring-1 focus:ring-gray-700/30 font-light transition-all"
+                  />
+                </div>
+                <div className="flex gap-2 mt-3">
+                  {["10", "50", "100", "500"].map((amount) => (
+                    <button key={amount} onClick={() => handleAmountChange(amount)} className="flex-1 py-2 text-xs font-light text-gray-500 bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-800/30 rounded hover:border-gray-700/50 hover:text-gray-400 transition-all">${amount}</button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Shares Quantity */}
+              <div>
+                <label className="block text-xs text-gray-500 mb-3 font-light uppercase tracking-wide">Number of Shares</label>
+                <div className="flex items-center gap-4">
+                  <button onClick={() => handleSharesChange(-10)} className="w-12 h-12 flex items-center justify-center bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-800/30 rounded-lg text-gray-500 hover:border-gray-700/50 hover:text-gray-300 transition-all"><Minus className="w-4 h-4" /></button>
+                  <div className="flex-1 text-center">
+                    <div className="text-3xl font-light text-gray-200">{shareQuantity}</div>
+                    <div className="text-xs text-gray-600 mt-1">shares</div>
+                  </div>
+                  <button onClick={() => handleSharesChange(10)} className="w-12 h-12 flex items-center justify-center bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-800/30 rounded-lg text-gray-500 hover:border-gray-700/50 hover:text-gray-300 transition-all"><Plus className="w-4 h-4" /></button>
+                </div>
+              </div>
+
+              {/* Order Summary */}
+              <div className="bg-gradient-to-br from-[#111111] to-[#0a0a0a] rounded-lg p-4 border border-gray-800/30 space-y-3">
+                <div className="text-xs text-gray-500 uppercase tracking-wide mb-3">Order Summary</div>
+                <div className="flex justify-between text-sm"><span className="text-gray-500 font-light">Price per share</span><span className="text-gray-300">${currentPrice.toFixed(2)}</span></div>
+                <div className="flex justify-between text-sm"><span className="text-gray-500 font-light">Shares</span><span className="text-gray-300">{shareQuantity}</span></div>
+                <div className="flex justify-between text-sm"><span className="text-gray-500 font-light">Total Cost</span><span className="text-gray-300">${tradeAmount || "0.00"}</span></div>
+                <div className="border-t border-gray-800/50 my-2 pt-3">
+                  <div className="flex justify-between text-sm"><span className="text-gray-500 font-light">Potential Payout</span><span className="text-gray-200 font-medium">${potentialPayout.toFixed(2)}</span></div>
+                  <div className="flex justify-between text-sm mt-2"><span className="text-gray-500 font-light">Potential Profit</span><span className={`font-medium ${potentialProfit > 0 ? "text-green-500" : "text-gray-400"}`}>{potentialProfit > 0 ? "+" : ""}${potentialProfit.toFixed(2)} ({returnPercent}%)</span></div>
+                </div>
+              </div>
+
+              {/* Buy Button */}
+              <button 
+                disabled={shareQuantity === 0}
+                className={`w-full py-4 text-sm font-medium tracking-wide rounded-lg transition-all ${
+                  shareQuantity > 0
+                    ? tradeSide === "YES"
+                      ? "bg-gradient-to-br from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white shadow-lg shadow-green-900/30"
+                      : "bg-gradient-to-br from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white shadow-lg shadow-red-900/30"
+                    : "bg-gradient-to-br from-gray-800 to-gray-900 text-gray-600 cursor-not-allowed"
                 }`}
               >
-                YES
+                {shareQuantity > 0 ? `Buy ${shareQuantity} ${tradeSide} Shares for $${tradeAmount}` : "Enter amount to buy shares"}
               </button>
-              <button
-                onClick={() => setTradeSide("NO")}
-                className={`py-3 text-xs font-normal tracking-wide rounded transition-all ${
-                  tradeSide === "NO"
-                    ? "bg-gradient-to-br from-red-900/40 to-red-900/20 border border-red-700/50 text-red-400 shadow-sm"
-                    : "bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-800/30 text-gray-500 hover:border-gray-700/50"
-                }`}
-              >
-                NO
-              </button>
-            </div>
 
-            {/* Amount Input */}
-            <div className="mb-6">
-              <label className="block text-xs text-gray-500 mb-2 font-light uppercase tracking-wide">
-                Amount
-              </label>
-              <div className="relative">
-                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs text-gray-600">
-                  $
-                </span>
-                <input
-                  type="text"
-                  value={tradeAmount}
-                  onChange={(e) => setTradeAmount(e.target.value)}
-                  placeholder="0.00"
-                  className="w-full bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-800/50 rounded pl-7 pr-4 py-3 text-xs text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-700/50 font-light shadow-inner"
-                />
+              {/* Balance Info */}
+              <div className="pt-4 border-t border-gray-800/50">
+                <div className="flex justify-between text-xs text-gray-500"><span>Available Balance</span><span className="text-gray-300 font-medium">$3,320.00</span></div>
               </div>
             </div>
+          </div>
 
-            {/* Trade Info */}
-            <div className="mb-6 space-y-3 text-xs">
-              <div className="flex justify-between text-gray-500 font-light">
-                <span>Current Price</span>
-                <span className="text-gray-400 font-normal">
-                  {tradeSide === "YES" ? "0.67" : "0.33"}
-                </span>
-              </div>
-              <div className="flex justify-between text-gray-500 font-light">
-                <span>Potential Payout</span>
-                <span className="text-gray-400 font-normal">
-                  {tradeAmount ? `$${(parseFloat(tradeAmount) * 1.49).toFixed(2)}` : "$0.00"}
-                </span>
-              </div>
-              <div className="flex justify-between text-gray-500 font-light">
-                <span>Max Profit</span>
-                <span className="text-green-500 font-normal">
-                  {tradeAmount ? `+$${(parseFloat(tradeAmount) * 0.49).toFixed(2)}` : "$0.00"}
-                </span>
-              </div>
-            </div>
-
-            {/* Buy Button */}
-            <button className="w-full py-3 bg-gradient-to-br from-[#5a7fb5] to-[#4a6fa5] text-gray-100 text-xs font-normal tracking-wide rounded hover:from-[#6a8fc5] hover:to-[#5a7fb5] transition-all shadow-lg">
-              Buy {tradeSide}
-            </button>
-
-            {/* Balance */}
-            <div className="mt-6 pt-6 border-t border-gray-800/50 text-xs text-gray-500 font-light">
-              <div className="flex justify-between">
-                <span>Available Balance</span>
-                <span className="text-gray-400 font-normal">$3,320.00</span>
-              </div>
+          {/* How It Works */}
+          <div className="mt-6 bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl p-5 shadow-xl shadow-black/20">
+            <h4 className="text-xs font-light tracking-wide text-gray-500 uppercase mb-4">How It Works</h4>
+            <div className="space-y-3 text-xs text-gray-500">
+              <div className="flex gap-3"><div className="w-5 h-5 bg-gradient-to-br from-[#4a6fa5] to-[#3a5f95] rounded-full flex items-center justify-center text-white text-[10px] font-medium flex-shrink-0">1</div><p>Buy <span className="text-green-500">YES</span> or <span className="text-red-500">NO</span> shares based on your prediction</p></div>
+              <div className="flex gap-3"><div className="w-5 h-5 bg-gradient-to-br from-[#4a6fa5] to-[#3a5f95] rounded-full flex items-center justify-center text-white text-[10px] font-medium flex-shrink-0">2</div><p>Each share pays <span className="text-gray-300">$1.00</span> if your outcome is correct</p></div>
+              <div className="flex gap-3"><div className="w-5 h-5 bg-gradient-to-br from-[#4a6fa5] to-[#3a5f95] rounded-full flex items-center justify-center text-white text-[10px] font-medium flex-shrink-0">3</div><p>Sell anytime before resolution to lock in profits or cut losses</p></div>
             </div>
           </div>
         </div>

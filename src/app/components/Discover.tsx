@@ -7,6 +7,7 @@ interface DiscoverProps {
   toggleBookmark: (market: BookmarkedMarket) => void;
   isBookmarked: (marketId: string) => boolean;
   onWalletClick: (address: string) => void;
+  onMarketClick: (market: any) => void;
 }
 
 interface DisplayMarket {
@@ -53,7 +54,7 @@ function formatVolume(volume: number): string {
   return `$${volume.toFixed(2)}`;
 }
 
-export function Discover({ toggleBookmark, isBookmarked, onWalletClick }: DiscoverProps) {
+export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarketClick }: DiscoverProps) {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("24h");
   const [markets, setMarkets] = useState<DisplayMarket[]>([]);
   const [loading, setLoading] = useState(true);
@@ -181,7 +182,8 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick }: Discov
                 markets.map((market, index) => (
                   <tr
                     key={market.id}
-                    className={`border-b border-gray-800/30 hover:bg-gradient-to-r hover:from-[#111111] hover:to-transparent transition-all duration-150 ${
+                    onClick={() => onMarketClick(market)}
+                    className={`border-b border-gray-800/30 hover:bg-gradient-to-r hover:from-[#111111] hover:to-transparent transition-all duration-150 cursor-pointer ${
                       index === markets.length - 1 ? "border-b-0" : ""
                     }`}
                   >
@@ -196,13 +198,14 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick }: Discov
                     </td>
                     <td className="py-3.5 px-5 text-right">
                       <button
-                        onClick={() =>
+                        onClick={(e) => {
+                          e.stopPropagation();
                           toggleBookmark({
                             id: market.id,
                             name: market.name || market.title || "Unknown",
                             probability: Number(market.probability) || 0,
-                          })
-                        }
+                          });
+                        }}
                         className="text-gray-600 hover:text-[#4a6fa5] transition-all duration-200"
                       >
                         <Bookmark

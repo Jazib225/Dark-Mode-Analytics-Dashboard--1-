@@ -14,12 +14,21 @@ export interface BookmarkedMarket {
   id: string;
   name: string;
   probability: number;
+  volume?: string;
+}
+
+interface SelectedMarketData {
+  id: string;
+  name: string;
+  probability: number;
+  volume: string;
 }
 
 export default function App() {
   const [currentPage, setCurrentPage] = useState<Page>("discover");
   const [selectedWalletAddress, setSelectedWalletAddress] = useState<string | null>(null);
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null);
+  const [selectedMarketData, setSelectedMarketData] = useState<SelectedMarketData | null>(null);
   const [bookmarkedMarkets, setBookmarkedMarkets] = useState<BookmarkedMarket[]>([
     { id: "1", name: "Will BTC reach $100k by Q1 2026?", probability: 67 },
     { id: "5", name: "ETH 2.0 full rollout in 2026?", probability: 42 },
@@ -160,6 +169,16 @@ export default function App() {
                 toggleBookmark={toggleBookmark} 
                 isBookmarked={isBookmarked}
                 onWalletClick={openWalletProfile}
+                onMarketClick={(market) => {
+                  setSelectedMarketId(market.id);
+                  setSelectedMarketData({
+                    id: market.id,
+                    name: market.name || market.title || "Unknown",
+                    probability: Number(market.probability) || 50,
+                    volume: market.volume || "$0",
+                  });
+                  setCurrentPage("markets");
+                }}
               />
             )}
             {currentPage === "markets" && (
@@ -168,6 +187,7 @@ export default function App() {
                 isBookmarked={isBookmarked}
                 onWalletClick={openWalletProfile}
                 initialMarketId={selectedMarketId}
+                initialMarketData={selectedMarketData}
               />
             )}
             {currentPage === "wallets" && <WalletsList onWalletClick={openWalletProfile} />}
