@@ -2,36 +2,26 @@
  * Direct Polymarket API client - calls APIs directly from frontend
  * No backend needed!
  * 
- * In development, uses backend proxy to avoid CORS issues
- * In production, uses a CORS proxy service
+ * In development, uses local backend proxy to avoid CORS issues
+ * In production, uses Vercel serverless API route as proxy
  */
 
 const isDev = import.meta.env.DEV;
 
-// Use backend proxy in dev for testing, CORS proxy in production
-const CORS_PROXY = "https://api.allorigins.win/raw?url=";
-const BACKEND_PROXY = "http://localhost:3001/api/proxy";
-
-// Base API URLs
-const GAMMA_BASE = "https://gamma-api.polymarket.com";
-const CLOB_BASE = "https://clob.polymarket.com";
-const DATA_BASE = "https://data-api.polymarket.com";
+// Backend proxy URLs
+const DEV_PROXY = "http://localhost:3001/api/proxy";
+const PROD_PROXY = "/api/proxy"; // Vercel serverless function
 
 // Helper to build URLs that work in both dev and prod
-function buildApiUrl(base: string, path: string, proxyPath: string): string {
-  if (isDev) {
-    // In dev, use backend proxy
-    return `${BACKEND_PROXY}/${proxyPath}${path}`;
-  } else {
-    // In prod, use CORS proxy with full URL encoded
-    return `${CORS_PROXY}${encodeURIComponent(`${base}${path}`)}`;
-  }
+function buildApiUrl(path: string, service: string): string {
+  const proxy = isDev ? DEV_PROXY : PROD_PROXY;
+  return `${proxy}/${service}${path}`;
 }
 
 // Convenience functions for each API
-const gammaUrl = (path: string) => buildApiUrl(GAMMA_BASE, path, "gamma");
-const clobUrl = (path: string) => buildApiUrl(CLOB_BASE, path, "clob");
-const dataUrl = (path: string) => buildApiUrl(DATA_BASE, path, "data");
+const gammaUrl = (path: string) => buildApiUrl(path, "gamma");
+const clobUrl = (path: string) => buildApiUrl(path, "clob");
+const dataUrl = (path: string) => buildApiUrl(path, "data");
 
 async function fetchWithTimeout(
   url: string,
