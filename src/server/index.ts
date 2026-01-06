@@ -1,8 +1,11 @@
 import express from "express";
 import type { Express } from "express";
-import marketsRouter from "./routes/markets";
-import tradingRouter from "./routes/trading";
-import portfolioRouter from "./routes/portfolio";
+// Node 18+ has built-in fetch support, no need to import
+
+// Routes no longer needed - frontend calls Polymarket APIs directly via backend proxy
+// import marketsRouter from "./routes/markets";
+// import tradingRouter from "./routes/trading";
+// import portfolioRouter from "./routes/portfolio";
 
 const app: Express = express();
 const PORT = parseInt(process.env.BACKEND_PORT || "3001", 10);
@@ -24,10 +27,44 @@ app.use((req, res, next) => {
   next();
 });
 
-// Routes
-app.use("/api/markets", marketsRouter);
-app.use("/api/trading", tradingRouter);
-app.use("/api/portfolio", portfolioRouter);
+// API Proxy for Polymarket APIs (to avoid CORS issues)
+app.get("/api/proxy/:service/*", async (req, res) => {
+  try {
+    const service = req.params.service;
+    const path = (req.params as any)[0];
+    const queryString = new URLSearchParams(req.query as Record<string, string>).toString();
+    
+    let apiUrl = "";
+    if (service === "gamma") {
+      apiUrl = `https://gamma-api.polymarket.com/${path}`;
+    } else if (service === "clob") {
+      apiUrl = `https://clob.polymarket.com/${path}`;
+    } else if (service === "data") {
+      apiUrl = `https://data-api.polymarket.com/${path}`;
+    } else {
+      return res.status(400).json({ error: "Unknown service" });
+    }
+    
+    if (queryString) {
+      apiUrl += `?${queryString}`;
+    }
+    
+    console.log(`Proxying request to: ${apiUrl}`);
+    
+    const response = await fetch(apiUrl, {
+      headers: {
+        "User-Agent": "Polymarket-Dashboard/1.0",
+      },
+      timeout: 30000,
+    } as any);
+    
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    console.error("Proxy error:", error);
+    res.status(500).json({ error: "Failed to proxy request" });
+  }
+});
 
 // Health check endpoint
 app.get("/health", (req, res) => {
@@ -58,8 +95,6 @@ app.use(
 // Start server
 app.listen(PORT, () => {
   console.log(`🚀 Backend server running on http://localhost:${PORT}`);
-  console.log(`   Markets API: http://localhost:${PORT}/api/markets`);
-  console.log(`   Trading API: http://localhost:${PORT}/api/trading`);
-  console.log(`   Portfolio API: http://localhost:${PORT}/api/portfolio`);
   console.log(`   Health: http://localhost:${PORT}/health`);
+  console.log(`   Note: All market data is fetched directly from Polymarket APIs by the frontend`);
 });

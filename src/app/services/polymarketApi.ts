@@ -1,11 +1,20 @@
 /**
  * Direct Polymarket API client - calls APIs directly from frontend
  * No backend needed!
+ * 
+ * In development, uses backend proxy to avoid CORS issues
+ * In production, uses a CORS proxy service
  */
 
-const GAMMA_API = "https://gamma-api.polymarket.com";
-const CLOB_API = "https://clob.polymarket.com";
-const DATA_API = "https://data-api.polymarket.com";
+const isDev = import.meta.env.DEV;
+
+// Use backend proxy in dev for testing, CORS proxy in production
+const CORS_PROXY = "https://api.allorigins.win/raw?url=";
+const BACKEND_PROXY = isDev ? "http://localhost:3001/api/proxy" : "/api/proxy";
+
+const GAMMA_API = isDev ? `${BACKEND_PROXY}/gamma` : "https://gamma-api.polymarket.com";
+const CLOB_API = isDev ? `${BACKEND_PROXY}/clob` : "https://clob.polymarket.com";
+const DATA_API = isDev ? `${BACKEND_PROXY}/data` : "https://data-api.polymarket.com";
 
 async function fetchWithTimeout(
   url: string,
@@ -43,16 +52,21 @@ export async function getTrendingMarkets(timeframe: "1h" | "24h" | "7d" = "24h")
 export async function getActiveMarkets(limit = 100) {
   try {
     const response = await fetchWithTimeout(
-      `${GAMMA_API}/markets?limit=${limit}&active=true&closed=false`
+      `${GAMMA_API}/markets?limit=${limit}`
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const markets = await response.json();
+    const allMarkets = await response.json();
     
-    // Sort by volume (highest first)
-    return markets.sort(
-      (a: any, b: any) =>
-        (parseFloat(b.volumeUsd) || 0) - (parseFloat(a.volumeUsd) || 0)
-    );
+    // Filter for active markets and sort by volume (highest first)
+    const activeMarkets = allMarkets
+      .filter((m: any) => !m.closed && m.volumeUsd && parseFloat(m.volumeUsd) > 0)
+      .sort(
+        (a: any, b: any) =>
+          (parseFloat(b.volumeUsd) || 0) - (parseFloat(a.volumeUsd) || 0)
+      )
+      .slice(0, limit);
+    
+    return activeMarkets;
   } catch (error) {
     console.error("Failed to fetch active markets:", error);
     throw error;
