@@ -1,9 +1,4 @@
 {
   "buildCommand": "npm run build",
-  "outputDirectory": "dist",
-  "nodeVersion": "18.x",
-  "env": {
-    "NODE_ENV": "production",
-    "VITE_API_URL": "https://your-backend-url.vercel.app/api"
-  }
+  "outputDirectory": "dist"
 }
