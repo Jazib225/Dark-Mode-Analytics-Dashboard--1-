@@ -21,7 +21,17 @@ interface DisplayMarket {
 
 type TimeFilter = "24h" | "7d" | "1m";
 
-function convertApiMarketToDisplay(market: any): DisplayMarket {
+function convertApiMarketToDisplay(market: any, timeframe: TimeFilter = "24h"): DisplayMarket {
+  // Determine which volume field to use based on timeframe
+  let volumeUsd = market.volumeUsd;
+  if (timeframe === "24h") {
+    volumeUsd = market.volume24hr || market.volumeUsd;
+  } else if (timeframe === "7d") {
+    volumeUsd = market.volume7d || market.volumeUsd;
+  } else if (timeframe === "1m") {
+    volumeUsd = market.volume1mo || market.volumeUsd;
+  }
+  
   return {
     id: market.id,
     name: market.title || market.name,
@@ -29,8 +39,8 @@ function convertApiMarketToDisplay(market: any): DisplayMarket {
     probability: market.lastPriceUsd
       ? (parseFloat(String(market.lastPriceUsd)) * 100).toFixed(1)
       : market.probability,
-    volumeUsd: market.volumeUsd,
-    volume: formatVolume(parseFloat(String(market.volumeUsd || 0))),
+    volumeUsd: String(volumeUsd),
+    volume: formatVolume(parseFloat(String(volumeUsd || 0))),
   };
 }
 
@@ -54,7 +64,7 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick }: Discov
       try {
         setLoading(true);
         setError(null);
-        // Get trending markets (they're already sorted by trending, we'll also sort by volume)
+        // Get trending markets for the selected timeframe
         const data = await getTrendingMarkets(timeFilter);
         
         // Safely handle data
@@ -63,14 +73,10 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick }: Discov
         }
         
         const displayMarkets = data
-          .filter((m: any) => m && !m.closed && m.volumeUsd) // Only non-null, active markets with volume
-          .map(convertApiMarketToDisplay)
-          .sort((a: any, b: any) => {
-            // Sort by volume (highest first)
-            const volA = parseFloat(String(a.volumeUsd || 0));
-            const volB = parseFloat(String(b.volumeUsd || 0));
-            return volB - volA;
-          });
+          .filter((m: any) => m && !m.closed) // Only non-null, active markets
+          .map((m: any) => convertApiMarketToDisplay(m, timeFilter))
+          .slice(0, 50); // Top 50 trending markets
+        
         setMarkets(displayMarkets);
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to fetch markets";
@@ -147,7 +153,7 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick }: Discov
                   Probability
                 </th>
                 <th className="text-right py-4 px-5 text-gray-500 font-light tracking-wide uppercase">
-                  24h Volume
+                  {timeFilter === "24h" ? "24h" : timeFilter === "7d" ? "7d" : "1M"} Volume
                 </th>
                 <th className="w-10"></th>
               </tr>

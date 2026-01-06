@@ -36,14 +36,48 @@ async function fetchWithTimeout(
 /**
  * Markets API - Get trending and active markets
  */
-export async function getTrendingMarkets(timeframe: "1h" | "24h" | "7d" = "24h") {
+export async function getTrendingMarkets(timeframe: "1h" | "24h" | "7d" | "1m" = "24h") {
   try {
+    // Use CLOB API which has more recent market data
     const response = await fetchWithTimeout(
-      `${GAMMA_API}/markets?limit=100&orderBy=volume24hr&orderDirection=desc`
+      `${CLOB_API}/markets`
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
-    return Array.isArray(data) ? data : (data?.data || data?.markets || []);
+    
+    // Handle both array and paginated responses
+    let markets: any[] = [];
+    if (Array.isArray(data)) {
+      markets = data;
+    } else if (data?.markets && Array.isArray(data.markets)) {
+      markets = data.markets;
+    } else if (data?.data && Array.isArray(data.data)) {
+      markets = data.data;
+    }
+    
+    // Filter for active markets (accepting_orders = true or active = true, not closed)
+    const active = markets
+      .filter((m: any) => {
+        // Keep markets that are either:
+        // 1. Accepting orders, OR
+        // 2. Active and not closed
+        return (m.accepting_orders === true) || (m.active === true && m.closed !== true);
+      })
+      .map((m: any) => ({
+        ...m,
+        // Use question as title if not available
+        title: m.question || m.title,
+        // Use a dummy lastPriceUsd if not available for probability display
+        lastPriceUsd: m.lastPriceUsd || 0.5,
+        // Set dummy volume fields if not in response
+        volumeUsd: m.volumeUsd || 0,
+        volume24hr: m.volume24hr || 0,
+        volume7d: m.volume7d || 0,
+        volume1mo: m.volume1mo || 0,
+      }))
+      .slice(0, 50);
+    
+    return active;
   } catch (error) {
     console.error("Failed to fetch trending markets:", error);
     return [];
