@@ -240,7 +240,9 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
           onFocus={() => setIsSearchFocused(true)}
           placeholder="Search markets on Polymarket..."
           className={`w-full bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 px-12 py-3 text-sm text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-700/50 shadow-inner transition-all ${
-            isSearchFocused ? "rounded-t-lg rounded-b-none border-b-transparent" : "rounded-lg"
+            isSearchFocused && (searchHistory.length > 0 || searchQuery.trim() || isSearching) 
+              ? "rounded-t-lg rounded-b-none border-b-transparent" 
+              : "rounded-lg"
           }`}
         />
         {searchQuery && (
@@ -256,14 +258,14 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
           </button>
         )}
         
-        {/* Search Dropdown */}
-        {isSearchFocused && (
+        {/* Search Dropdown - Only show when there's content to display */}
+        {isSearchFocused && (searchHistory.length > 0 || searchQuery.trim() || isSearching) && (
           <div className="absolute top-full left-0 right-0 bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 border-t-0 rounded-b-lg shadow-xl shadow-black/30 z-50 max-h-[400px] overflow-y-auto">
-            {/* Show history when no query */}
+            {/* Show history when no query and has history */}
             {!searchQuery.trim() && searchHistory.length > 0 && (
               <div>
                 <div className="flex items-center justify-between px-4 py-2 border-b border-gray-800/30">
-                  <span className="text-xs text-gray-500 uppercase tracking-wide">Recent Searches</span>
+                  <span className="text-xs text-gray-500 uppercase tracking-wide">Recently Viewed Markets</span>
                   <button
                     onClick={clearSearchHistory}
                     className="text-xs text-gray-600 hover:text-gray-400 transition-colors"
@@ -293,15 +295,6 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
                     </button>
                   </div>
                 ))}
-              </div>
-            )}
-            
-            {/* Show empty state when no history */}
-            {!searchQuery.trim() && searchHistory.length === 0 && (
-              <div className="px-4 py-8 text-center">
-                <Search className="w-8 h-8 text-gray-700 mx-auto mb-3" />
-                <p className="text-sm text-gray-500">Search for any market on Polymarket</p>
-                <p className="text-xs text-gray-600 mt-1">Your recent searches will appear here</p>
               </div>
             )}
             
