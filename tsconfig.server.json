@@ -1,8 +1,8 @@
 {
   "compilerOptions": {
     "target": "ES2021",
-    "module": "CommonJS",
-    "lib": ["ES2021"],
+    "module": "ESNext",
+    "lib": ["ES2021", "DOM"],
     "outDir": "./dist/server",
     "rootDir": "./src/server",
     "strict": true,
@@ -14,7 +14,8 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["./src/*"]
-    }
+    },
+    "types": ["node"]
   },
   "include": ["src/server/**/*"],
   "exclude": ["node_modules", "dist"]
