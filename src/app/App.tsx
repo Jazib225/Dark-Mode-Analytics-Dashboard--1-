@@ -7,7 +7,6 @@ import { Feed } from "./components/Feed";
 import { Portfolio } from "./components/Portfolio";
 import { BookmarkedMarketsBar } from "./components/BookmarkedMarketsBar";
 import { X } from "lucide-react";
-import logo from "figma:asset/fd015a37ea6229ca41ba163789f90df6ab34ea63.png";
 
 type Page = "discover" | "markets" | "wallets" | "feed" | "portfolio";
 
@@ -61,7 +60,7 @@ export default function App() {
         <nav className="flex items-center h-16 px-8">
           <div className="flex items-center gap-12">
             <div className="flex items-center gap-3">
-              <img src={logo} alt="Paragon" className="h-8" />
+              <div className="h-8 w-8 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center text-white font-bold text-sm">P</div>
               <div className="text-xl font-light tracking-tight text-gray-100">PARAGON</div>
             </div>
             <div className="flex items-center gap-8">
