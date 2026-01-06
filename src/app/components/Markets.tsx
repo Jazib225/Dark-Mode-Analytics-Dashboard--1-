@@ -55,8 +55,14 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMa
         setLoading(true);
         setError(null);
         const data = await getActiveMarkets(100);
-        const displayMarkets = (data || [])
-          .filter((m: any) => m.active && !m.closed) // Only active markets
+        
+        // Safely handle data
+        if (!Array.isArray(data)) {
+          throw new Error("Invalid data format");
+        }
+        
+        const displayMarkets = data
+          .filter((m: any) => m && !m.closed && m.volumeUsd) // Only non-null, active markets with volume
           .map(convertApiMarketToDisplay)
           .sort((a: any, b: any) => {
             // Sort by volume (highest first)

@@ -39,13 +39,14 @@ async function fetchWithTimeout(
 export async function getTrendingMarkets(timeframe: "1h" | "24h" | "7d" = "24h") {
   try {
     const response = await fetchWithTimeout(
-      `${GAMMA_API}/markets/trending?timeframe=${timeframe}`
+      `${GAMMA_API}/markets?limit=100&orderBy=volume24hr&orderDirection=desc`
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
+    const data = await response.json();
+    return Array.isArray(data) ? data : (data?.data || data?.markets || []);
   } catch (error) {
     console.error("Failed to fetch trending markets:", error);
-    throw error;
+    return [];
   }
 }
 
@@ -55,7 +56,9 @@ export async function getActiveMarkets(limit = 100) {
       `${GAMMA_API}/markets?limit=${limit}`
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const allMarkets = await response.json();
+    const data = await response.json();
+    
+    const allMarkets = Array.isArray(data) ? data : (data?.data || data?.markets || []);
     
     // Filter for active markets and sort by volume (highest first)
     const activeMarkets = allMarkets
@@ -69,7 +72,7 @@ export async function getActiveMarkets(limit = 100) {
     return activeMarkets;
   } catch (error) {
     console.error("Failed to fetch active markets:", error);
-    throw error;
+    return [];
   }
 }
 
@@ -77,23 +80,33 @@ export async function getMarketById(id: string) {
   try {
     const response = await fetchWithTimeout(`${GAMMA_API}/markets/${id}`);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
+    const data = await response.json();
+    return data || {};
   } catch (error) {
     console.error("Failed to fetch market:", error);
-    throw error;
+    return {};
   }
 }
 
 export async function searchMarkets(query: string, limit = 50) {
   try {
     const response = await fetchWithTimeout(
-      `${GAMMA_API}/markets/search?q=${encodeURIComponent(query)}&limit=${limit}`
+      `${GAMMA_API}/markets?limit=${limit}`
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
+    const data = await response.json();
+    
+    const allMarkets = Array.isArray(data) ? data : (data?.data || data?.markets || []);
+    const lowerQuery = query.toLowerCase();
+    
+    return allMarkets.filter((m: any) => 
+      m.title?.toLowerCase().includes(lowerQuery) || 
+      m.question?.toLowerCase().includes(lowerQuery) ||
+      m.name?.toLowerCase().includes(lowerQuery)
+    );
   } catch (error) {
     console.error("Failed to search markets:", error);
-    throw error;
+    return [];
   }
 }
 
@@ -106,7 +119,7 @@ export async function getMarketStats(id: string) {
     return await response.json();
   } catch (error) {
     console.error("Failed to fetch market stats:", error);
-    throw error;
+    return {};
   }
 }
 
@@ -114,10 +127,11 @@ export async function getCategories() {
   try {
     const response = await fetchWithTimeout(`${GAMMA_API}/markets/categories`);
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
+    const data = await response.json();
+    return Array.isArray(data) ? data : (data?.data || data?.categories || []);
   } catch (error) {
     console.error("Failed to fetch categories:", error);
-    throw error;
+    return [];
   }
 }
 
@@ -133,7 +147,7 @@ export async function getOrderBook(assetId: string) {
     return await response.json();
   } catch (error) {
     console.error("Failed to fetch order book:", error);
-    throw error;
+    return {};
   }
 }
 
@@ -144,7 +158,7 @@ export async function getPriceQuote(assetId: string) {
     return await response.json();
   } catch (error) {
     console.error("Failed to fetch price quote:", error);
-    throw error;
+    return {};
   }
 }
 
@@ -160,7 +174,7 @@ export async function getPortfolio(address: string) {
     return await response.json();
   } catch (error) {
     console.error("Failed to fetch portfolio:", error);
-    throw error;
+    return {};
   }
 }
 
@@ -170,10 +184,11 @@ export async function getPositions(address: string) {
       `${DATA_API}/portfolios/${address}/positions`
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
+    const data = await response.json();
+    return Array.isArray(data) ? data : (data?.data || data?.positions || []);
   } catch (error) {
     console.error("Failed to fetch positions:", error);
-    throw error;
+    return [];
   }
 }
 
@@ -187,10 +202,11 @@ export async function getActivity(
       `${DATA_API}/portfolios/${address}/activity?limit=${limit}&offset=${offset}`
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
+    const data = await response.json();
+    return Array.isArray(data) ? data : (data?.data || data?.activity || []);
   } catch (error) {
     console.error("Failed to fetch activity:", error);
-    throw error;
+    return [];
   }
 }
 
@@ -200,9 +216,10 @@ export async function getRecentTrades(limit = 50, offset = 0) {
       `${DATA_API}/activity?limit=${limit}&offset=${offset}`
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
+    const data = await response.json();
+    return Array.isArray(data) ? data : (data?.data || data?.trades || []);
   } catch (error) {
     console.error("Failed to fetch recent trades:", error);
-    throw error;
+    return [];
   }
 }

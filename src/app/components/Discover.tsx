@@ -56,8 +56,14 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick }: Discov
         setError(null);
         // Get trending markets (they're already sorted by trending, we'll also sort by volume)
         const data = await getTrendingMarkets(timeFilter);
-        const displayMarkets = (data || [])
-          .filter((m: any) => m.active && !m.closed) // Only active markets
+        
+        // Safely handle data
+        if (!Array.isArray(data)) {
+          throw new Error("Invalid data format");
+        }
+        
+        const displayMarkets = data
+          .filter((m: any) => m && !m.closed && m.volumeUsd) // Only non-null, active markets with volume
           .map(convertApiMarketToDisplay)
           .sort((a: any, b: any) => {
             // Sort by volume (highest first)
