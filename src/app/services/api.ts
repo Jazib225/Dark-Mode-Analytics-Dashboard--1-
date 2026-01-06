@@ -2,7 +2,22 @@
  * Frontend API client for calling backend endpoints
  */
 
-const API_URL = import.meta.env.VITE_API_URL || "http://localhost:3001/api";
+// Determine API URL - use environment variable or derive from current location
+const getApiUrl = () => {
+  const envUrl = import.meta.env.VITE_API_URL;
+  if (envUrl) return envUrl;
+  
+  // If we're in production (not localhost), construct the API URL from the current hostname
+  if (typeof window !== 'undefined' && window.location.hostname !== 'localhost') {
+    // For Vercel deployments, the backend should be at the same domain
+    return `${window.location.protocol}//${window.location.hostname}/api`;
+  }
+  
+  // Development fallback
+  return "http://localhost:3001/api";
+};
+
+const API_URL = getApiUrl();
 
 interface ApiResponse<T> {
   success: boolean;
@@ -15,29 +30,36 @@ async function apiCall<T>(
   options?: RequestInit
 ): Promise<T> {
   const url = `${API_URL}${endpoint}`;
-  const response = await fetch(url, {
-    headers: {
-      "Content-Type": "application/json",
-      ...((options?.headers as Record<string, string>) || {}),
-    },
-    ...options,
-  });
+  
+  try {
+    const response = await fetch(url, {
+      headers: {
+        "Content-Type": "application/json",
+        ...((options?.headers as Record<string, string>) || {}),
+      },
+      ...options,
+    });
 
-  if (!response.ok) {
-    throw new Error(`API Error: ${response.statusText}`);
+    if (!response.ok) {
+      console.error(`API Error (${response.status}):`, response.statusText, `URL: ${url}`);
+      throw new Error(`API Error: ${response.statusText}`);
+    }
+
+    const result: ApiResponse<T> = await response.json();
+
+    if (!result.success) {
+      throw new Error(result.error || "API request failed");
+    }
+
+    if (!result.data) {
+      throw new Error("No data returned from API");
+    }
+
+    return result.data;
+  } catch (error) {
+    console.error(`Failed to fetch from ${url}:`, error);
+    throw error;
   }
-
-  const result: ApiResponse<T> = await response.json();
-
-  if (!result.success) {
-    throw new Error(result.error || "API request failed");
-  }
-
-  if (!result.data) {
-    throw new Error("No data returned from API");
-  }
-
-  return result.data;
 }
 
 /**
