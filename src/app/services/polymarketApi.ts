@@ -8,14 +8,15 @@
 
 const isDev = import.meta.env.DEV;
 
-// Backend proxy URLs
-const DEV_PROXY = "http://localhost:3001/api/proxy";
-const PROD_PROXY = "/api/proxy"; // Vercel serverless function
-
 // Helper to build URLs that work in both dev and prod
 function buildApiUrl(path: string, service: string): string {
-  const proxy = isDev ? DEV_PROXY : PROD_PROXY;
-  return `${proxy}/${service}${path}`;
+  if (isDev) {
+    // Local dev: use Express server proxy
+    return `http://localhost:3001/api/proxy/${service}${path}`;
+  } else {
+    // Production: use single Vercel API route
+    return `/api/proxy/${service}${path}`;
+  }
 }
 
 // Convenience functions for each API
