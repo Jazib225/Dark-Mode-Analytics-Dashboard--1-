@@ -149,11 +149,19 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
       if (saved) {
         const parsed = JSON.parse(saved);
         if (Array.isArray(parsed)) {
-          setSearchHistory(parsed);
+          // Only keep most recent 5 items
+          const trimmed = parsed.slice(0, 5);
+          setSearchHistory(trimmed);
+          // Update localStorage if we trimmed anything
+          if (parsed.length > 5) {
+            localStorage.setItem("polymarket_search_history", JSON.stringify(trimmed));
+          }
         }
       }
     } catch (e) {
       console.error("Failed to load search history:", e);
+      // Clear corrupted data
+      localStorage.removeItem("polymarket_search_history");
     }
   }, []);
 
@@ -328,7 +336,7 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
     onMarketClick(market);
   };
 
-  // Handle selecting from history
+  // Handle selecting from history (moves item to top of list)
   const handleHistorySelect = (item: SearchHistoryItem) => {
     const market: DisplayMarket = {
       id: item.id,
@@ -336,6 +344,8 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
       probability: item.probability,
       volume: item.volume,
     };
+    // Move this item to top of search history
+    addToSearchHistory(market);
     setSearchQuery("");
     setIsSearchFocused(false);
     onMarketClick(market);
