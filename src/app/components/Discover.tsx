@@ -135,7 +135,8 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [searchResults, setSearchResults] = useState<DisplayMarket[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([]);
+  const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([]); // For search dropdown
+  const [recentlyViewed, setRecentlyViewed] = useState<SearchHistoryItem[]>([]); // For table clicks
   
   const searchRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -156,12 +157,34 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
     }
   }, []);
 
+  // Load recently viewed from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("polymarket_recently_viewed");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setRecentlyViewed(parsed);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load recently viewed:", e);
+    }
+  }, []);
+
   // Save search history to localStorage whenever it changes
   useEffect(() => {
     if (searchHistory.length > 0) {
       localStorage.setItem("polymarket_search_history", JSON.stringify(searchHistory));
     }
   }, [searchHistory]);
+
+  // Save recently viewed to localStorage whenever it changes
+  useEffect(() => {
+    if (recentlyViewed.length > 0) {
+      localStorage.setItem("polymarket_recently_viewed", JSON.stringify(recentlyViewed));
+    }
+  }, [recentlyViewed]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -237,7 +260,7 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
     };
   }, [searchQuery, performSearch]);
 
-  // Add market to search history
+  // Add market to search history (only from search function)
   const addToSearchHistory = useCallback((market: DisplayMarket) => {
     const historyItem: SearchHistoryItem = {
       id: market.id,
@@ -256,10 +279,35 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
     });
   }, []);
 
+  // Add market to recently viewed (only from table clicks)
+  const addToRecentlyViewed = useCallback((market: DisplayMarket) => {
+    const historyItem: SearchHistoryItem = {
+      id: market.id,
+      name: market.name || market.title || "Unknown",
+      probability: Number(market.probability) || 0,
+      volume: market.volume || "$0",
+      timestamp: Date.now(),
+    };
+    
+    setRecentlyViewed(prev => {
+      const filtered = prev.filter(item => item.id !== market.id);
+      const newHistory = [historyItem, ...filtered].slice(0, 5); // Keep only 5 most recent
+      // Immediately save to localStorage
+      localStorage.setItem("polymarket_recently_viewed", JSON.stringify(newHistory));
+      return newHistory;
+    });
+  }, []);
+
   // Clear search history
   const clearSearchHistory = () => {
     setSearchHistory([]);
     localStorage.removeItem("polymarket_search_history");
+  };
+
+  // Clear recently viewed
+  const clearRecentlyViewed = () => {
+    setRecentlyViewed([]);
+    localStorage.removeItem("polymarket_recently_viewed");
   };
 
   // Remove single item from history
@@ -295,7 +343,18 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
 
   // Handle clicking on a market from the table
   const handleTableMarketClick = (market: DisplayMarket) => {
-    addToSearchHistory(market);
+    addToRecentlyViewed(market);
+    onMarketClick(market);
+  };
+
+  // Handle clicking on a recently viewed market
+  const handleRecentlyViewedClick = (item: SearchHistoryItem) => {
+    const market: DisplayMarket = {
+      id: item.id,
+      name: item.name,
+      probability: item.probability,
+      volume: item.volume,
+    };
     onMarketClick(market);
   };
 
@@ -537,8 +596,8 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
         )}
       </div>
 
-      {/* Recently Viewed Markets - Always visible when there's history */}
-      {searchHistory.length > 0 && (
+      {/* Recently Viewed Markets - Only from table clicks */}
+      {recentlyViewed.length > 0 && (
         <div>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-light tracking-tight text-gray-500 uppercase flex items-center gap-2">
@@ -546,17 +605,17 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
               Recently Viewed
             </h3>
             <button
-              onClick={clearSearchHistory}
+              onClick={clearRecentlyViewed}
               className="text-xs text-gray-600 hover:text-gray-400 transition-colors"
             >
               Clear all
             </button>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
-            {searchHistory.slice(0, 5).map((item) => (
+            {recentlyViewed.slice(0, 5).map((item) => (
               <div
                 key={item.id}
-                onClick={() => handleHistorySelect(item)}
+                onClick={() => handleRecentlyViewedClick(item)}
                 className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-lg p-3 hover:border-gray-700/50 cursor-pointer transition-all group"
               >
                 <div className="text-sm text-gray-300 truncate mb-2 group-hover:text-gray-100 transition-colors">
