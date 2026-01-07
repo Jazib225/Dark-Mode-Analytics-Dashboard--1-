@@ -8,6 +8,7 @@ import { Portfolio } from "./components/Portfolio";
 import { BookmarkedMarketsBar } from "./components/BookmarkedMarketsBar";
 import { Search, X, Clock, TrendingUp, Bookmark, Loader2 } from "lucide-react";
 import paragonLogo from "../assets/paragon-logo.png";
+import { getAllActiveMarkets, searchMarkets } from "./services/polymarketApi";
 
 type Page = "discover" | "markets" | "wallets" | "insiderlens" | "portfolio";
 
@@ -57,11 +58,51 @@ export default function App() {
   const [searchResults, setSearchResults] = useState<DisplayMarket[]>([]);
   const [isSearching, setIsSearching] = useState(false);
   const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([]);
-  const [cachedMarkets, setCachedMarkets] = useState<DisplayMarket[]>([]);
+  const [allMarketsCache, setAllMarketsCache] = useState<DisplayMarket[]>([]);
+  const [isLoadingAllMarkets, setIsLoadingAllMarkets] = useState(false);
   
   const searchRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Load ALL active markets for comprehensive search on mount
+  useEffect(() => {
+    const loadAllMarkets = async () => {
+      setIsLoadingAllMarkets(true);
+      try {
+        // Check for cached data first
+        const cached = localStorage.getItem("polymarket_all_markets_cache");
+        if (cached) {
+          const data = JSON.parse(cached);
+          // Use cache if less than 5 minutes old
+          if (data.timestamp && Date.now() - data.timestamp < 5 * 60 * 1000) {
+            setAllMarketsCache(data.markets);
+            console.log(`Loaded ${data.markets.length} markets from cache for search`);
+            setIsLoadingAllMarkets(false);
+            return;
+          }
+        }
+        
+        // Fetch fresh data from API
+        const markets = await getAllActiveMarkets();
+        if (markets && markets.length > 0) {
+          setAllMarketsCache(markets);
+          // Cache for 5 minutes
+          localStorage.setItem("polymarket_all_markets_cache", JSON.stringify({
+            markets,
+            timestamp: Date.now()
+          }));
+          console.log(`Fetched ${markets.length} markets from API for search`);
+        }
+      } catch (e) {
+        console.error("Failed to load all markets for search:", e);
+      } finally {
+        setIsLoadingAllMarkets(false);
+      }
+    };
+    
+    loadAllMarkets();
+  }, []);
 
   // Load search history from localStorage on mount
   useEffect(() => {
@@ -83,21 +124,6 @@ export default function App() {
     }
   }, []);
 
-  // Load cached markets for search
-  useEffect(() => {
-    try {
-      const cached = localStorage.getItem("polymarket_markets_24h");
-      if (cached) {
-        const data = JSON.parse(cached);
-        if (data.markets && Array.isArray(data.markets)) {
-          setCachedMarkets(data.markets);
-        }
-      }
-    } catch (e) {
-      console.error("Failed to load cached markets:", e);
-    }
-  }, []);
-
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -109,8 +135,8 @@ export default function App() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Fast local search
-  const performSearch = useCallback((query: string) => {
+  // Search through ALL markets (local cache + API fallback)
+  const performSearch = useCallback(async (query: string) => {
     if (!query.trim()) {
       setSearchResults([]);
       setIsSearching(false);
@@ -120,7 +146,8 @@ export default function App() {
     const lowerQuery = query.toLowerCase().trim();
     const queryWords = lowerQuery.split(/\s+/).filter(w => w.length > 1);
     
-    const results = cachedMarkets
+    // First search through local cache (instant results)
+    let localResults = allMarketsCache
       .filter(market => {
         const name = (market.name || market.title || "").toLowerCase();
         return queryWords.some(word => name.includes(word)) || name.includes(lowerQuery);
@@ -138,9 +165,32 @@ export default function App() {
       .sort((a: any, b: any) => b._score - a._score)
       .slice(0, 20);
     
-    setSearchResults(results);
-    setIsSearching(false);
-  }, [cachedMarkets]);
+    // If we have local results, show them immediately
+    if (localResults.length > 0) {
+      setSearchResults(localResults);
+      setIsSearching(false);
+    } else {
+      // If no local results, try API search
+      try {
+        const apiResults = await searchMarkets(query, 20);
+        if (apiResults && apiResults.length > 0) {
+          setSearchResults(apiResults.map((m: any) => ({
+            id: m.id,
+            name: m.title || m.name,
+            title: m.title || m.name,
+            probability: m.probability || (m.lastPriceUsd ? m.lastPriceUsd * 100 : 50),
+            volume: m.volume || "$0",
+          })));
+        } else {
+          setSearchResults([]);
+        }
+      } catch (e) {
+        console.error("API search failed:", e);
+        setSearchResults([]);
+      }
+      setIsSearching(false);
+    }
+  }, [allMarketsCache]);
 
   // Debounced search
   useEffect(() => {

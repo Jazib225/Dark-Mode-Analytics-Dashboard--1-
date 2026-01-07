@@ -173,6 +173,242 @@ export async function getMarketById(id: string) {
   }
 }
 
+/**
+ * Get ALL active markets for comprehensive search
+ * Fetches all markets without filtering by volume
+ */
+export async function getAllActiveMarkets() {
+  try {
+    // Fetch all events to get comprehensive market list
+    const response = await fetchWithTimeout(
+      gammaUrl("/events", { limit: "1000", active: "true", closed: "false" })
+    );
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    
+    // Extract all markets from events
+    let allMarkets: any[] = [];
+    if (Array.isArray(data)) {
+      data.forEach((event: any) => {
+        if (Array.isArray(event.markets)) {
+          // Add event info to each market for context
+          const marketsWithEvent = event.markets.map((m: any) => ({
+            ...m,
+            eventTitle: event.title,
+            eventSlug: event.slug,
+          }));
+          allMarkets = allMarkets.concat(marketsWithEvent);
+        }
+      });
+    }
+    
+    console.log(`Fetched ${allMarkets.length} total active markets for search`);
+    
+    // Map all markets with consistent structure
+    return allMarkets
+      .filter((m: any) => m.question || m.title)
+      .map((m: any) => ({
+        id: m.id || m.conditionId || Math.random().toString(),
+        title: m.question || m.title || "Unknown Market",
+        name: m.question || m.title || "Unknown Market",
+        slug: m.slug,
+        conditionId: m.conditionId,
+        questionId: m.questionId,
+        // Tokens for CLOB lookups
+        clobTokenIds: m.clobTokenIds,
+        tokens: m.tokens,
+        // Use outcomePrices if available, otherwise bestBid/lastTradePrice
+        probability: m.outcomePrices 
+          ? parseFloat(String(m.outcomePrices[0] || 0.5)) * 100
+          : m.bestBid 
+            ? parseFloat(String(m.bestBid)) * 100 
+            : (m.lastTradePrice ? parseFloat(String(m.lastTradePrice)) * 100 : 50),
+        volume: formatVolumeHelper(parseFloat(String(m.volume || m.volumeNum || 0))),
+        volumeUsd: parseFloat(String(m.volume || m.volumeNum || 0)),
+        volume24hr: parseFloat(String(m.volume24hr || 0)),
+        // Event context
+        eventTitle: m.eventTitle,
+        eventSlug: m.eventSlug,
+        // Additional metadata
+        description: m.description,
+        endDate: m.endDate,
+        createdAt: m.createdAt,
+        liquidity: m.liquidity,
+        outcomes: m.outcomes,
+        outcomePrices: m.outcomePrices,
+      }));
+  } catch (error) {
+    console.error("Failed to fetch all active markets:", error);
+    return [];
+  }
+}
+
+// Helper for formatting volume
+function formatVolumeHelper(volume: number): string {
+  if (volume >= 1000000) {
+    return `$${(volume / 1000000).toFixed(2)}M`;
+  } else if (volume >= 1000) {
+    return `$${(volume / 1000).toFixed(2)}K`;
+  }
+  return `$${volume.toFixed(2)}`;
+}
+
+/**
+ * Get detailed market data including CLOB prices
+ */
+export async function getMarketDetails(marketId: string) {
+  try {
+    // First get basic market info from Gamma
+    const marketResponse = await fetchWithTimeout(gammaUrl(`/markets/${marketId}`));
+    let marketData: any = {};
+    
+    if (marketResponse.ok) {
+      marketData = await marketResponse.json();
+    }
+    
+    // Try to get CLOB prices if we have token IDs
+    let clobPrices: any = null;
+    if (marketData.clobTokenIds && marketData.clobTokenIds.length > 0) {
+      try {
+        // Try to get order book for the YES token (first token)
+        const yesTokenId = marketData.clobTokenIds[0];
+        const orderBookResponse = await fetchWithTimeout(clobUrl(`/book`, { token_id: yesTokenId }));
+        if (orderBookResponse.ok) {
+          clobPrices = await orderBookResponse.json();
+        }
+      } catch (e) {
+        console.log("Could not fetch CLOB prices:", e);
+      }
+    }
+    
+    // Calculate prices from various sources
+    let yesPrice = 0.5;
+    let noPrice = 0.5;
+    let spread = 0;
+    
+    // Try CLOB order book first
+    if (clobPrices && clobPrices.bids && clobPrices.asks) {
+      const bestBid = clobPrices.bids[0]?.price || 0;
+      const bestAsk = clobPrices.asks[0]?.price || 1;
+      yesPrice = (bestBid + bestAsk) / 2;
+      noPrice = 1 - yesPrice;
+      spread = Math.abs(bestAsk - bestBid);
+    }
+    // Fall back to outcomePrices from market data
+    else if (marketData.outcomePrices && marketData.outcomePrices.length >= 2) {
+      yesPrice = parseFloat(String(marketData.outcomePrices[0]));
+      noPrice = parseFloat(String(marketData.outcomePrices[1]));
+    }
+    // Fall back to bestBid
+    else if (marketData.bestBid) {
+      yesPrice = parseFloat(String(marketData.bestBid));
+      noPrice = 1 - yesPrice;
+    }
+    
+    return {
+      id: marketData.id || marketId,
+      title: marketData.question || marketData.title || "Unknown Market",
+      name: marketData.question || marketData.title || "Unknown Market",
+      description: marketData.description || "",
+      slug: marketData.slug,
+      conditionId: marketData.conditionId,
+      
+      // Pricing
+      yesPrice: yesPrice,
+      noPrice: noPrice,
+      probability: yesPrice * 100,
+      spread: spread,
+      
+      // Volume and liquidity
+      volume: formatVolumeHelper(parseFloat(String(marketData.volume || marketData.volumeNum || 0))),
+      volumeUsd: parseFloat(String(marketData.volume || marketData.volumeNum || 0)),
+      volume24hr: formatVolumeHelper(parseFloat(String(marketData.volume24hr || 0))),
+      volume24hrNum: parseFloat(String(marketData.volume24hr || 0)),
+      liquidity: formatVolumeHelper(parseFloat(String(marketData.liquidity || 0))),
+      liquidityNum: parseFloat(String(marketData.liquidity || 0)),
+      
+      // Market info
+      outcomes: marketData.outcomes || ["Yes", "No"],
+      outcomePrices: marketData.outcomePrices || [yesPrice, noPrice],
+      endDate: marketData.endDate,
+      createdAt: marketData.createdAt,
+      
+      // Token IDs for trading
+      clobTokenIds: marketData.clobTokenIds || [],
+      tokens: marketData.tokens || [],
+      
+      // CLOB order book data
+      orderBook: clobPrices,
+      
+      // Additional stats
+      uniqueTraders: marketData.uniqueTraders || 0,
+      tradesCount: marketData.tradesCount || 0,
+    };
+  } catch (error) {
+    console.error("Failed to fetch market details:", error);
+    return null;
+  }
+}
+
+/**
+ * Get market price history for charts
+ */
+export async function getMarketPriceHistory(marketId: string, interval: string = "1d") {
+  try {
+    // Try to get price history from data API
+    const response = await fetchWithTimeout(
+      dataUrl(`/markets/${marketId}/prices`, { interval })
+    );
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        return data.map((point: any) => ({
+          time: new Date(point.timestamp || point.t).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+          timestamp: point.timestamp || point.t,
+          probability: (parseFloat(String(point.price || point.p || 0.5)) * 100),
+        }));
+      }
+    }
+    
+    // Fallback: generate mock data based on current price
+    return [];
+  } catch (error) {
+    console.error("Failed to fetch price history:", error);
+    return [];
+  }
+}
+
+/**
+ * Get recent trades for a specific market
+ */
+export async function getMarketTrades(marketId: string, limit = 20) {
+  try {
+    const response = await fetchWithTimeout(
+      dataUrl(`/markets/${marketId}/trades`, { limit: limit.toString() })
+    );
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        return data.map((trade: any) => ({
+          id: trade.id || Math.random().toString(),
+          timestamp: new Date(trade.timestamp || trade.createdAt).toLocaleString(),
+          wallet: trade.maker ? `${trade.maker.slice(0, 6)}...${trade.maker.slice(-4)}` : "0x0000...0000",
+          side: trade.side === "BUY" || trade.outcome === "Yes" ? "YES" : "NO",
+          size: `$${parseFloat(String(trade.size || trade.amount || 0)).toFixed(0)}`,
+          price: parseFloat(String(trade.price || 0.5)),
+        }));
+      }
+    }
+    
+    return [];
+  } catch (error) {
+    console.error("Failed to fetch market trades:", error);
+    return [];
+  }
+}
+
 export async function searchMarkets(query: string, limit = 50) {
   try {
     // Fetch all active events to get comprehensive market list for searching
