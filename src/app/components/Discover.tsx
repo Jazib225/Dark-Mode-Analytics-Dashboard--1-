@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from "react";
-import { Search, Bookmark, Clock, X, TrendingUp } from "lucide-react";
+import { Search, Bookmark, Clock, X, TrendingUp, Loader2 } from "lucide-react";
 import { BookmarkedMarket } from "../App";
-import { getTrendingMarkets, searchMarkets } from "../services/polymarketApi";
+import { getTrendingMarkets } from "../services/polymarketApi";
 
 interface DiscoverProps {
   toggleBookmark: (market: BookmarkedMarket) => void;
@@ -30,8 +30,11 @@ interface SearchHistoryItem {
 
 type TimeFilter = "24h" | "7d" | "1m";
 
+// Global cache for all markets (to enable fast search)
+let cachedAllMarkets: DisplayMarket[] = [];
+let cacheTimeFilter: TimeFilter | null = null;
+
 function convertApiMarketToDisplay(market: any, timeframe: TimeFilter = "24h"): DisplayMarket {
-  // Determine which volume field to use based on timeframe
   let volumeUsd = market.volumeUsd;
   if (timeframe === "24h") {
     volumeUsd = market.volume24hr || market.volumeUsd;
@@ -62,10 +65,16 @@ function formatVolume(volume: number): string {
   return `$${volume.toFixed(2)}`;
 }
 
+// Constants for pagination
+const INITIAL_LOAD = 15;
+const LOAD_MORE_COUNT = 15;
+
 export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarketClick }: DiscoverProps) {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("24h");
-  const [markets, setMarkets] = useState<DisplayMarket[]>([]);
+  const [allMarkets, setAllMarkets] = useState<DisplayMarket[]>([]);
+  const [displayedCount, setDisplayedCount] = useState(INITIAL_LOAD);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
   // Search state
@@ -73,23 +82,33 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
   const [isSearchFocused, setIsSearchFocused] = useState(false);
   const [searchResults, setSearchResults] = useState<DisplayMarket[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>(() => {
-    // Load search history from localStorage
-    try {
-      const saved = localStorage.getItem("polymarket_search_history");
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([]);
   
   const searchRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
+  const tableContainerRef = useRef<HTMLDivElement>(null);
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Load search history from localStorage on mount
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("polymarket_search_history");
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed)) {
+          setSearchHistory(parsed);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to load search history:", e);
+    }
+  }, []);
 
   // Save search history to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem("polymarket_search_history", JSON.stringify(searchHistory));
+    if (searchHistory.length > 0) {
+      localStorage.setItem("polymarket_search_history", JSON.stringify(searchHistory));
+    }
   }, [searchHistory]);
 
   // Close dropdown when clicking outside
@@ -103,25 +122,45 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Search for markets with debounce
-  const handleSearch = useCallback(async (query: string) => {
+  // Fast local search using cached data
+  const performSearch = useCallback((query: string) => {
     if (!query.trim()) {
       setSearchResults([]);
+      setIsSearching(false);
       return;
     }
     
-    setIsSearching(true);
-    try {
-      const results = await searchMarkets(query);
-      const displayResults = results.map((m: any) => convertApiMarketToDisplay(m, timeFilter));
-      setSearchResults(displayResults);
-    } catch (err) {
-      console.error("Search error:", err);
-      setSearchResults([]);
-    } finally {
-      setIsSearching(false);
-    }
-  }, [timeFilter]);
+    const lowerQuery = query.toLowerCase().trim();
+    const queryWords = lowerQuery.split(/\s+/).filter(w => w.length > 1);
+    
+    // Search through cached markets
+    const results = cachedAllMarkets
+      .filter(market => {
+        const name = (market.name || market.title || "").toLowerCase();
+        // Check if any query word matches
+        return queryWords.some(word => name.includes(word)) || name.includes(lowerQuery);
+      })
+      .map(market => {
+        const name = (market.name || market.title || "").toLowerCase();
+        let score = 0;
+        
+        // Exact phrase match
+        if (name.includes(lowerQuery)) score += 100;
+        
+        // Word matches
+        queryWords.forEach(word => {
+          if (name.includes(word)) score += 10;
+          if (name.startsWith(word)) score += 5;
+        });
+        
+        return { ...market, _score: score };
+      })
+      .sort((a: any, b: any) => b._score - a._score)
+      .slice(0, 20);
+    
+    setSearchResults(results);
+    setIsSearching(false);
+  }, []);
 
   // Debounced search on query change
   useEffect(() => {
@@ -130,11 +169,13 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
     }
     
     if (searchQuery.trim()) {
+      setIsSearching(true);
       searchDebounceRef.current = setTimeout(() => {
-        handleSearch(searchQuery);
-      }, 300);
+        performSearch(searchQuery);
+      }, 150); // Faster debounce since search is now local
     } else {
       setSearchResults([]);
+      setIsSearching(false);
     }
     
     return () => {
@@ -142,10 +183,10 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
         clearTimeout(searchDebounceRef.current);
       }
     };
-  }, [searchQuery, handleSearch]);
+  }, [searchQuery, performSearch]);
 
   // Add market to search history
-  const addToSearchHistory = (market: DisplayMarket) => {
+  const addToSearchHistory = useCallback((market: DisplayMarket) => {
     const historyItem: SearchHistoryItem = {
       id: market.id,
       name: market.name || market.title || "Unknown",
@@ -155,22 +196,28 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
     };
     
     setSearchHistory(prev => {
-      // Remove duplicate if exists
       const filtered = prev.filter(item => item.id !== market.id);
-      // Add to beginning and keep only last 10
-      return [historyItem, ...filtered].slice(0, 10);
+      const newHistory = [historyItem, ...filtered].slice(0, 10);
+      // Immediately save to localStorage
+      localStorage.setItem("polymarket_search_history", JSON.stringify(newHistory));
+      return newHistory;
     });
-  };
+  }, []);
 
   // Clear search history
   const clearSearchHistory = () => {
     setSearchHistory([]);
+    localStorage.removeItem("polymarket_search_history");
   };
 
   // Remove single item from history
   const removeFromHistory = (id: string, e: React.MouseEvent) => {
     e.stopPropagation();
-    setSearchHistory(prev => prev.filter(item => item.id !== id));
+    setSearchHistory(prev => {
+      const newHistory = prev.filter(item => item.id !== id);
+      localStorage.setItem("polymarket_search_history", JSON.stringify(newHistory));
+      return newHistory;
+    });
   };
 
   // Handle market selection from search
@@ -183,7 +230,6 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
 
   // Handle selecting from history
   const handleHistorySelect = (item: SearchHistoryItem) => {
-    // Convert history item to display market format
     const market: DisplayMarket = {
       id: item.id,
       name: item.name,
@@ -195,30 +241,41 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
     onMarketClick(market);
   };
 
+  // Handle clicking on a market from the table
+  const handleTableMarketClick = (market: DisplayMarket) => {
+    addToSearchHistory(market);
+    onMarketClick(market);
+  };
+
+  // Fetch markets
   useEffect(() => {
     const fetchMarkets = async () => {
       try {
         setLoading(true);
         setError(null);
-        // Get trending markets for the selected timeframe
+        setDisplayedCount(INITIAL_LOAD);
+        
         const data = await getTrendingMarkets(timeFilter);
         
-        // Safely handle data
         if (!Array.isArray(data)) {
           throw new Error("Invalid data format");
         }
         
         const displayMarkets = data
-          .filter((m: any) => m && m.title) // Only markets with titles
-          .map((m: any) => convertApiMarketToDisplay(m, timeFilter))
-          .slice(0, 50); // Top 50 trending markets
+          .filter((m: any) => m && m.title)
+          .map((m: any) => convertApiMarketToDisplay(m, timeFilter));
         
-        setMarkets(displayMarkets);
+        setAllMarkets(displayMarkets);
+        
+        // Update cache for search
+        cachedAllMarkets = displayMarkets;
+        cacheTimeFilter = timeFilter;
+        
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to fetch markets";
         console.error("Error fetching markets:", message);
         setError(message);
-        setMarkets([]);
+        setAllMarkets([]);
       } finally {
         setLoading(false);
       }
@@ -226,6 +283,35 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
 
     fetchMarkets();
   }, [timeFilter]);
+
+  // Infinite scroll handler
+  const handleScroll = useCallback(() => {
+    if (!tableContainerRef.current || loadingMore || displayedCount >= allMarkets.length) return;
+    
+    const container = tableContainerRef.current;
+    const scrollBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
+    
+    if (scrollBottom < 100) {
+      setLoadingMore(true);
+      // Small delay to show loading indicator
+      setTimeout(() => {
+        setDisplayedCount(prev => Math.min(prev + LOAD_MORE_COUNT, allMarkets.length));
+        setLoadingMore(false);
+      }, 200);
+    }
+  }, [loadingMore, displayedCount, allMarkets.length]);
+
+  // Attach scroll listener
+  useEffect(() => {
+    const container = tableContainerRef.current;
+    if (container) {
+      container.addEventListener('scroll', handleScroll);
+      return () => container.removeEventListener('scroll', handleScroll);
+    }
+  }, [handleScroll]);
+
+  // Get markets to display (paginated)
+  const displayedMarkets = allMarkets.slice(0, displayedCount);
 
   return (
     <div className="max-w-[1800px] mx-auto space-y-8">
@@ -402,85 +488,112 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
           </div>
         </div>
         <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl overflow-hidden shadow-xl shadow-black/20">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-gray-800/50 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
-                <th className="text-left py-4 px-5 text-gray-500 font-light tracking-wide uppercase">
-                  Market
-                </th>
-                <th className="text-right py-4 px-5 text-gray-500 font-light tracking-wide uppercase">
-                  Probability
-                </th>
-                <th className="text-right py-4 px-5 text-gray-500 font-light tracking-wide uppercase">
-                  {timeFilter === "24h" ? "24h" : timeFilter === "7d" ? "7d" : "1M"} Volume
-                </th>
-                <th className="w-10"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={4} className="py-8 text-center text-gray-500">
-                    Loading markets...
-                  </td>
+          {/* Scrollable table container for infinite scroll */}
+          <div 
+            ref={tableContainerRef}
+            className="max-h-[600px] overflow-y-auto"
+          >
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 z-10">
+                <tr className="border-b border-gray-800/50 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
+                  <th className="text-left py-4 px-5 text-gray-500 font-light tracking-wide uppercase">
+                    Market
+                  </th>
+                  <th className="text-right py-4 px-5 text-gray-500 font-light tracking-wide uppercase">
+                    Probability
+                  </th>
+                  <th className="text-right py-4 px-5 text-gray-500 font-light tracking-wide uppercase">
+                    {timeFilter === "24h" ? "24h" : timeFilter === "7d" ? "7d" : "1M"} Volume
+                  </th>
+                  <th className="w-10"></th>
                 </tr>
-              ) : error ? (
-                <tr>
-                  <td colSpan={4} className="py-8 text-center text-red-500">
-                    Error: {error}
-                  </td>
-                </tr>
-              ) : markets.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="py-8 text-center text-gray-500">
-                    No active markets found
-                  </td>
-                </tr>
-              ) : (
-                markets.map((market, index) => (
-                  <tr
-                    key={market.id}
-                    onClick={() => {
-                      addToSearchHistory(market);
-                      onMarketClick(market);
-                    }}
-                    className={`border-b border-gray-800/30 hover:bg-gradient-to-r hover:from-[#111111] hover:to-transparent transition-all duration-150 cursor-pointer ${
-                      index === markets.length - 1 ? "border-b-0" : ""
-                    }`}
-                  >
-                    <td className="py-3.5 px-5 text-gray-300 max-w-[500px] truncate font-light">
-                      {market.name || market.title}
-                    </td>
-                    <td className="py-3.5 px-5 text-right text-[#4a6fa5] font-normal">
-                      {market.probability}%
-                    </td>
-                    <td className="py-3.5 px-5 text-right text-green-500 font-light">
-                      {market.volume}
-                    </td>
-                    <td className="py-3.5 px-5 text-right">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleBookmark({
-                            id: market.id,
-                            name: market.name || market.title || "Unknown",
-                            probability: Number(market.probability) || 0,
-                          });
-                        }}
-                        className="text-gray-600 hover:text-[#4a6fa5] transition-all duration-200"
-                      >
-                        <Bookmark
-                          className={`w-3.5 h-3.5 ${
-                            isBookmarked(market.id) ? "fill-current text-[#4a6fa5]" : ""
-                          }`}
-                        />
-                      </button>
+              </thead>
+              <tbody>
+                {loading ? (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-gray-500">
+                      <div className="flex items-center justify-center gap-2">
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        Loading markets...
+                      </div>
                     </td>
                   </tr>
-                ))
-              )}
-            </tbody>
-          </table>
+                ) : error ? (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-red-500">
+                      Error: {error}
+                    </td>
+                  </tr>
+                ) : allMarkets.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="py-8 text-center text-gray-500">
+                      No active markets found
+                    </td>
+                  </tr>
+                ) : (
+                  <>
+                    {displayedMarkets.map((market, index) => (
+                      <tr
+                        key={market.id}
+                        onClick={() => handleTableMarketClick(market)}
+                        className={`border-b border-gray-800/30 hover:bg-gradient-to-r hover:from-[#111111] hover:to-transparent transition-all duration-150 cursor-pointer ${
+                          index === displayedMarkets.length - 1 && !loadingMore ? "border-b-0" : ""
+                        }`}
+                      >
+                        <td className="py-3.5 px-5 text-gray-300 max-w-[500px] truncate font-light">
+                          {market.name || market.title}
+                        </td>
+                        <td className="py-3.5 px-5 text-right text-[#4a6fa5] font-normal">
+                          {market.probability}%
+                        </td>
+                        <td className="py-3.5 px-5 text-right text-green-500 font-light">
+                          {market.volume}
+                        </td>
+                        <td className="py-3.5 px-5 text-right">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleBookmark({
+                                id: market.id,
+                                name: market.name || market.title || "Unknown",
+                                probability: Number(market.probability) || 0,
+                              });
+                            }}
+                            className="text-gray-600 hover:text-[#4a6fa5] transition-all duration-200"
+                          >
+                            <Bookmark
+                              className={`w-3.5 h-3.5 ${
+                                isBookmarked(market.id) ? "fill-current text-[#4a6fa5]" : ""
+                              }`}
+                            />
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                    {/* Loading more indicator */}
+                    {loadingMore && (
+                      <tr>
+                        <td colSpan={4} className="py-4 text-center text-gray-500">
+                          <div className="flex items-center justify-center gap-2">
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            Loading more...
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                    {/* Show count */}
+                    {!loadingMore && displayedCount < allMarkets.length && (
+                      <tr>
+                        <td colSpan={4} className="py-3 text-center text-gray-600 text-xs">
+                          Showing {displayedCount} of {allMarkets.length} markets • Scroll for more
+                        </td>
+                      </tr>
+                    )}
+                  </>
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
       </div>
     </div>
