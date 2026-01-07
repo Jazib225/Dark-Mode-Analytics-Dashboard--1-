@@ -537,6 +537,41 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
         )}
       </div>
 
+      {/* Recently Viewed Markets - Always visible when there's history */}
+      {searchHistory.length > 0 && (
+        <div>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-light tracking-tight text-gray-500 uppercase flex items-center gap-2">
+              <Clock className="w-4 h-4" />
+              Recently Viewed
+            </h3>
+            <button
+              onClick={clearSearchHistory}
+              className="text-xs text-gray-600 hover:text-gray-400 transition-colors"
+            >
+              Clear all
+            </button>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
+            {searchHistory.slice(0, 5).map((item) => (
+              <div
+                key={item.id}
+                onClick={() => handleHistorySelect(item)}
+                className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-lg p-3 hover:border-gray-700/50 cursor-pointer transition-all group"
+              >
+                <div className="text-sm text-gray-300 truncate mb-2 group-hover:text-gray-100 transition-colors">
+                  {item.name}
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-[#4a6fa5] font-medium">{item.probability}%</span>
+                  <span className="text-green-600">{item.volume}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* Trending Markets */}
       <div>
         <div className="flex items-center justify-between mb-4">
