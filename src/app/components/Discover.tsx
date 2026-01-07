@@ -140,7 +140,7 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
   
   const searchRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load search history from localStorage on mount
   useEffect(() => {

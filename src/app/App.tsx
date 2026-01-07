@@ -7,7 +7,7 @@ import { Feed } from "./components/Feed";
 import { Portfolio } from "./components/Portfolio";
 import { BookmarkedMarketsBar } from "./components/BookmarkedMarketsBar";
 import { Search, X, Clock, TrendingUp, Bookmark, Loader2 } from "lucide-react";
-import paragonLogo from "../assets/paragon-logo.svg";
+import paragonLogo from "../assets/paragon-logo.png";
 
 type Page = "discover" | "markets" | "wallets" | "feed" | "portfolio";
 
