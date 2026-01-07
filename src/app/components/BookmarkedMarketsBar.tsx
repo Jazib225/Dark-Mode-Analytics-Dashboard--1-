@@ -1,6 +1,18 @@
 import { BookmarkedMarket } from "../App";
 import { Bookmark } from "lucide-react";
 
+function formatProbability(prob: number): string {
+  if (prob < 0.1) return "<0.1";
+  if (prob > 99.9) return ">99.9";
+  if (prob < 1 || prob > 99) {
+    return prob.toFixed(1);
+  }
+  if (Math.abs(prob - Math.round(prob)) < 0.05) {
+    return Math.round(prob).toString();
+  }
+  return prob.toFixed(1);
+}
+
 interface BookmarkedMarketsBarProps {
   bookmarkedMarkets: BookmarkedMarket[];
   onNavigate: (marketId: string) => void;
@@ -37,7 +49,7 @@ export function BookmarkedMarketsBar({
             <span className="text-gray-300 max-w-[200px] truncate text-[14px] font-light">
               {market.name}
             </span>
-            <span className="text-[#4a6fa5] text-[14px] font-normal">{market.probability}%</span>
+            <span className="text-[#4a6fa5] text-[14px] font-normal">{formatProbability(market.probability)}%</span>
           </button>
         ))}
       </div>
