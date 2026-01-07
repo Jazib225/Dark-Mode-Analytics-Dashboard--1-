@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 60" fill="none">
+  <!-- Dark blue mountain background -->
+  <polygon points="50,5 95,55 5,55" fill="#1a365d"/>
+  <!-- White snow peaks -->
+  <polygon points="50,5 35,25 42,25 38,18 50,5" fill="white"/>
+  <polygon points="50,5 62,18 58,25 65,25 50,5" fill="white"/>
+  <polygon points="50,5 53,15 47,15 50,5" fill="white"/>
+  <!-- Small peak on the left -->
+  <polygon points="25,30 20,55 30,55" fill="#1a365d"/>
+  <polygon points="25,30 23,38 27,38 25,30" fill="white"/>
+</svg>
