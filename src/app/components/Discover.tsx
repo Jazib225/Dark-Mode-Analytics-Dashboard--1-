@@ -86,7 +86,6 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
   
   const searchRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const tableContainerRef = useRef<HTMLDivElement>(null);
   const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load search history from localStorage on mount
@@ -284,34 +283,18 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
     fetchMarkets();
   }, [timeFilter]);
 
-  // Infinite scroll handler
-  const handleScroll = useCallback(() => {
-    if (!tableContainerRef.current || loadingMore || displayedCount >= allMarkets.length) return;
-    
-    const container = tableContainerRef.current;
-    const scrollBottom = container.scrollHeight - container.scrollTop - container.clientHeight;
-    
-    if (scrollBottom < 100) {
-      setLoadingMore(true);
-      // Small delay to show loading indicator
-      setTimeout(() => {
-        setDisplayedCount(prev => Math.min(prev + LOAD_MORE_COUNT, allMarkets.length));
-        setLoadingMore(false);
-      }, 200);
-    }
-  }, [loadingMore, displayedCount, allMarkets.length]);
-
-  // Attach scroll listener
-  useEffect(() => {
-    const container = tableContainerRef.current;
-    if (container) {
-      container.addEventListener('scroll', handleScroll);
-      return () => container.removeEventListener('scroll', handleScroll);
-    }
-  }, [handleScroll]);
+  // Load more markets handler
+  const handleLoadMore = () => {
+    setLoadingMore(true);
+    setTimeout(() => {
+      setDisplayedCount(prev => Math.min(prev + LOAD_MORE_COUNT, allMarkets.length));
+      setLoadingMore(false);
+    }, 200);
+  };
 
   // Get markets to display (paginated)
   const displayedMarkets = allMarkets.slice(0, displayedCount);
+  const hasMoreMarkets = displayedCount < allMarkets.length;
 
   return (
     <div className="max-w-[1800px] mx-auto space-y-8">
@@ -488,113 +471,118 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
           </div>
         </div>
         <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl overflow-hidden shadow-xl shadow-black/20">
-          {/* Scrollable table container for infinite scroll */}
-          <div 
-            ref={tableContainerRef}
-            className="max-h-[600px] overflow-y-auto"
-          >
-            <table className="w-full text-xs">
-              <thead className="sticky top-0 z-10">
-                <tr className="border-b border-gray-800/50 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
-                  <th className="text-left py-4 px-5 text-gray-500 font-light tracking-wide uppercase">
-                    Market
-                  </th>
-                  <th className="text-right py-4 px-5 text-gray-500 font-light tracking-wide uppercase">
-                    Probability
-                  </th>
-                  <th className="text-right py-4 px-5 text-gray-500 font-light tracking-wide uppercase">
-                    {timeFilter === "24h" ? "24h" : timeFilter === "7d" ? "7d" : "1M"} Volume
-                  </th>
-                  <th className="w-10"></th>
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="border-b border-gray-800/50 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
+                <th className="text-left py-4 px-5 text-gray-500 font-light tracking-wide uppercase">
+                  Market
+                </th>
+                <th className="text-right py-4 px-5 text-gray-500 font-light tracking-wide uppercase">
+                  Probability
+                </th>
+                <th className="text-right py-4 px-5 text-gray-500 font-light tracking-wide uppercase">
+                  {timeFilter === "24h" ? "24h" : timeFilter === "7d" ? "7d" : "1M"} Volume
+                </th>
+                <th className="w-10"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                <tr>
+                  <td colSpan={4} className="py-8 text-center text-gray-500">
+                    <div className="flex items-center justify-center gap-2">
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading markets...
+                    </div>
+                  </td>
                 </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  <tr>
-                    <td colSpan={4} className="py-8 text-center text-gray-500">
-                      <div className="flex items-center justify-center gap-2">
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        Loading markets...
-                      </div>
+              ) : error ? (
+                <tr>
+                  <td colSpan={4} className="py-8 text-center text-red-500">
+                    Error: {error}
+                  </td>
+                </tr>
+              ) : allMarkets.length === 0 ? (
+                <tr>
+                  <td colSpan={4} className="py-8 text-center text-gray-500">
+                    No active markets found
+                  </td>
+                </tr>
+              ) : (
+                displayedMarkets.map((market, index) => (
+                  <tr
+                    key={market.id}
+                    onClick={() => handleTableMarketClick(market)}
+                    className={`border-b border-gray-800/30 hover:bg-gradient-to-r hover:from-[#111111] hover:to-transparent transition-all duration-150 cursor-pointer ${
+                      index === displayedMarkets.length - 1 ? "border-b-0" : ""
+                    }`}
+                  >
+                    <td className="py-3.5 px-5 text-gray-300 max-w-[500px] truncate font-light">
+                      {market.name || market.title}
                     </td>
-                  </tr>
-                ) : error ? (
-                  <tr>
-                    <td colSpan={4} className="py-8 text-center text-red-500">
-                      Error: {error}
+                    <td className="py-3.5 px-5 text-right text-[#4a6fa5] font-normal">
+                      {market.probability}%
                     </td>
-                  </tr>
-                ) : allMarkets.length === 0 ? (
-                  <tr>
-                    <td colSpan={4} className="py-8 text-center text-gray-500">
-                      No active markets found
+                    <td className="py-3.5 px-5 text-right text-green-500 font-light">
+                      {market.volume}
                     </td>
-                  </tr>
-                ) : (
-                  <>
-                    {displayedMarkets.map((market, index) => (
-                      <tr
-                        key={market.id}
-                        onClick={() => handleTableMarketClick(market)}
-                        className={`border-b border-gray-800/30 hover:bg-gradient-to-r hover:from-[#111111] hover:to-transparent transition-all duration-150 cursor-pointer ${
-                          index === displayedMarkets.length - 1 && !loadingMore ? "border-b-0" : ""
-                        }`}
+                    <td className="py-3.5 px-5 text-right">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleBookmark({
+                            id: market.id,
+                            name: market.name || market.title || "Unknown",
+                            probability: Number(market.probability) || 0,
+                          });
+                        }}
+                        className="text-gray-600 hover:text-[#4a6fa5] transition-all duration-200"
                       >
-                        <td className="py-3.5 px-5 text-gray-300 max-w-[500px] truncate font-light">
-                          {market.name || market.title}
-                        </td>
-                        <td className="py-3.5 px-5 text-right text-[#4a6fa5] font-normal">
-                          {market.probability}%
-                        </td>
-                        <td className="py-3.5 px-5 text-right text-green-500 font-light">
-                          {market.volume}
-                        </td>
-                        <td className="py-3.5 px-5 text-right">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleBookmark({
-                                id: market.id,
-                                name: market.name || market.title || "Unknown",
-                                probability: Number(market.probability) || 0,
-                              });
-                            }}
-                            className="text-gray-600 hover:text-[#4a6fa5] transition-all duration-200"
-                          >
-                            <Bookmark
-                              className={`w-3.5 h-3.5 ${
-                                isBookmarked(market.id) ? "fill-current text-[#4a6fa5]" : ""
-                              }`}
-                            />
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
-                    {/* Loading more indicator */}
-                    {loadingMore && (
-                      <tr>
-                        <td colSpan={4} className="py-4 text-center text-gray-500">
-                          <div className="flex items-center justify-center gap-2">
-                            <Loader2 className="w-4 h-4 animate-spin" />
-                            Loading more...
-                          </div>
-                        </td>
-                      </tr>
-                    )}
-                    {/* Show count */}
-                    {!loadingMore && displayedCount < allMarkets.length && (
-                      <tr>
-                        <td colSpan={4} className="py-3 text-center text-gray-600 text-xs">
-                          Showing {displayedCount} of {allMarkets.length} markets • Scroll for more
-                        </td>
-                      </tr>
-                    )}
-                  </>
-                )}
-              </tbody>
-            </table>
-          </div>
+                        <Bookmark
+                          className={`w-3.5 h-3.5 ${
+                            isBookmarked(market.id) ? "fill-current text-[#4a6fa5]" : ""
+                          }`}
+                        />
+                      </button>
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
         </div>
+        
+        {/* Load More Button */}
+        {!loading && hasMoreMarkets && (
+          <div className="flex justify-center mt-6">
+            <button
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+              className="px-8 py-3 bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 rounded-lg text-sm font-light text-gray-300 hover:text-gray-100 hover:border-gray-600/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {loadingMore ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                <>
+                  Load More Markets
+                  <span className="text-gray-500 text-xs">
+                    ({allMarkets.length - displayedCount} remaining)
+                  </span>
+                </>
+              )}
+            </button>
+          </div>
+        )}
+        
+        {/* All loaded indicator */}
+        {!loading && !hasMoreMarkets && allMarkets.length > INITIAL_LOAD && (
+          <div className="text-center mt-4 text-gray-600 text-xs">
+            All {allMarkets.length} markets loaded
+          </div>
+        )}
       </div>
     </div>
   );
