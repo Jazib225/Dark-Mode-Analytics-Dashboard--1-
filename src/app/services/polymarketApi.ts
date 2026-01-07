@@ -143,6 +143,8 @@ export async function getTrendingMarkets(timeframe: "1h" | "24h" | "7d" | "1m" =
           volume24hr: parseFloat(String(m.volume24hr || 0)),
           volume7d: parseFloat(String(m.volume1wk || 0)),
           volume1mo: parseFloat(String(m.volume1mo || 0)),
+          // Include image from API
+          image: m.image || null,
         };
       })
       .sort((a: any, b: any) => (b.volumeUsd || 0) - (a.volumeUsd || 0))

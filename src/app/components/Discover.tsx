@@ -1,4 +1,4 @@
-import { TrendingUp, Rss, PieChart } from "lucide-react";
+import { TrendingUp, Users, PieChart, Eye } from "lucide-react";
 
 interface DiscoverProps {
   toggleBookmark: (market: any) => void;
@@ -18,10 +18,10 @@ export function Discover({ onNavigate }: DiscoverProps) {
       previewBg: "from-[#1a2a3a] to-[#0d1520]",
     },
     {
-      id: "feed",
-      title: "Feed",
-      description: "Stay updated with the latest market activity and whale movements",
-      icon: Rss,
+      id: "wallets",
+      title: "Wallets",
+      description: "Track whale wallets, follow top traders, and monitor wallet activity",
+      icon: Users,
       previewBg: "from-[#2a1a3a] to-[#150d20]",
     },
     {
@@ -30,6 +30,13 @@ export function Discover({ onNavigate }: DiscoverProps) {
       description: "Track your positions, PnL, and performance across all markets",
       icon: PieChart,
       previewBg: "from-[#1a3a2a] to-[#0d2015]",
+    },
+    {
+      id: "insiderlens",
+      title: "InsidersLens",
+      description: "Advanced analytics and insider insights for informed trading decisions",
+      icon: Eye,
+      previewBg: "from-[#3a2a1a] to-[#201510]",
     },
   ];
 
@@ -50,7 +57,7 @@ export function Discover({ onNavigate }: DiscoverProps) {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
         {pages.map((page) => {
           const Icon = page.icon;
           return (
@@ -61,10 +68,10 @@ export function Discover({ onNavigate }: DiscoverProps) {
             >
               <div className="border-2 border-white/20 hover:border-white/40 rounded-xl overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-white/5">
                 {/* Preview Image Area */}
-                <div className={`h-[200px] bg-gradient-to-br ${page.previewBg} relative overflow-hidden`}>
+                <div className={`h-[280px] bg-gradient-to-br ${page.previewBg} relative overflow-hidden`}>
                   {/* Placeholder preview content */}
                   <div className="absolute inset-0 flex items-center justify-center">
-                    <Icon className="w-16 h-16 text-white/20 group-hover:text-white/30 transition-all duration-300" />
+                    <Icon className="w-24 h-24 text-white/20 group-hover:text-white/30 transition-all duration-300" />
                   </div>
                   
                   {/* Grid pattern overlay */}
@@ -80,46 +87,63 @@ export function Discover({ onNavigate }: DiscoverProps) {
 
                   {/* Fake chart lines for markets */}
                   {page.id === "markets" && (
-                    <svg className="absolute bottom-4 left-4 right-4 h-12 opacity-30">
+                    <svg className="absolute bottom-6 left-6 right-6 h-16 opacity-30">
                       <polyline
                         fill="none"
                         stroke="#4a6fa5"
                         strokeWidth="2"
-                        points="0,40 30,35 60,25 90,30 120,15 150,20 180,10 210,18 240,8"
+                        points="0,50 40,45 80,30 120,38 160,18 200,25 240,12 280,22 320,10"
                       />
                     </svg>
                   )}
 
-                  {/* Fake feed items for feed */}
-                  {page.id === "feed" && (
-                    <div className="absolute bottom-4 left-4 right-4 space-y-2 opacity-30">
-                      <div className="h-2 bg-white/30 rounded w-3/4"></div>
-                      <div className="h-2 bg-white/20 rounded w-1/2"></div>
-                      <div className="h-2 bg-white/20 rounded w-2/3"></div>
+                  {/* Wallet icons for wallets */}
+                  {page.id === "wallets" && (
+                    <div className="absolute bottom-6 left-6 right-6 flex justify-around opacity-30">
+                      <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                        <Users className="w-6 h-6 text-white/60" />
+                      </div>
+                      <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                        <Users className="w-6 h-6 text-white/60" />
+                      </div>
+                      <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                        <Users className="w-6 h-6 text-white/60" />
+                      </div>
                     </div>
                   )}
 
                   {/* Fake pie chart for portfolio */}
                   {page.id === "portfolio" && (
-                    <svg className="absolute bottom-4 right-4 w-16 h-16 opacity-30" viewBox="0 0 32 32">
+                    <svg className="absolute bottom-6 right-6 w-20 h-20 opacity-30" viewBox="0 0 32 32">
                       <circle cx="16" cy="16" r="12" fill="none" stroke="#22c55e" strokeWidth="4" strokeDasharray="40 75" />
                       <circle cx="16" cy="16" r="12" fill="none" stroke="#4a6fa5" strokeWidth="4" strokeDasharray="25 75" strokeDashoffset="-40" />
                       <circle cx="16" cy="16" r="12" fill="none" stroke="#eab308" strokeWidth="4" strokeDasharray="10 75" strokeDashoffset="-65" />
                     </svg>
                   )}
+
+                  {/* Eye/lens graphic for InsidersLens */}
+                  {page.id === "insiderlens" && (
+                    <div className="absolute bottom-6 left-6 right-6 flex justify-center opacity-30">
+                      <div className="w-20 h-20 rounded-full border-4 border-white/30 flex items-center justify-center">
+                        <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center">
+                          <Eye className="w-6 h-6 text-white/60" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Content Area */}
-                <div className="p-5 bg-gradient-to-b from-[#0d0d0d] to-[#0a0a0a]">
-                  <div className="flex items-center gap-3 mb-3">
-                    <div className="p-2 rounded-lg bg-white/5 border border-white/10">
-                      <Icon className="w-5 h-5 text-gray-300" />
+                <div className="p-6 bg-gradient-to-b from-[#0d0d0d] to-[#0a0a0a]">
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="p-3 rounded-lg bg-white/5 border border-white/10">
+                      <Icon className="w-6 h-6 text-gray-300" />
                     </div>
-                    <h3 className="text-[18px] font-medium text-gray-100 tracking-tight">
+                    <h3 className="text-[22px] font-medium text-gray-100 tracking-tight">
                       {page.title}
                     </h3>
                   </div>
-                  <p className="text-[14px] text-gray-400 font-light leading-relaxed">
+                  <p className="text-[15px] text-gray-400 font-light leading-relaxed">
                     {page.description}
                   </p>
                 </div>

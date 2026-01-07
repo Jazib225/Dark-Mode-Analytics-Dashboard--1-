@@ -27,6 +27,7 @@ interface DisplayMarket {
   volume?: string;
   volumeUsd?: string;
   volumeNum?: number;
+  image?: string | null;
 }
 
 type TimeFilter = "24h" | "7d" | "1m";
@@ -96,6 +97,7 @@ function convertApiMarketToDisplay(market: any, timeframe: TimeFilter = "24h"): 
     noPriceCents,
     volumeUsd: String(volumeUsd),
     volume: formatVolume(parseFloat(String(volumeUsd || 0))),
+    image: market.image || null,
   };
 }
 
@@ -356,7 +358,10 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMa
                 [...Array(8)].map((_, i) => (
                   <tr key={i} className="border-b border-gray-800/30 animate-pulse">
                     <td className="py-3.5 px-5">
-                      <div className="h-5 bg-gray-800/50 rounded w-3/4"></div>
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-gray-800/50 rounded-lg flex-shrink-0"></div>
+                        <div className="h-5 bg-gray-800/50 rounded w-3/4"></div>
+                      </div>
                     </td>
                     <td className="py-3.5 px-5 text-center">
                       <div className="h-5 bg-gray-800/50 rounded w-12 mx-auto"></div>
@@ -401,8 +406,23 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMa
                       index === displayedMarkets.length - 1 ? "border-b-0" : ""
                     }`}
                   >
-                    <td className="py-3.5 px-5 text-gray-200 max-w-[400px] truncate font-light">
-                      {market.name || market.title}
+                    <td className="py-3.5 px-5 text-gray-200 max-w-[400px] font-light">
+                      <div className="flex items-center gap-3">
+                        {market.image ? (
+                          <img 
+                            src={market.image} 
+                            alt="" 
+                            className="w-8 h-8 rounded-lg object-cover flex-shrink-0"
+                            onError={(e) => {
+                              // Hide broken images
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-lg bg-gray-800/50 flex-shrink-0" />
+                        )}
+                        <span className="truncate">{market.name || market.title}</span>
+                      </div>
                     </td>
                     <td className="py-3.5 px-5 text-center">
                       <span className="text-xl font-light text-[#4a6fa5]">{probabilityDisplay}%</span>
