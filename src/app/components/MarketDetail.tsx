@@ -77,6 +77,21 @@ interface Trade {
   price: number;
 }
 
+// Format cents with proper precision like Polymarket (e.g., 0.4¢, 99.6¢)
+function formatCents(cents: number): string {
+  if (cents < 0.1) return "<0.1";
+  if (cents > 99.9) return ">99.9";
+  // Show one decimal place for precision
+  if (cents < 1 || cents > 99) {
+    return cents.toFixed(1);
+  }
+  // For values between 1-99, show integer if close, otherwise one decimal
+  if (Math.abs(cents - Math.round(cents)) < 0.05) {
+    return Math.round(cents).toString();
+  }
+  return cents.toFixed(1);
+}
+
 export function MarketDetail({
   market,
   isBookmarked,
@@ -300,6 +315,8 @@ export function MarketDetail({
                     {eventData.markets.map((outcome) => {
                       const isSelected = selectedOutcome?.id === outcome.id;
                       const probability = outcome.yesPrice * 100;
+                      const yesCentsDisplay = formatCents(outcome.yesPriceCents);
+                      const noCentsDisplay = formatCents(outcome.noPriceCents);
                       return (
                         <div
                           key={outcome.id}
@@ -323,7 +340,7 @@ export function MarketDetail({
                           </div>
                           <div className="text-right flex items-center gap-4">
                             <div className="text-xl font-light text-[#4a6fa5]">
-                              {probability < 1 ? "<1" : probability.toFixed(0)}%
+                              {probability < 0.1 ? "<0.1" : probability > 99.9 ? ">99.9" : probability.toFixed(1)}%
                             </div>
                             <div className="flex gap-2">
                               <button
@@ -334,7 +351,7 @@ export function MarketDetail({
                                 }}
                                 className="px-3 py-1.5 text-xs font-medium bg-green-900/30 hover:bg-green-900/50 border border-green-500/30 rounded text-green-400 transition-all"
                               >
-                                Buy Yes {outcome.yesPriceCents}¢
+                                Buy Yes {yesCentsDisplay}¢
                               </button>
                               <button
                                 onClick={(e) => {
@@ -344,7 +361,7 @@ export function MarketDetail({
                                 }}
                                 className="px-3 py-1.5 text-xs font-medium bg-red-900/30 hover:bg-red-900/50 border border-red-500/30 rounded text-red-400 transition-all"
                               >
-                                Buy No {outcome.noPriceCents}¢
+                                Buy No {noCentsDisplay}¢
                               </button>
                             </div>
                           </div>
@@ -360,13 +377,13 @@ export function MarketDetail({
                 <div className="grid grid-cols-2 gap-4 mt-4">
                   <div className="bg-gradient-to-br from-green-900/20 to-green-900/10 border border-green-500/30 rounded-lg p-4">
                     <div className="text-xs text-green-400/70 uppercase tracking-wide mb-1">Buy Yes</div>
-                    <div className="text-2xl font-light text-green-400">{yesPriceCents}¢</div>
-                    <div className="text-xs text-green-500/50 mt-1">${yesPrice.toFixed(2)} per share</div>
+                    <div className="text-2xl font-light text-green-400">{formatCents(yesPriceCents)}¢</div>
+                    <div className="text-xs text-green-500/50 mt-1">${yesPrice.toFixed(4)} per share</div>
                   </div>
                   <div className="bg-gradient-to-br from-red-900/20 to-red-900/10 border border-red-500/30 rounded-lg p-4">
                     <div className="text-xs text-red-400/70 uppercase tracking-wide mb-1">Buy No</div>
-                    <div className="text-2xl font-light text-red-400">{noPriceCents}¢</div>
-                    <div className="text-xs text-red-500/50 mt-1">${noPrice.toFixed(2)} per share</div>
+                    <div className="text-2xl font-light text-red-400">{formatCents(noPriceCents)}¢</div>
+                    <div className="text-xs text-red-500/50 mt-1">${noPrice.toFixed(4)} per share</div>
                   </div>
                 </div>
               )}
@@ -470,7 +487,7 @@ export function MarketDetail({
                       }`}
                     >
                       <div className="text-lg font-medium">YES</div>
-                      <div className={`text-xs mt-1 ${tradeSide === "YES" ? "text-green-500/70" : "text-gray-600"}`}>{yesPriceCents}¢ per share</div>
+                      <div className={`text-xs mt-1 ${tradeSide === "YES" ? "text-green-500/70" : "text-gray-600"}`}>{formatCents(yesPriceCents)}¢ per share</div>
                       {tradeSide === "YES" && <div className="absolute top-2 right-2 w-2 h-2 bg-green-500 rounded-full"></div>}
                     </button>
                     <button
@@ -482,7 +499,7 @@ export function MarketDetail({
                       }`}
                     >
                       <div className="text-lg font-medium">NO</div>
-                      <div className={`text-xs mt-1 ${tradeSide === "NO" ? "text-red-500/70" : "text-gray-600"}`}>{noPriceCents}¢ per share</div>
+                      <div className={`text-xs mt-1 ${tradeSide === "NO" ? "text-red-500/70" : "text-gray-600"}`}>{formatCents(noPriceCents)}¢ per share</div>
                       {tradeSide === "NO" && <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full"></div>}
                     </button>
                   </div>
@@ -524,7 +541,7 @@ export function MarketDetail({
                 {/* Order Summary */}
                 <div className="bg-gradient-to-br from-[#111111] to-[#0a0a0a] rounded-lg p-4 border border-gray-800/30 space-y-3">
                   <div className="text-xs text-gray-500 uppercase tracking-wide mb-3">Order Summary</div>
-                  <div className="flex justify-between text-sm"><span className="text-gray-500 font-light">Price per share</span><span className="text-gray-300">${currentPrice.toFixed(2)}</span></div>
+                  <div className="flex justify-between text-sm"><span className="text-gray-500 font-light">Price per share</span><span className="text-gray-300">${currentPrice.toFixed(4)}</span></div>
                   <div className="flex justify-between text-sm"><span className="text-gray-500 font-light">Shares</span><span className="text-gray-300">{shareQuantity}</span></div>
                   <div className="flex justify-between text-sm"><span className="text-gray-500 font-light">Total Cost</span><span className="text-gray-300">${tradeAmount || "0.00"}</span></div>
                   <div className="border-t border-gray-800/50 my-2 pt-3">

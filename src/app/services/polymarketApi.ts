@@ -384,8 +384,9 @@ export async function getMarketDetails(marketId: string) {
     let yesPrice = 0.5;
     let noPrice = 0.5;
     let spread = 0;
+    let priceSource = "default";
     
-    // Priority 1: Use outcomePrices from Gamma (most reliable)
+    // Priority 1: Use outcomePrices from Gamma (MOST RELIABLE - actual Polymarket prices)
     // outcomePrices can be a string that needs JSON parsing OR an array
     if (marketData.outcomePrices) {
       let prices: any[] = [];
@@ -409,41 +410,45 @@ export async function getMarketDetails(marketId: string) {
         if (!isNaN(yesParsed) && !isNaN(noParsed) && yesParsed >= 0 && yesParsed <= 1) {
           yesPrice = yesParsed;
           noPrice = noParsed;
+          priceSource = "outcomePrices";
           console.log(`Using outcomePrices: YES=${yesPrice}, NO=${noPrice}`);
         }
       }
     }
     // Priority 2: Use bestBid and bestAsk for midpoint price
-    else if (marketData.bestBid !== undefined && marketData.bestBid !== null && marketData.bestAsk !== undefined && marketData.bestAsk !== null) {
+    if (priceSource === "default" && marketData.bestBid !== undefined && marketData.bestBid !== null && marketData.bestAsk !== undefined && marketData.bestAsk !== null) {
       const bidParsed = parseFloat(String(marketData.bestBid));
       const askParsed = parseFloat(String(marketData.bestAsk));
       if (!isNaN(bidParsed) && !isNaN(askParsed) && bidParsed > 0 && askParsed < 1) {
         yesPrice = (bidParsed + askParsed) / 2;
         noPrice = 1 - yesPrice;
         spread = askParsed - bidParsed;
+        priceSource = "bestBid/Ask";
         console.log(`Using bestBid/bestAsk midpoint: YES=${yesPrice}, NO=${noPrice}`);
       }
     }
     // Priority 3: Try lastTradePrice
-    else if (marketData.lastTradePrice !== undefined && marketData.lastTradePrice !== null) {
+    if (priceSource === "default" && marketData.lastTradePrice !== undefined && marketData.lastTradePrice !== null) {
       const lastParsed = parseFloat(String(marketData.lastTradePrice));
       if (!isNaN(lastParsed) && lastParsed > 0 && lastParsed < 1) {
         yesPrice = lastParsed;
         noPrice = 1 - lastParsed;
+        priceSource = "lastTradePrice";
         console.log(`Using lastTradePrice: YES=${yesPrice}, NO=${noPrice}`);
       }
     }
     // Priority 4: Try bestBid alone
-    else if (marketData.bestBid !== undefined && marketData.bestBid !== null) {
+    if (priceSource === "default" && marketData.bestBid !== undefined && marketData.bestBid !== null) {
       const bidParsed = parseFloat(String(marketData.bestBid));
       if (!isNaN(bidParsed) && bidParsed > 0 && bidParsed < 1) {
         yesPrice = bidParsed;
         noPrice = 1 - bidParsed;
+        priceSource = "bestBid";
         console.log(`Using bestBid: YES=${yesPrice}, NO=${noPrice}`);
       }
     }
     
-    // Try to get CLOB prices for more accurate spread calculation
+    // CLOB API - Only use as LAST RESORT fallback if we still have default prices
     // clobTokenIds might be a JSON string or array
     let clobTokenIds: string[] = [];
     if (marketData.clobTokenIds) {
@@ -458,7 +463,8 @@ export async function getMarketDetails(marketId: string) {
       }
     }
     
-    if (clobTokenIds.length > 0) {
+    // Only fetch CLOB if we don't have valid prices yet (priceSource is still default)
+    if (priceSource === "default" && clobTokenIds.length > 0) {
       try {
         const yesTokenId = clobTokenIds[0];
         console.log(`Fetching CLOB book for token: ${yesTokenId}`);
@@ -466,17 +472,19 @@ export async function getMarketDetails(marketId: string) {
         
         if (orderBookResponse.ok) {
           const clobData = await orderBookResponse.json();
-          console.log("CLOB data:", clobData);
+          console.log("CLOB data (fallback):", clobData);
           
           if (clobData && clobData.bids && clobData.asks && clobData.bids.length > 0 && clobData.asks.length > 0) {
             const bestBid = parseFloat(String(clobData.bids[0]?.price || 0));
             const bestAsk = parseFloat(String(clobData.asks[0]?.price || 1));
             
-            if (!isNaN(bestBid) && !isNaN(bestAsk) && bestBid > 0 && bestAsk < 1) {
+            // Only use CLOB if prices are reasonable (not at extremes)
+            if (!isNaN(bestBid) && !isNaN(bestAsk) && bestBid > 0.01 && bestAsk < 0.99) {
               // Use midpoint of bid-ask as yes price
               yesPrice = (bestBid + bestAsk) / 2;
               noPrice = 1 - yesPrice;
               spread = bestAsk - bestBid;
+              priceSource = "CLOB";
               console.log(`Using CLOB midpoint: YES=${yesPrice}, NO=${noPrice}, Spread=${spread}`);
             }
           }
@@ -485,6 +493,8 @@ export async function getMarketDetails(marketId: string) {
         console.log("CLOB fetch failed, using Gamma prices:", clobError);
       }
     }
+    
+    console.log(`Final prices for ${marketId}: YES=${yesPrice}, NO=${noPrice}, source=${priceSource}`);
     
     // Ensure prices are valid numbers between 0 and 1
     if (isNaN(yesPrice) || yesPrice <= 0 || yesPrice >= 1) {
@@ -840,26 +850,57 @@ export async function getEventWithMarkets(marketId: string) {
       (parentEvent.markets || []).map(async (market: any) => {
         let yesPrice = 0.5;
         let noPrice = 0.5;
+        let priceSource = "default";
         
-        // Parse outcomePrices (JSON string or array)
+        // Debug: log raw market data
+        console.log(`Market ${market.id} raw data:`, {
+          outcomePrices: market.outcomePrices,
+          bestBid: market.bestBid,
+          bestAsk: market.bestAsk,
+          lastTradePrice: market.lastTradePrice,
+        });
+        
+        // Parse outcomePrices (JSON string or array) - PRIMARY SOURCE
         if (market.outcomePrices) {
           try {
             const prices = typeof market.outcomePrices === 'string'
               ? JSON.parse(market.outcomePrices)
               : market.outcomePrices;
+            console.log(`Market ${market.id} parsed outcomePrices:`, prices);
             if (Array.isArray(prices) && prices.length >= 1) {
               const parsed = parseFloat(String(prices[0]));
               if (!isNaN(parsed) && parsed >= 0 && parsed <= 1) {
                 yesPrice = parsed;
                 noPrice = prices.length > 1 ? parseFloat(String(prices[1])) : (1 - yesPrice);
+                priceSource = "outcomePrices";
               }
             }
           } catch (e) {
-            console.log("Failed to parse outcomePrices for", market.id);
+            console.log("Failed to parse outcomePrices for", market.id, e);
           }
         }
         
-        // Try CLOB API for live order book prices
+        // Fallback to bestBid/bestAsk if outcomePrices didn't work
+        if (priceSource === "default" && market.bestBid !== undefined) {
+          const bid = parseFloat(String(market.bestBid));
+          if (!isNaN(bid) && bid > 0 && bid < 1) {
+            yesPrice = bid;
+            noPrice = 1 - bid;
+            priceSource = "bestBid";
+          }
+        }
+        
+        // Fallback to lastTradePrice
+        if (priceSource === "default" && market.lastTradePrice !== undefined) {
+          const last = parseFloat(String(market.lastTradePrice));
+          if (!isNaN(last) && last > 0 && last < 1) {
+            yesPrice = last;
+            noPrice = 1 - last;
+            priceSource = "lastTradePrice";
+          }
+        }
+        
+        // Parse clobTokenIds for reference (but DON'T override outcomePrices)
         let clobTokenIds: string[] = [];
         if (market.clobTokenIds) {
           try {
@@ -869,7 +910,9 @@ export async function getEventWithMarkets(marketId: string) {
           } catch (e) {}
         }
         
-        if (clobTokenIds.length > 0) {
+        // Only try CLOB API as a LAST RESORT fallback when we have no price data
+        // outcomePrices from Gamma API is the most accurate source
+        if (priceSource === "default" && clobTokenIds.length > 0) {
           try {
             const orderBookResponse = await fetchWithTimeout(
               clobUrl("/book", { token_id: clobTokenIds[0] }),
@@ -878,33 +921,41 @@ export async function getEventWithMarkets(marketId: string) {
             
             if (orderBookResponse.ok) {
               const clobData = await orderBookResponse.json();
+              console.log(`Market ${market.id} CLOB data (fallback):`, clobData);
               if (clobData?.bids?.length > 0 && clobData?.asks?.length > 0) {
                 const bestBid = parseFloat(String(clobData.bids[0]?.price || 0));
                 const bestAsk = parseFloat(String(clobData.asks[0]?.price || 1));
-                if (!isNaN(bestBid) && !isNaN(bestAsk) && bestBid > 0 && bestAsk < 1) {
+                // Only use CLOB if it gives us reasonable prices (not 0/1 or empty)
+                if (!isNaN(bestBid) && !isNaN(bestAsk) && bestBid > 0.01 && bestAsk < 0.99) {
                   yesPrice = (bestBid + bestAsk) / 2;
                   noPrice = 1 - yesPrice;
+                  priceSource = "CLOB";
                 }
               }
             }
           } catch (e) {
-            // Use outcomePrices fallback
+            console.log(`CLOB fetch failed for market ${market.id}:`, e);
           }
         }
         
         const volumeNum = parseFloat(String(market.volume || market.volumeNum || 0)) || 0;
         
+        console.log(`Market ${market.id} final prices: YES=${yesPrice}, NO=${noPrice}, source=${priceSource}`);
+        
+        // Return with EXACT decimal precision (not rounded)
         return {
           id: market.id,
           question: market.question || market.title,
           outcome: market.outcome || market.groupItemTitle || market.question,
           yesPrice,
           noPrice,
-          yesPriceCents: Math.round(yesPrice * 100),
-          noPriceCents: Math.round(noPrice * 100),
+          // Keep full precision for display (e.g., 0.4¢, 99.6¢)
+          yesPriceCents: yesPrice * 100,
+          noPriceCents: noPrice * 100,
           volume: formatVolumeHelper(volumeNum),
           volumeNum,
           clobTokenIds,
+          priceSource,
         };
       })
     );
