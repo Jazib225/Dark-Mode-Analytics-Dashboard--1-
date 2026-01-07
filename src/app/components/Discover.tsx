@@ -34,24 +34,23 @@ type TimeFilter = "24h" | "7d" | "1m";
 let cachedAllMarkets: DisplayMarket[] = [];
 let cacheTimeFilter: TimeFilter | null = null;
 
-// LocalStorage cache key
-const MARKETS_CACHE_KEY = "polymarket_cached_markets";
-const CACHE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
+// LocalStorage cache keys - separate cache per timeFilter for instant switching
+const MARKETS_CACHE_PREFIX = "polymarket_markets_";
+const CACHE_EXPIRY_MS = 30 * 60 * 1000; // 30 minutes - longer cache for faster loads
 
 interface CachedData {
   markets: DisplayMarket[];
-  timeFilter: TimeFilter;
   timestamp: number;
 }
 
-// Load cached markets from localStorage
+// Load cached markets from localStorage for specific timeFilter
 function loadCachedMarkets(timeFilter: TimeFilter): DisplayMarket[] | null {
   try {
-    const cached = localStorage.getItem(MARKETS_CACHE_KEY);
+    const cached = localStorage.getItem(MARKETS_CACHE_PREFIX + timeFilter);
     if (cached) {
       const data: CachedData = JSON.parse(cached);
-      // Check if cache is for same timeFilter and not expired
-      if (data.timeFilter === timeFilter && Date.now() - data.timestamp < CACHE_EXPIRY_MS) {
+      // Check if cache is not expired
+      if (Date.now() - data.timestamp < CACHE_EXPIRY_MS) {
         return data.markets;
       }
     }
@@ -61,15 +60,14 @@ function loadCachedMarkets(timeFilter: TimeFilter): DisplayMarket[] | null {
   return null;
 }
 
-// Save markets to localStorage cache
+// Save markets to localStorage cache for specific timeFilter
 function saveCachedMarkets(markets: DisplayMarket[], timeFilter: TimeFilter): void {
   try {
     const data: CachedData = {
       markets,
-      timeFilter,
       timestamp: Date.now(),
     };
-    localStorage.setItem(MARKETS_CACHE_KEY, JSON.stringify(data));
+    localStorage.setItem(MARKETS_CACHE_PREFIX + timeFilter, JSON.stringify(data));
   } catch (e) {
     console.error("Failed to save markets cache:", e);
   }
@@ -251,7 +249,7 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
     
     setSearchHistory(prev => {
       const filtered = prev.filter(item => item.id !== market.id);
-      const newHistory = [historyItem, ...filtered].slice(0, 10);
+      const newHistory = [historyItem, ...filtered].slice(0, 5); // Keep only 5 most recent
       // Immediately save to localStorage
       localStorage.setItem("polymarket_search_history", JSON.stringify(newHistory));
       return newHistory;
@@ -361,6 +359,35 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
 
     fetchMarkets();
   }, [timeFilter]);
+
+  // Prefetch other time filters in background for instant switching
+  useEffect(() => {
+    const prefetchOtherFilters = async () => {
+      const filters: TimeFilter[] = ["24h", "7d", "1m"];
+      const otherFilters = filters.filter(f => f !== timeFilter);
+      
+      for (const filter of otherFilters) {
+        // Skip if already cached
+        if (loadCachedMarkets(filter)) continue;
+        
+        try {
+          const data = await getTrendingMarkets(filter);
+          if (Array.isArray(data)) {
+            const displayMarkets = data
+              .filter((m: any) => m && m.title)
+              .map((m: any) => convertApiMarketToDisplay(m, filter));
+            saveCachedMarkets(displayMarkets, filter);
+          }
+        } catch (e) {
+          // Silent fail for prefetch
+        }
+      }
+    };
+
+    // Prefetch after initial load completes (with delay to not block main fetch)
+    const prefetchTimeout = setTimeout(prefetchOtherFilters, 2000);
+    return () => clearTimeout(prefetchTimeout);
+  }, []);
 
   // Load more markets handler
   const handleLoadMore = () => {
@@ -575,14 +602,23 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
             </thead>
             <tbody>
               {loading ? (
-                <tr>
-                  <td colSpan={4} className="py-8 text-center text-gray-500">
-                    <div className="flex items-center justify-center gap-2">
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Loading markets...
-                    </div>
-                  </td>
-                </tr>
+                // Skeleton loading rows - shows instantly, feels faster
+                [...Array(8)].map((_, i) => (
+                  <tr key={i} className="border-b border-gray-800/30 animate-pulse">
+                    <td className="py-3.5 px-5">
+                      <div className="h-4 bg-gray-800/50 rounded w-3/4"></div>
+                    </td>
+                    <td className="py-3.5 px-5 text-right">
+                      <div className="h-4 bg-gray-800/50 rounded w-12 ml-auto"></div>
+                    </td>
+                    <td className="py-3.5 px-5 text-right">
+                      <div className="h-4 bg-gray-800/50 rounded w-16 ml-auto"></div>
+                    </td>
+                    <td className="py-3.5 px-5 text-right">
+                      <div className="h-4 bg-gray-800/50 rounded w-4 ml-auto"></div>
+                    </td>
+                  </tr>
+                ))
               ) : error ? (
                 <tr>
                   <td colSpan={4} className="py-8 text-center text-red-500">
