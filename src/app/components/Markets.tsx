@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { Bookmark, Clock, Loader2 } from "lucide-react";
+import { useState, useEffect } from "react";
+import { Bookmark, Loader2 } from "lucide-react";
 import { BookmarkedMarket } from "../App";
 import { MarketDetail } from "./MarketDetail";
 import { getTrendingMarkets } from "../services/polymarketApi";
@@ -27,19 +27,7 @@ interface DisplayMarket {
   volumeNum?: number;
 }
 
-interface SearchHistoryItem {
-  id: string;
-  name: string;
-  probability: number;
-  volume: string;
-  timestamp: number;
-}
-
 type TimeFilter = "24h" | "7d" | "1m";
-
-// Global cache for all markets (to enable fast search)
-let cachedAllMarkets: DisplayMarket[] = [];
-let cacheTimeFilter: TimeFilter | null = null;
 
 // LocalStorage cache keys - separate cache per timeFilter for instant switching
 const MARKETS_CACHE_PREFIX = "polymarket_markets_";
@@ -123,8 +111,6 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMa
   const [allMarkets, setAllMarkets] = useState<DisplayMarket[]>(() => {
     const cached = loadCachedMarkets("24h");
     if (cached) {
-      cachedAllMarkets = cached;
-      cacheTimeFilter = "24h";
       return cached;
     }
     return [];
@@ -138,65 +124,9 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMa
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
-  // Recently viewed state (for table clicks)
-  const [recentlyViewed, setRecentlyViewed] = useState<SearchHistoryItem[]>([]);
-
-  // Load recently viewed from localStorage on mount
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("polymarket_recently_viewed");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          setRecentlyViewed(parsed);
-        }
-      }
-    } catch (e) {
-      console.error("Failed to load recently viewed:", e);
-    }
-  }, []);
-
-  // Save recently viewed to localStorage whenever it changes
-  useEffect(() => {
-    if (recentlyViewed.length > 0) {
-      localStorage.setItem("polymarket_recently_viewed", JSON.stringify(recentlyViewed));
-    }
-  }, [recentlyViewed]);
-
-  // Add market to recently viewed (only from table clicks)
-  const addToRecentlyViewed = useCallback((market: DisplayMarket) => {
-    const historyItem: SearchHistoryItem = {
-      id: market.id,
-      name: market.name || market.title || "Unknown",
-      probability: Number(market.probability) || 0,
-      volume: market.volume || "$0",
-      timestamp: Date.now(),
-    };
-    
-    setRecentlyViewed(prev => {
-      const filtered = prev.filter(item => item.id !== market.id);
-      const newHistory = [historyItem, ...filtered].slice(0, 5); // Keep only 5 most recent
-      // Immediately save to localStorage
-      localStorage.setItem("polymarket_recently_viewed", JSON.stringify(newHistory));
-      return newHistory;
-    });
-  }, []);
-
-  // Clear recently viewed
-  const clearRecentlyViewed = () => {
-    setRecentlyViewed([]);
-    localStorage.removeItem("polymarket_recently_viewed");
-  };
-
   // Handle clicking on a market from the table
   const handleTableMarketClick = (market: DisplayMarket) => {
-    addToRecentlyViewed(market);
     setSelectedMarketId(market.id);
-  };
-
-  // Handle clicking on a recently viewed market
-  const handleRecentlyViewedClick = (item: SearchHistoryItem) => {
-    setSelectedMarketId(item.id);
   };
 
   // Fetch markets with cache-first strategy
@@ -208,8 +138,6 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMa
       if (cached && cached.length > 0) {
         // Use cached data immediately (no loading state)
         setAllMarkets(cached);
-        cachedAllMarkets = cached;
-        cacheTimeFilter = timeFilter;
         setLoading(false);
         setDisplayedCount(INITIAL_LOAD);
         
@@ -235,10 +163,6 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMa
           .map((m: any) => convertApiMarketToDisplay(m, timeFilter));
         
         setAllMarkets(displayMarkets);
-        
-        // Update memory cache for search
-        cachedAllMarkets = displayMarkets;
-        cacheTimeFilter = timeFilter;
         
         // Save to localStorage cache
         saveCachedMarkets(displayMarkets, timeFilter);
@@ -344,41 +268,6 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMa
 
   return (
     <div className="max-w-[1800px] mx-auto space-y-8">
-      {/* Recently Viewed Markets - Only from table clicks */}
-      {recentlyViewed.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-[15px] font-light tracking-tight text-gray-400 uppercase flex items-center gap-2">
-              <Clock className="w-4 h-4" />
-              Recently Viewed
-            </h3>
-            <button
-              onClick={clearRecentlyViewed}
-              className="text-[14px] text-gray-500 hover:text-gray-300 transition-colors"
-            >
-              Clear all
-            </button>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
-            {recentlyViewed.slice(0, 5).map((item) => (
-              <div
-                key={item.id}
-                onClick={() => handleRecentlyViewedClick(item)}
-                className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-lg p-3 hover:border-gray-700/50 cursor-pointer transition-all group"
-              >
-                <div className="text-[15px] text-gray-200 truncate mb-2 group-hover:text-gray-100 transition-colors">
-                  {item.name}
-                </div>
-                <div className="flex items-center justify-between text-[14px]">
-                  <span className="text-[#4a6fa5] font-medium">{item.probability}%</span>
-                  <span className="text-green-500">{item.volume}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Trending Markets */}
       <div>
         <div className="flex items-center justify-between mb-4">

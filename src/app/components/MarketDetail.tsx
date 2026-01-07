@@ -132,13 +132,19 @@ export function MarketDetail({
     fetchMarketData();
   }, [market.id]);
 
-  // Use real data or fallback to props
-  const yesPrice = marketData?.yesPrice ?? (market.probability / 100);
-  const noPrice = marketData?.noPrice ?? (1 - market.probability / 100);
-  const currentProbability = marketData?.probability ?? market.probability;
+  // Use real data or fallback to props with safe number conversion
+  const safeNumber = (val: any, fallback: number) => {
+    const num = parseFloat(String(val));
+    return isNaN(num) ? fallback : num;
+  };
+  
+  // Get yes/no prices with proper fallbacks
+  const yesPrice = marketData?.yesPrice ?? safeNumber(market.probability, 50) / 100;
+  const noPrice = marketData?.noPrice ?? (1 - yesPrice);
+  const currentProbability = marketData?.probability ?? safeNumber(market.probability, 50);
   const currentPrice = tradeSide === "YES" ? yesPrice : noPrice;
-  const currentVolume = marketData?.volume ?? market.volume;
-  const currentVolume24h = marketData?.volume24hr ?? market.change24h;
+  const currentVolume = marketData?.volume ?? market.volume ?? "$0";
+  const currentVolume24h = marketData?.volume24hr ?? "$0";
   const currentLiquidity = marketData?.liquidity ?? "$0";
   const uniqueTraders = marketData?.uniqueTraders ?? 0;
 
