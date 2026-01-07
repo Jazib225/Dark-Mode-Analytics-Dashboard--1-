@@ -34,6 +34,47 @@ type TimeFilter = "24h" | "7d" | "1m";
 let cachedAllMarkets: DisplayMarket[] = [];
 let cacheTimeFilter: TimeFilter | null = null;
 
+// LocalStorage cache key
+const MARKETS_CACHE_KEY = "polymarket_cached_markets";
+const CACHE_EXPIRY_MS = 5 * 60 * 1000; // 5 minutes
+
+interface CachedData {
+  markets: DisplayMarket[];
+  timeFilter: TimeFilter;
+  timestamp: number;
+}
+
+// Load cached markets from localStorage
+function loadCachedMarkets(timeFilter: TimeFilter): DisplayMarket[] | null {
+  try {
+    const cached = localStorage.getItem(MARKETS_CACHE_KEY);
+    if (cached) {
+      const data: CachedData = JSON.parse(cached);
+      // Check if cache is for same timeFilter and not expired
+      if (data.timeFilter === timeFilter && Date.now() - data.timestamp < CACHE_EXPIRY_MS) {
+        return data.markets;
+      }
+    }
+  } catch (e) {
+    console.error("Failed to load cached markets:", e);
+  }
+  return null;
+}
+
+// Save markets to localStorage cache
+function saveCachedMarkets(markets: DisplayMarket[], timeFilter: TimeFilter): void {
+  try {
+    const data: CachedData = {
+      markets,
+      timeFilter,
+      timestamp: Date.now(),
+    };
+    localStorage.setItem(MARKETS_CACHE_KEY, JSON.stringify(data));
+  } catch (e) {
+    console.error("Failed to save markets cache:", e);
+  }
+}
+
 function convertApiMarketToDisplay(market: any, timeframe: TimeFilter = "24h"): DisplayMarket {
   let volumeUsd = market.volumeUsd;
   if (timeframe === "24h") {
@@ -71,9 +112,23 @@ const LOAD_MORE_COUNT = 15;
 
 export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarketClick }: DiscoverProps) {
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("24h");
-  const [allMarkets, setAllMarkets] = useState<DisplayMarket[]>([]);
+  
+  // Initialize with cached data if available for instant load
+  const [allMarkets, setAllMarkets] = useState<DisplayMarket[]>(() => {
+    const cached = loadCachedMarkets("24h");
+    if (cached) {
+      cachedAllMarkets = cached;
+      cacheTimeFilter = "24h";
+      return cached;
+    }
+    return [];
+  });
   const [displayedCount, setDisplayedCount] = useState(INITIAL_LOAD);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(() => {
+    // Only show loading if no cached data
+    return loadCachedMarkets("24h") === null;
+  });
+  const [isRefreshing, setIsRefreshing] = useState(false); // Background refresh indicator
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
@@ -246,14 +301,31 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
     onMarketClick(market);
   };
 
-  // Fetch markets
+  // Fetch markets with cache-first strategy
   useEffect(() => {
     const fetchMarkets = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+      // Check for cached data first
+      const cached = loadCachedMarkets(timeFilter);
+      
+      if (cached && cached.length > 0) {
+        // Use cached data immediately (no loading state)
+        setAllMarkets(cached);
+        cachedAllMarkets = cached;
+        cacheTimeFilter = timeFilter;
+        setLoading(false);
         setDisplayedCount(INITIAL_LOAD);
         
+        // Refresh in background
+        setIsRefreshing(true);
+      } else {
+        // No cache - show loading
+        setLoading(true);
+        setDisplayedCount(INITIAL_LOAD);
+      }
+      
+      setError(null);
+      
+      try {
         const data = await getTrendingMarkets(timeFilter);
         
         if (!Array.isArray(data)) {
@@ -266,17 +338,24 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
         
         setAllMarkets(displayMarkets);
         
-        // Update cache for search
+        // Update memory cache for search
         cachedAllMarkets = displayMarkets;
         cacheTimeFilter = timeFilter;
+        
+        // Save to localStorage cache
+        saveCachedMarkets(displayMarkets, timeFilter);
         
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to fetch markets";
         console.error("Error fetching markets:", message);
-        setError(message);
-        setAllMarkets([]);
+        // Only show error if we don't have cached data
+        if (!cached || cached.length === 0) {
+          setError(message);
+          setAllMarkets([]);
+        }
       } finally {
         setLoading(false);
+        setIsRefreshing(false);
       }
     };
 
@@ -434,9 +513,17 @@ export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarket
       {/* Trending Markets */}
       <div>
         <div className="flex items-center justify-between mb-4">
-          <h2 className="text-lg font-light tracking-tight text-gray-300 uppercase">
-            Trending Markets
-          </h2>
+          <div className="flex items-center gap-3">
+            <h2 className="text-lg font-light tracking-tight text-gray-300 uppercase">
+              Trending Markets
+            </h2>
+            {isRefreshing && (
+              <div className="flex items-center gap-1.5 text-xs text-gray-600">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                <span>Updating...</span>
+              </div>
+            )}
+          </div>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setTimeFilter("24h")}
