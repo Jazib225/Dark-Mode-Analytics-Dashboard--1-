@@ -1,682 +1,132 @@
-import { useState, useEffect, useRef, useCallback } from "react";
-import { Search, Bookmark, Clock, X, TrendingUp, Loader2 } from "lucide-react";
-import { BookmarkedMarket } from "../App";
-import { getTrendingMarkets } from "../services/polymarketApi";
+import { TrendingUp, Rss, PieChart } from "lucide-react";
 
 interface DiscoverProps {
-  toggleBookmark: (market: BookmarkedMarket) => void;
+  toggleBookmark: (market: any) => void;
   isBookmarked: (marketId: string) => boolean;
   onWalletClick: (address: string) => void;
   onMarketClick: (market: any) => void;
+  onNavigate?: (page: string) => void;
 }
 
-interface DisplayMarket {
-  id: string;
-  title?: string;
-  name?: string;
-  probability?: number | string;
-  volume?: string;
-  volumeUsd?: string;
-  volumeNum?: number;
-}
+export function Discover({ onNavigate }: DiscoverProps) {
+  const pages = [
+    {
+      id: "markets",
+      title: "Markets",
+      description: "Browse trending prediction markets with real-time data and analytics",
+      icon: TrendingUp,
+      previewBg: "from-[#1a2a3a] to-[#0d1520]",
+    },
+    {
+      id: "feed",
+      title: "Feed",
+      description: "Stay updated with the latest market activity and whale movements",
+      icon: Rss,
+      previewBg: "from-[#2a1a3a] to-[#150d20]",
+    },
+    {
+      id: "portfolio",
+      title: "Portfolio",
+      description: "Track your positions, PnL, and performance across all markets",
+      icon: PieChart,
+      previewBg: "from-[#1a3a2a] to-[#0d2015]",
+    },
+  ];
 
-interface SearchHistoryItem {
-  id: string;
-  name: string;
-  probability: number;
-  volume: string;
-  timestamp: number;
-}
-
-type TimeFilter = "24h" | "7d" | "1m";
-
-// Global cache for all markets (to enable fast search)
-let cachedAllMarkets: DisplayMarket[] = [];
-let cacheTimeFilter: TimeFilter | null = null;
-
-// LocalStorage cache keys - separate cache per timeFilter for instant switching
-const MARKETS_CACHE_PREFIX = "polymarket_markets_";
-const CACHE_EXPIRY_MS = 30 * 60 * 1000; // 30 minutes - longer cache for faster loads
-
-interface CachedData {
-  markets: DisplayMarket[];
-  timestamp: number;
-}
-
-// Load cached markets from localStorage for specific timeFilter
-function loadCachedMarkets(timeFilter: TimeFilter): DisplayMarket[] | null {
-  try {
-    const cached = localStorage.getItem(MARKETS_CACHE_PREFIX + timeFilter);
-    if (cached) {
-      const data: CachedData = JSON.parse(cached);
-      // Check if cache is not expired
-      if (Date.now() - data.timestamp < CACHE_EXPIRY_MS) {
-        return data.markets;
-      }
+  const handleNavigation = (pageId: string) => {
+    if (onNavigate) {
+      onNavigate(pageId);
     }
-  } catch (e) {
-    console.error("Failed to load cached markets:", e);
-  }
-  return null;
-}
-
-// Save markets to localStorage cache for specific timeFilter
-function saveCachedMarkets(markets: DisplayMarket[], timeFilter: TimeFilter): void {
-  try {
-    const data: CachedData = {
-      markets,
-      timestamp: Date.now(),
-    };
-    localStorage.setItem(MARKETS_CACHE_PREFIX + timeFilter, JSON.stringify(data));
-  } catch (e) {
-    console.error("Failed to save markets cache:", e);
-  }
-}
-
-function convertApiMarketToDisplay(market: any, timeframe: TimeFilter = "24h"): DisplayMarket {
-  let volumeUsd = market.volumeUsd;
-  if (timeframe === "24h") {
-    volumeUsd = market.volume24hr || market.volumeUsd;
-  } else if (timeframe === "7d") {
-    volumeUsd = market.volume7d || market.volumeUsd;
-  } else if (timeframe === "1m") {
-    volumeUsd = market.volume1mo || market.volumeUsd;
-  }
-  
-  return {
-    id: market.id,
-    name: market.title || market.name,
-    title: market.title || market.name,
-    probability: market.lastPriceUsd
-      ? (parseFloat(String(market.lastPriceUsd)) * 100).toFixed(1)
-      : market.probability,
-    volumeUsd: String(volumeUsd),
-    volume: formatVolume(parseFloat(String(volumeUsd || 0))),
   };
-}
-
-function formatVolume(volume: number): string {
-  if (volume >= 1000000) {
-    return `$${(volume / 1000000).toFixed(2)}M`;
-  } else if (volume >= 1000) {
-    return `$${(volume / 1000).toFixed(2)}K`;
-  }
-  return `$${volume.toFixed(2)}`;
-}
-
-// Constants for pagination
-const INITIAL_LOAD = 15;
-const LOAD_MORE_COUNT = 15;
-
-export function Discover({ toggleBookmark, isBookmarked, onWalletClick, onMarketClick }: DiscoverProps) {
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>("24h");
-  
-  // Initialize with cached data if available for instant load
-  const [allMarkets, setAllMarkets] = useState<DisplayMarket[]>(() => {
-    const cached = loadCachedMarkets("24h");
-    if (cached) {
-      cachedAllMarkets = cached;
-      cacheTimeFilter = "24h";
-      return cached;
-    }
-    return [];
-  });
-  const [displayedCount, setDisplayedCount] = useState(INITIAL_LOAD);
-  const [loading, setLoading] = useState(() => {
-    // Only show loading if no cached data
-    return loadCachedMarkets("24h") === null;
-  });
-  const [isRefreshing, setIsRefreshing] = useState(false); // Background refresh indicator
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  
-  // Search state
-  const [searchQuery, setSearchQuery] = useState("");
-  const [isSearchFocused, setIsSearchFocused] = useState(false);
-  const [searchResults, setSearchResults] = useState<DisplayMarket[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([]); // For search dropdown
-  const [recentlyViewed, setRecentlyViewed] = useState<SearchHistoryItem[]>([]); // For table clicks
-  
-  const searchRef = useRef<HTMLDivElement>(null);
-  const searchInputRef = useRef<HTMLInputElement>(null);
-  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Load search history from localStorage on mount
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("polymarket_search_history");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          // Only keep most recent 5 items
-          const trimmed = parsed.slice(0, 5);
-          setSearchHistory(trimmed);
-          // Update localStorage if we trimmed anything
-          if (parsed.length > 5) {
-            localStorage.setItem("polymarket_search_history", JSON.stringify(trimmed));
-          }
-        }
-      }
-    } catch (e) {
-      console.error("Failed to load search history:", e);
-      // Clear corrupted data
-      localStorage.removeItem("polymarket_search_history");
-    }
-  }, []);
-
-  // Load recently viewed from localStorage on mount
-  useEffect(() => {
-    try {
-      const saved = localStorage.getItem("polymarket_recently_viewed");
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          setRecentlyViewed(parsed);
-        }
-      }
-    } catch (e) {
-      console.error("Failed to load recently viewed:", e);
-    }
-  }, []);
-
-  // Save search history to localStorage whenever it changes
-  useEffect(() => {
-    if (searchHistory.length > 0) {
-      localStorage.setItem("polymarket_search_history", JSON.stringify(searchHistory));
-    }
-  }, [searchHistory]);
-
-  // Save recently viewed to localStorage whenever it changes
-  useEffect(() => {
-    if (recentlyViewed.length > 0) {
-      localStorage.setItem("polymarket_recently_viewed", JSON.stringify(recentlyViewed));
-    }
-  }, [recentlyViewed]);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
-        setIsSearchFocused(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  // Fast local search using cached data
-  const performSearch = useCallback((query: string) => {
-    if (!query.trim()) {
-      setSearchResults([]);
-      setIsSearching(false);
-      return;
-    }
-    
-    const lowerQuery = query.toLowerCase().trim();
-    const queryWords = lowerQuery.split(/\s+/).filter(w => w.length > 1);
-    
-    // Search through cached markets
-    const results = cachedAllMarkets
-      .filter(market => {
-        const name = (market.name || market.title || "").toLowerCase();
-        // Check if any query word matches
-        return queryWords.some(word => name.includes(word)) || name.includes(lowerQuery);
-      })
-      .map(market => {
-        const name = (market.name || market.title || "").toLowerCase();
-        let score = 0;
-        
-        // Exact phrase match
-        if (name.includes(lowerQuery)) score += 100;
-        
-        // Word matches
-        queryWords.forEach(word => {
-          if (name.includes(word)) score += 10;
-          if (name.startsWith(word)) score += 5;
-        });
-        
-        return { ...market, _score: score };
-      })
-      .sort((a: any, b: any) => b._score - a._score)
-      .slice(0, 20);
-    
-    setSearchResults(results);
-    setIsSearching(false);
-  }, []);
-
-  // Debounced search on query change
-  useEffect(() => {
-    if (searchDebounceRef.current) {
-      clearTimeout(searchDebounceRef.current);
-    }
-    
-    if (searchQuery.trim()) {
-      setIsSearching(true);
-      searchDebounceRef.current = setTimeout(() => {
-        performSearch(searchQuery);
-      }, 150); // Faster debounce since search is now local
-    } else {
-      setSearchResults([]);
-      setIsSearching(false);
-    }
-    
-    return () => {
-      if (searchDebounceRef.current) {
-        clearTimeout(searchDebounceRef.current);
-      }
-    };
-  }, [searchQuery, performSearch]);
-
-  // Add market to search history (only from search function)
-  const addToSearchHistory = useCallback((market: DisplayMarket) => {
-    const historyItem: SearchHistoryItem = {
-      id: market.id,
-      name: market.name || market.title || "Unknown",
-      probability: Number(market.probability) || 0,
-      volume: market.volume || "$0",
-      timestamp: Date.now(),
-    };
-    
-    setSearchHistory(prev => {
-      const filtered = prev.filter(item => item.id !== market.id);
-      const newHistory = [historyItem, ...filtered].slice(0, 5); // Keep only 5 most recent
-      // Immediately save to localStorage
-      localStorage.setItem("polymarket_search_history", JSON.stringify(newHistory));
-      return newHistory;
-    });
-  }, []);
-
-  // Add market to recently viewed (only from table clicks)
-  const addToRecentlyViewed = useCallback((market: DisplayMarket) => {
-    const historyItem: SearchHistoryItem = {
-      id: market.id,
-      name: market.name || market.title || "Unknown",
-      probability: Number(market.probability) || 0,
-      volume: market.volume || "$0",
-      timestamp: Date.now(),
-    };
-    
-    setRecentlyViewed(prev => {
-      const filtered = prev.filter(item => item.id !== market.id);
-      const newHistory = [historyItem, ...filtered].slice(0, 5); // Keep only 5 most recent
-      // Immediately save to localStorage
-      localStorage.setItem("polymarket_recently_viewed", JSON.stringify(newHistory));
-      return newHistory;
-    });
-  }, []);
-
-  // Clear search history
-  const clearSearchHistory = () => {
-    setSearchHistory([]);
-    localStorage.removeItem("polymarket_search_history");
-  };
-
-  // Clear recently viewed
-  const clearRecentlyViewed = () => {
-    setRecentlyViewed([]);
-    localStorage.removeItem("polymarket_recently_viewed");
-  };
-
-  // Remove single item from history
-  const removeFromHistory = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setSearchHistory(prev => {
-      const newHistory = prev.filter(item => item.id !== id);
-      localStorage.setItem("polymarket_search_history", JSON.stringify(newHistory));
-      return newHistory;
-    });
-  };
-
-  // Handle market selection from search
-  const handleMarketSelect = (market: DisplayMarket) => {
-    addToSearchHistory(market);
-    setSearchQuery("");
-    setIsSearchFocused(false);
-    onMarketClick(market);
-  };
-
-  // Handle selecting from history (moves item to top of list)
-  const handleHistorySelect = (item: SearchHistoryItem) => {
-    const market: DisplayMarket = {
-      id: item.id,
-      name: item.name,
-      probability: item.probability,
-      volume: item.volume,
-    };
-    // Move this item to top of search history
-    addToSearchHistory(market);
-    setSearchQuery("");
-    setIsSearchFocused(false);
-    onMarketClick(market);
-  };
-
-  // Handle clicking on a market from the table
-  const handleTableMarketClick = (market: DisplayMarket) => {
-    addToRecentlyViewed(market);
-    onMarketClick(market);
-  };
-
-  // Handle clicking on a recently viewed market
-  const handleRecentlyViewedClick = (item: SearchHistoryItem) => {
-    const market: DisplayMarket = {
-      id: item.id,
-      name: item.name,
-      probability: item.probability,
-      volume: item.volume,
-    };
-    onMarketClick(market);
-  };
-
-  // Fetch markets with cache-first strategy
-  useEffect(() => {
-    const fetchMarkets = async () => {
-      // Check for cached data first
-      const cached = loadCachedMarkets(timeFilter);
-      
-      if (cached && cached.length > 0) {
-        // Use cached data immediately (no loading state)
-        setAllMarkets(cached);
-        cachedAllMarkets = cached;
-        cacheTimeFilter = timeFilter;
-        setLoading(false);
-        setDisplayedCount(INITIAL_LOAD);
-        
-        // Refresh in background
-        setIsRefreshing(true);
-      } else {
-        // No cache - show loading
-        setLoading(true);
-        setDisplayedCount(INITIAL_LOAD);
-      }
-      
-      setError(null);
-      
-      try {
-        const data = await getTrendingMarkets(timeFilter);
-        
-        if (!Array.isArray(data)) {
-          throw new Error("Invalid data format");
-        }
-        
-        const displayMarkets = data
-          .filter((m: any) => m && m.title)
-          .map((m: any) => convertApiMarketToDisplay(m, timeFilter));
-        
-        setAllMarkets(displayMarkets);
-        
-        // Update memory cache for search
-        cachedAllMarkets = displayMarkets;
-        cacheTimeFilter = timeFilter;
-        
-        // Save to localStorage cache
-        saveCachedMarkets(displayMarkets, timeFilter);
-        
-      } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to fetch markets";
-        console.error("Error fetching markets:", message);
-        // Only show error if we don't have cached data
-        if (!cached || cached.length === 0) {
-          setError(message);
-          setAllMarkets([]);
-        }
-      } finally {
-        setLoading(false);
-        setIsRefreshing(false);
-      }
-    };
-
-    fetchMarkets();
-  }, [timeFilter]);
-
-  // Prefetch other time filters in background for instant switching
-  useEffect(() => {
-    const prefetchOtherFilters = async () => {
-      const filters: TimeFilter[] = ["24h", "7d", "1m"];
-      const otherFilters = filters.filter(f => f !== timeFilter);
-      
-      for (const filter of otherFilters) {
-        // Skip if already cached
-        if (loadCachedMarkets(filter)) continue;
-        
-        try {
-          const data = await getTrendingMarkets(filter);
-          if (Array.isArray(data)) {
-            const displayMarkets = data
-              .filter((m: any) => m && m.title)
-              .map((m: any) => convertApiMarketToDisplay(m, filter));
-            saveCachedMarkets(displayMarkets, filter);
-          }
-        } catch (e) {
-          // Silent fail for prefetch
-        }
-      }
-    };
-
-    // Prefetch after initial load completes (with delay to not block main fetch)
-    const prefetchTimeout = setTimeout(prefetchOtherFilters, 2000);
-    return () => clearTimeout(prefetchTimeout);
-  }, []);
-
-  // Load more markets handler
-  const handleLoadMore = () => {
-    setLoadingMore(true);
-    setTimeout(() => {
-      setDisplayedCount(prev => Math.min(prev + LOAD_MORE_COUNT, allMarkets.length));
-      setLoadingMore(false);
-    }, 200);
-  };
-
-  // Get markets to display (paginated)
-  const displayedMarkets = allMarkets.slice(0, displayedCount);
-  const hasMoreMarkets = displayedCount < allMarkets.length;
 
   return (
-    <div className="max-w-[1800px] mx-auto space-y-8">
-      {/* Recently Viewed Markets - Only from table clicks */}
-      {recentlyViewed.length > 0 && (
-        <div>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-[15px] font-light tracking-tight text-gray-400 uppercase flex items-center gap-2">
-              <Clock className="w-4 h-4" />
-              Recently Viewed
-            </h3>
-            <button
-              onClick={clearRecentlyViewed}
-              className="text-[14px] text-gray-500 hover:text-gray-300 transition-colors"
-            >
-              Clear all
-            </button>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-3">
-            {recentlyViewed.slice(0, 5).map((item) => (
-              <div
-                key={item.id}
-                onClick={() => handleRecentlyViewedClick(item)}
-                className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-lg p-3 hover:border-gray-700/50 cursor-pointer transition-all group"
-              >
-                <div className="text-[15px] text-gray-200 truncate mb-2 group-hover:text-gray-100 transition-colors">
-                  {item.name}
-                </div>
-                <div className="flex items-center justify-between text-[14px]">
-                  <span className="text-[#4a6fa5] font-medium">{item.probability}%</span>
-                  <span className="text-green-500">{item.volume}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
+    <div className="max-w-[1400px] mx-auto">
+      <div className="mb-8">
+        <h1 className="text-[28px] font-light tracking-tight text-gray-100 mb-2">
+          Welcome to Paragon
+        </h1>
+        <p className="text-[16px] text-gray-400 font-light">
+          Your gateway to prediction market analytics and insights
+        </p>
+      </div>
 
-      {/* Trending Markets */}
-      <div>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <h2 className="text-[19px] font-light tracking-tight text-gray-200 uppercase">
-              Trending Markets
-            </h2>
-            {isRefreshing && (
-              <div className="flex items-center gap-1.5 text-[14px] text-gray-500">
-                <Loader2 className="w-3 h-3 animate-spin" />
-                <span>Updating...</span>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        {pages.map((page) => {
+          const Icon = page.icon;
+          return (
+            <div
+              key={page.id}
+              onClick={() => handleNavigation(page.id)}
+              className="group cursor-pointer"
+            >
+              <div className="border-2 border-white/20 hover:border-white/40 rounded-xl overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-white/5">
+                {/* Preview Image Area */}
+                <div className={`h-[200px] bg-gradient-to-br ${page.previewBg} relative overflow-hidden`}>
+                  {/* Placeholder preview content */}
+                  <div className="absolute inset-0 flex items-center justify-center">
+                    <Icon className="w-16 h-16 text-white/20 group-hover:text-white/30 transition-all duration-300" />
+                  </div>
+                  
+                  {/* Grid pattern overlay */}
+                  <div className="absolute inset-0 opacity-10">
+                    <div className="w-full h-full" style={{
+                      backgroundImage: `
+                        linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px),
+                        linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)
+                      `,
+                      backgroundSize: '20px 20px'
+                    }} />
+                  </div>
+
+                  {/* Fake chart lines for markets */}
+                  {page.id === "markets" && (
+                    <svg className="absolute bottom-4 left-4 right-4 h-12 opacity-30">
+                      <polyline
+                        fill="none"
+                        stroke="#4a6fa5"
+                        strokeWidth="2"
+                        points="0,40 30,35 60,25 90,30 120,15 150,20 180,10 210,18 240,8"
+                      />
+                    </svg>
+                  )}
+
+                  {/* Fake feed items for feed */}
+                  {page.id === "feed" && (
+                    <div className="absolute bottom-4 left-4 right-4 space-y-2 opacity-30">
+                      <div className="h-2 bg-white/30 rounded w-3/4"></div>
+                      <div className="h-2 bg-white/20 rounded w-1/2"></div>
+                      <div className="h-2 bg-white/20 rounded w-2/3"></div>
+                    </div>
+                  )}
+
+                  {/* Fake pie chart for portfolio */}
+                  {page.id === "portfolio" && (
+                    <svg className="absolute bottom-4 right-4 w-16 h-16 opacity-30" viewBox="0 0 32 32">
+                      <circle cx="16" cy="16" r="12" fill="none" stroke="#22c55e" strokeWidth="4" strokeDasharray="40 75" />
+                      <circle cx="16" cy="16" r="12" fill="none" stroke="#4a6fa5" strokeWidth="4" strokeDasharray="25 75" strokeDashoffset="-40" />
+                      <circle cx="16" cy="16" r="12" fill="none" stroke="#eab308" strokeWidth="4" strokeDasharray="10 75" strokeDashoffset="-65" />
+                    </svg>
+                  )}
+                </div>
+
+                {/* Content Area */}
+                <div className="p-5 bg-gradient-to-b from-[#0d0d0d] to-[#0a0a0a]">
+                  <div className="flex items-center gap-3 mb-3">
+                    <div className="p-2 rounded-lg bg-white/5 border border-white/10">
+                      <Icon className="w-5 h-5 text-gray-300" />
+                    </div>
+                    <h3 className="text-[18px] font-medium text-gray-100 tracking-tight">
+                      {page.title}
+                    </h3>
+                  </div>
+                  <p className="text-[14px] text-gray-400 font-light leading-relaxed">
+                    {page.description}
+                  </p>
+                </div>
               </div>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setTimeFilter("24h")}
-              className={`px-4 py-1.5 text-[14px] font-light tracking-wide rounded transition-all ${
-                timeFilter === "24h"
-                  ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
-                  : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
-              }`}
-            >
-              24H
-            </button>
-            <button
-              onClick={() => setTimeFilter("7d")}
-              className={`px-4 py-1.5 text-[14px] font-light tracking-wide rounded transition-all ${
-                timeFilter === "7d"
-                  ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
-                  : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
-              }`}
-            >
-              7D
-            </button>
-            <button
-              onClick={() => setTimeFilter("1m")}
-              className={`px-4 py-1.5 text-[14px] font-light tracking-wide rounded transition-all ${
-                timeFilter === "1m"
-                  ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
-                  : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
-              }`}
-            >
-              1M
-            </button>
-          </div>
-        </div>
-        <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl overflow-hidden shadow-xl shadow-black/20">
-          <table className="w-full text-[14px]">
-            <thead>
-              <tr className="border-b border-gray-800/50 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
-                <th className="text-left py-4 px-5 text-gray-400 font-light tracking-wide uppercase">
-                  Market
-                </th>
-                <th className="text-right py-4 px-5 text-gray-400 font-light tracking-wide uppercase">
-                  Probability
-                </th>
-                <th className="text-right py-4 px-5 text-gray-400 font-light tracking-wide uppercase">
-                  {timeFilter === "24h" ? "24h" : timeFilter === "7d" ? "7d" : "1M"} Volume
-                </th>
-                <th className="w-10"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                // Skeleton loading rows - shows instantly, feels faster
-                [...Array(8)].map((_, i) => (
-                  <tr key={i} className="border-b border-gray-800/30 animate-pulse">
-                    <td className="py-3.5 px-5">
-                      <div className="h-5 bg-gray-800/50 rounded w-3/4"></div>
-                    </td>
-                    <td className="py-3.5 px-5 text-right">
-                      <div className="h-5 bg-gray-800/50 rounded w-12 ml-auto"></div>
-                    </td>
-                    <td className="py-3.5 px-5 text-right">
-                      <div className="h-5 bg-gray-800/50 rounded w-16 ml-auto"></div>
-                    </td>
-                    <td className="py-3.5 px-5 text-right">
-                      <div className="h-5 bg-gray-800/50 rounded w-4 ml-auto"></div>
-                    </td>
-                  </tr>
-                ))
-              ) : error ? (
-                <tr>
-                  <td colSpan={4} className="py-8 text-center text-red-400 text-[15px]">
-                    Error: {error}
-                  </td>
-                </tr>
-              ) : allMarkets.length === 0 ? (
-                <tr>
-                  <td colSpan={4} className="py-8 text-center text-gray-400 text-[15px]">
-                    No active markets found
-                  </td>
-                </tr>
-              ) : (
-                displayedMarkets.map((market, index) => (
-                  <tr
-                    key={market.id}
-                    onClick={() => handleTableMarketClick(market)}
-                    className={`border-b border-gray-800/30 hover:bg-gradient-to-r hover:from-[#111111] hover:to-transparent transition-all duration-150 cursor-pointer ${
-                      index === displayedMarkets.length - 1 ? "border-b-0" : ""
-                    }`}
-                  >
-                    <td className="py-3.5 px-5 text-gray-200 max-w-[500px] truncate font-light">
-                      {market.name || market.title}
-                    </td>
-                    <td className="py-3.5 px-5 text-right text-[#4a6fa5] font-normal">
-                      {market.probability}%
-                    </td>
-                    <td className="py-3.5 px-5 text-right text-green-500 font-light">
-                      {market.volume}
-                    </td>
-                    <td className="py-3.5 px-5 text-right">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleBookmark({
-                            id: market.id,
-                            name: market.name || market.title || "Unknown",
-                            probability: Number(market.probability) || 0,
-                          });
-                        }}
-                        className="text-gray-500 hover:text-[#4a6fa5] transition-all duration-200"
-                      >
-                        <Bookmark
-                          className={`w-4 h-4 ${
-                            isBookmarked(market.id) ? "fill-current text-[#4a6fa5]" : ""
-                          }`}
-                        />
-                      </button>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-        
-        {/* Load More Button */}
-        {!loading && hasMoreMarkets && (
-          <div className="flex justify-center mt-6">
-            <button
-              onClick={handleLoadMore}
-              disabled={loadingMore}
-              className="px-8 py-3 bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 rounded-lg text-[15px] font-light text-gray-200 hover:text-gray-100 hover:border-gray-600/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              {loadingMore ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Loading...
-                </>
-              ) : (
-                <>
-                  Load More Markets
-                  <span className="text-gray-400 text-[13px]">
-                    ({allMarkets.length - displayedCount} remaining)
-                  </span>
-                </>
-              )}
-            </button>
-          </div>
-        )}
-        
-        {/* All loaded indicator */}
-        {!loading && !hasMoreMarkets && allMarkets.length > INITIAL_LOAD && (
-          <div className="text-center mt-4 text-gray-500 text-[14px]">
-            All {allMarkets.length} markets loaded
-          </div>
-        )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

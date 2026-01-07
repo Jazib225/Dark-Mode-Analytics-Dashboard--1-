@@ -61,7 +61,7 @@ export default function App() {
   
   const searchRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Load search history from localStorage on mount
   useEffect(() => {
@@ -346,7 +346,7 @@ export default function App() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => setIsSearchFocused(true)}
                 placeholder="Search markets..."
-                className={`w-[320px] bg-[#0d0d0d] border border-gray-800/50 pl-10 pr-10 py-2 text-[14px] text-gray-200 placeholder-gray-500 focus:outline-none focus:border-gray-600/50 transition-all ${
+                className={`w-[400px] bg-[#0d0d0d] border border-gray-800/50 pl-10 pr-10 py-2 text-[14px] text-gray-200 placeholder-gray-500 focus:outline-none focus:border-gray-600/50 transition-all ${
                   isSearchFocused && (searchHistory.length > 0 || searchQuery.trim() || isSearching) 
                     ? "rounded-t-lg rounded-b-none border-b-transparent" 
                     : "rounded-lg"
@@ -514,6 +514,11 @@ export default function App() {
                     volume: market.volume || "$0",
                   });
                   setCurrentPage("markets");
+                }}
+                onNavigate={(page) => {
+                  setCurrentPage(page as Page);
+                  setSelectedWalletAddress(null);
+                  setSelectedMarketId(null);
                 }}
               />
             )}
