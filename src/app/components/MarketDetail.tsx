@@ -39,6 +39,7 @@ interface MarketData {
   uniqueTraders: number;
   tradesCount: number;
   orderBook: any;
+  image?: string | null;
 }
 
 // Multi-outcome market structure
@@ -264,9 +265,21 @@ export function MarketDetail({
             {/* Market Header */}
             <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl p-6 shadow-xl shadow-black/20">
               <div className="flex items-start justify-between mb-4">
-                <h1 className="text-xl font-light tracking-tight text-gray-100 leading-relaxed pr-4">
-                  {marketData?.name || market.name}
-                </h1>
+                <div className="flex items-start gap-4 flex-1 pr-4">
+                  {marketData?.image ? (
+                    <img 
+                      src={marketData.image} 
+                      alt="" 
+                      className="w-14 h-14 rounded-xl object-cover flex-shrink-0"
+                      onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                    />
+                  ) : (
+                    <div className="w-14 h-14 rounded-xl bg-gray-800/50 flex-shrink-0" />
+                  )}
+                  <h1 className="text-xl font-light tracking-tight text-gray-100 leading-relaxed">
+                    {marketData?.name || market.name}
+                  </h1>
+                </div>
                 <button
                   onClick={toggleBookmark}
                   className="text-gray-600 hover:text-[#4a6fa5] transition-all duration-200 flex-shrink-0"

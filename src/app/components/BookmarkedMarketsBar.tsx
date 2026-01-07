@@ -24,7 +24,17 @@ export function BookmarkedMarketsBar({
             onClick={() => onNavigate(market.id)}
             className="flex-shrink-0 flex items-center gap-3 px-4 py-1.5 bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 rounded hover:border-gray-600/50 transition-all shadow-sm"
           >
-            <span className="text-gray-300 max-w-[220px] truncate text-[14px] font-light">
+            {market.image ? (
+              <img 
+                src={market.image} 
+                alt="" 
+                className="w-6 h-6 rounded object-cover flex-shrink-0"
+                onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+              />
+            ) : (
+              <div className="w-6 h-6 rounded bg-gray-800/50 flex-shrink-0" />
+            )}
+            <span className="text-gray-300 max-w-[200px] truncate text-[14px] font-light">
               {market.name}
             </span>
             <span className="text-[#4a6fa5] text-[14px] font-normal">{market.probability}%</span>

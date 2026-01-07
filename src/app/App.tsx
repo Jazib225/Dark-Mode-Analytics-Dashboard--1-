@@ -17,6 +17,7 @@ export interface BookmarkedMarket {
   name: string;
   probability: number;
   volume?: string;
+  image?: string | null;
 }
 
 interface SelectedMarketData {
@@ -74,8 +75,8 @@ export default function App() {
         const cached = localStorage.getItem("polymarket_all_markets_cache");
         if (cached) {
           const data = JSON.parse(cached);
-          // Use cache if less than 5 minutes old
-          if (data.timestamp && Date.now() - data.timestamp < 5 * 60 * 1000) {
+          // Use cache if less than 2 hours old (extended for faster loads)
+          if (data.timestamp && Date.now() - data.timestamp < 2 * 60 * 60 * 1000) {
             setAllMarketsCache(data.markets);
             console.log(`Loaded ${data.markets.length} markets from cache for search`);
             setIsLoadingAllMarkets(false);
@@ -349,18 +350,6 @@ export default function App() {
               </button>
               <button
                 onClick={() => {
-                  setCurrentPage("wallets");
-                  setSelectedWalletAddress(null);
-                  setSelectedMarketId(null);
-                }}
-                className={`text-[16px] font-light tracking-wide transition-all ${
-                  currentPage === "wallets" ? "text-gray-100" : "text-gray-400 hover:text-gray-200"
-                }`}
-              >
-                WALLETS
-              </button>
-              <button
-                onClick={() => {
                   setCurrentPage("insiderlens");
                   setSelectedWalletAddress(null);
                   setSelectedMarketId(null);
@@ -370,6 +359,18 @@ export default function App() {
                 }`}
               >
                 INSIDERLENS
+              </button>
+              <button
+                onClick={() => {
+                  setCurrentPage("wallets");
+                  setSelectedWalletAddress(null);
+                  setSelectedMarketId(null);
+                }}
+                className={`text-[16px] font-light tracking-wide transition-all ${
+                  currentPage === "wallets" ? "text-gray-100" : "text-gray-400 hover:text-gray-200"
+                }`}
+              >
+                WALLETS
               </button>
               <button
                 onClick={() => {

@@ -50,7 +50,17 @@ type TimeFilter = "24h" | "7d" | "1m";
 // LocalStorage cache keys - separate cache per timeFilter for instant switching
 // Version 2: Added yesPriceCents and noPriceCents fields
 const MARKETS_CACHE_PREFIX = "polymarket_markets_v2_";
-const CACHE_EXPIRY_MS = 30 * 60 * 1000; // 30 minutes - longer cache for faster loads
+const CACHE_EXPIRY_MS = 2 * 60 * 60 * 1000; // 2 hours - longer cache for instant loads
+
+// Preload images for faster display
+function preloadImages(markets: DisplayMarket[]): void {
+  markets.forEach(market => {
+    if (market.image) {
+      const img = new Image();
+      img.src = market.image;
+    }
+  });
+}
 
 interface CachedData {
   markets: DisplayMarket[];
@@ -184,6 +194,8 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMa
         
         // Refresh in background
         setIsRefreshing(true);
+        // Preload cached images immediately
+        preloadImages(cached);
       } else {
         // No cache - show loading
         setLoading(true);
@@ -207,6 +219,9 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMa
         
         // Save to localStorage cache
         saveCachedMarkets(displayMarkets, timeFilter);
+        
+        // Preload images for fast display
+        preloadImages(displayMarkets);
         
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to fetch markets";
@@ -436,6 +451,8 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMa
                             src={market.image} 
                             alt="" 
                             className="w-8 h-8 rounded-lg object-cover flex-shrink-0"
+                            loading="eager"
+                            decoding="async"
                             onError={(e) => {
                               // Hide broken images
                               (e.target as HTMLImageElement).style.display = 'none';

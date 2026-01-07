@@ -557,6 +557,9 @@ export async function getMarketDetails(marketId: string) {
       // Additional stats
       uniqueTraders: parseInt(String(marketData.uniqueTraders || 0)) || 0,
       tradesCount: parseInt(String(marketData.tradesCount || 0)) || 0,
+      
+      // Market image
+      image: marketData.image || null,
     };
     
     console.log("Final market details:", result);
