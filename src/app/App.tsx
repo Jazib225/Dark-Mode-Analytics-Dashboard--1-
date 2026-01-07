@@ -3,13 +3,13 @@ import { Discover } from "./components/Discover";
 import { Markets } from "./components/Markets";
 import { WalletsList } from "./components/WalletsList";
 import { WalletProfile } from "./components/WalletProfile";
-import { Feed } from "./components/Feed";
+import { InsiderLens } from "./components/InsiderLens";
 import { Portfolio } from "./components/Portfolio";
 import { BookmarkedMarketsBar } from "./components/BookmarkedMarketsBar";
 import { Search, X, Clock, TrendingUp, Bookmark, Loader2 } from "lucide-react";
 import paragonLogo from "../assets/paragon-logo.png";
 
-type Page = "discover" | "markets" | "wallets" | "feed" | "portfolio";
+type Page = "discover" | "markets" | "wallets" | "insiderlens" | "portfolio";
 
 export interface BookmarkedMarket {
   id: string;
@@ -311,15 +311,15 @@ export default function App() {
               </button>
               <button
                 onClick={() => {
-                  setCurrentPage("feed");
+                  setCurrentPage("insiderlens");
                   setSelectedWalletAddress(null);
                   setSelectedMarketId(null);
                 }}
                 className={`text-[16px] font-light tracking-wide transition-all ${
-                  currentPage === "feed" ? "text-gray-100" : "text-gray-400 hover:text-gray-200"
+                  currentPage === "insiderlens" ? "text-gray-100" : "text-gray-400 hover:text-gray-200"
                 }`}
               >
-                FEED
+                INSIDERLENS
               </button>
               <button
                 onClick={() => {
@@ -532,7 +532,7 @@ export default function App() {
               />
             )}
             {currentPage === "wallets" && <WalletsList onWalletClick={openWalletProfile} />}
-            {currentPage === "feed" && <Feed onWalletClick={openWalletProfile} />}
+            {currentPage === "insiderlens" && <InsiderLens onWalletClick={openWalletProfile} />}
             {currentPage === "portfolio" && <Portfolio />}
           </>
         )}
