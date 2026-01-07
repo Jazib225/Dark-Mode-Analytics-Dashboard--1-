@@ -795,3 +795,179 @@ export async function getRecentTrades(limit = 50, offset = 0) {
     return [];
   }
 }
+
+/**
+ * Get event details with all its markets (for multi-outcome markets like Fed decisions)
+ * This returns the parent event with all child markets and their prices
+ */
+export async function getEventWithMarkets(marketId: string) {
+  try {
+    console.log(`Fetching event for market: ${marketId}`);
+    
+    // First, find the event that contains this market
+    const eventsResponse = await fetchWithTimeout(
+      gammaUrl("/events", { limit: "500", active: "true", closed: "false" })
+    );
+    
+    if (!eventsResponse.ok) throw new Error(`HTTP ${eventsResponse.status}`);
+    const events = await eventsResponse.json();
+    
+    let parentEvent: any = null;
+    let targetMarket: any = null;
+    
+    if (Array.isArray(events)) {
+      for (const event of events) {
+        if (Array.isArray(event.markets)) {
+          const found = event.markets.find((m: any) => m.id === marketId);
+          if (found) {
+            parentEvent = event;
+            targetMarket = found;
+            break;
+          }
+        }
+      }
+    }
+    
+    if (!parentEvent) {
+      console.log("Market not found in any event");
+      return null;
+    }
+    
+    console.log(`Found event: ${parentEvent.title} with ${parentEvent.markets?.length} markets`);
+    
+    // Get prices for all markets in this event
+    const marketsWithPrices = await Promise.all(
+      (parentEvent.markets || []).map(async (market: any) => {
+        let yesPrice = 0.5;
+        let noPrice = 0.5;
+        
+        // Parse outcomePrices (JSON string or array)
+        if (market.outcomePrices) {
+          try {
+            const prices = typeof market.outcomePrices === 'string'
+              ? JSON.parse(market.outcomePrices)
+              : market.outcomePrices;
+            if (Array.isArray(prices) && prices.length >= 1) {
+              const parsed = parseFloat(String(prices[0]));
+              if (!isNaN(parsed) && parsed >= 0 && parsed <= 1) {
+                yesPrice = parsed;
+                noPrice = prices.length > 1 ? parseFloat(String(prices[1])) : (1 - yesPrice);
+              }
+            }
+          } catch (e) {
+            console.log("Failed to parse outcomePrices for", market.id);
+          }
+        }
+        
+        // Try CLOB API for live order book prices
+        let clobTokenIds: string[] = [];
+        if (market.clobTokenIds) {
+          try {
+            clobTokenIds = typeof market.clobTokenIds === 'string'
+              ? JSON.parse(market.clobTokenIds)
+              : market.clobTokenIds;
+          } catch (e) {}
+        }
+        
+        if (clobTokenIds.length > 0) {
+          try {
+            const orderBookResponse = await fetchWithTimeout(
+              clobUrl("/book", { token_id: clobTokenIds[0] }),
+              5000 // 5 second timeout
+            );
+            
+            if (orderBookResponse.ok) {
+              const clobData = await orderBookResponse.json();
+              if (clobData?.bids?.length > 0 && clobData?.asks?.length > 0) {
+                const bestBid = parseFloat(String(clobData.bids[0]?.price || 0));
+                const bestAsk = parseFloat(String(clobData.asks[0]?.price || 1));
+                if (!isNaN(bestBid) && !isNaN(bestAsk) && bestBid > 0 && bestAsk < 1) {
+                  yesPrice = (bestBid + bestAsk) / 2;
+                  noPrice = 1 - yesPrice;
+                }
+              }
+            }
+          } catch (e) {
+            // Use outcomePrices fallback
+          }
+        }
+        
+        const volumeNum = parseFloat(String(market.volume || market.volumeNum || 0)) || 0;
+        
+        return {
+          id: market.id,
+          question: market.question || market.title,
+          outcome: market.outcome || market.groupItemTitle || market.question,
+          yesPrice,
+          noPrice,
+          yesPriceCents: Math.round(yesPrice * 100),
+          noPriceCents: Math.round(noPrice * 100),
+          volume: formatVolumeHelper(volumeNum),
+          volumeNum,
+          clobTokenIds,
+        };
+      })
+    );
+    
+    return {
+      id: parentEvent.id,
+      title: parentEvent.title,
+      slug: parentEvent.slug,
+      description: parentEvent.description,
+      isMultiOutcome: parentEvent.markets?.length > 1,
+      markets: marketsWithPrices,
+      // The specific market that was requested
+      targetMarket: marketsWithPrices.find((m: any) => m.id === marketId),
+    };
+  } catch (error) {
+    console.error("Failed to fetch event with markets:", error);
+    return null;
+  }
+}
+
+/**
+ * Get live CLOB prices for a specific market token
+ * Returns bid/ask/mid prices and spread
+ */
+export async function getClobPrices(tokenId: string) {
+  try {
+    const response = await fetchWithTimeout(
+      clobUrl("/book", { token_id: tokenId }),
+      5000
+    );
+    
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const data = await response.json();
+    
+    if (!data || !data.bids || !data.asks) {
+      return null;
+    }
+    
+    const bestBid = data.bids[0] ? parseFloat(String(data.bids[0].price)) : 0;
+    const bestAsk = data.asks[0] ? parseFloat(String(data.asks[0].price)) : 1;
+    const midPrice = (bestBid + bestAsk) / 2;
+    const spread = bestAsk - bestBid;
+    
+    // Calculate total liquidity at best prices
+    const bidLiquidity = data.bids.slice(0, 5).reduce((sum: number, b: any) => 
+      sum + parseFloat(String(b.size || 0)), 0);
+    const askLiquidity = data.asks.slice(0, 5).reduce((sum: number, a: any) => 
+      sum + parseFloat(String(a.size || 0)), 0);
+    
+    return {
+      bestBid,
+      bestAsk,
+      midPrice,
+      spread,
+      bidLiquidity,
+      askLiquidity,
+      // Convert to cents for display (like Polymarket does)
+      yesPriceCents: Math.round(midPrice * 100),
+      noPriceCents: Math.round((1 - midPrice) * 100),
+    };
+  } catch (error) {
+    console.error("Failed to fetch CLOB prices:", error);
+    return null;
+  }
+}
+

@@ -1,7 +1,7 @@
 import { ArrowLeft, Bookmark, TrendingUp, TrendingDown, DollarSign, Users, Activity, Minus, Plus, Loader2 } from "lucide-react";
 import { XAxis, YAxis, Tooltip, ResponsiveContainer, Area, AreaChart } from "recharts";
 import { useState, useEffect } from "react";
-import { getMarketDetails, getMarketPriceHistory, getMarketTrades } from "../services/polymarketApi";
+import { getMarketDetails, getMarketPriceHistory, getMarketTrades, getEventWithMarkets, getClobPrices } from "../services/polymarketApi";
 
 interface MarketDetailProps {
   market: {
@@ -41,6 +41,27 @@ interface MarketData {
   orderBook: any;
 }
 
+// Multi-outcome market structure
+interface OutcomeMarket {
+  id: string;
+  question: string;
+  outcome: string;
+  yesPrice: number;
+  noPrice: number;
+  yesPriceCents: number;
+  noPriceCents: number;
+  volume: string;
+  volumeNum: number;
+}
+
+interface EventData {
+  id: string;
+  title: string;
+  isMultiOutcome: boolean;
+  markets: OutcomeMarket[];
+  targetMarket?: OutcomeMarket;
+}
+
 interface PricePoint {
   time: string;
   timestamp: number;
@@ -66,9 +87,11 @@ export function MarketDetail({
   const [tradeAmount, setTradeAmount] = useState("");
   const [tradeSide, setTradeSide] = useState<"YES" | "NO">("YES");
   const [shareQuantity, setShareQuantity] = useState(0);
+  const [selectedOutcome, setSelectedOutcome] = useState<OutcomeMarket | null>(null);
   
   // Real data states
   const [marketData, setMarketData] = useState<MarketData | null>(null);
+  const [eventData, setEventData] = useState<EventData | null>(null);
   const [priceHistory, setPriceHistory] = useState<PricePoint[]>([]);
   const [recentTrades, setRecentTrades] = useState<Trade[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -81,10 +104,21 @@ export function MarketDetail({
       setError(null);
       
       try {
-        // Fetch market details
+        // Fetch market details first
         const details = await getMarketDetails(market.id);
         if (details) {
           setMarketData(details);
+        }
+        
+        // Fetch event data (for multi-outcome markets like Fed decisions)
+        const event = await getEventWithMarkets(market.id);
+        if (event) {
+          setEventData(event);
+          // If it's a multi-outcome market, select the target market by default
+          if (event.isMultiOutcome && event.targetMarket) {
+            setSelectedOutcome(event.targetMarket);
+          }
+          console.log("Event data:", event);
         }
         
         // Fetch price history
@@ -139,14 +173,21 @@ export function MarketDetail({
   };
   
   // Get yes/no prices with proper fallbacks
-  const yesPrice = marketData?.yesPrice ?? safeNumber(market.probability, 50) / 100;
-  const noPrice = marketData?.noPrice ?? (1 - yesPrice);
-  const currentProbability = marketData?.probability ?? safeNumber(market.probability, 50);
+  // For multi-outcome markets, use the selected outcome's prices
+  const activeOutcome = selectedOutcome || (eventData?.targetMarket);
+  const yesPrice = activeOutcome?.yesPrice ?? marketData?.yesPrice ?? safeNumber(market.probability, 50) / 100;
+  const noPrice = activeOutcome?.noPrice ?? marketData?.noPrice ?? (1 - yesPrice);
+  const yesPriceCents = activeOutcome?.yesPriceCents ?? Math.round(yesPrice * 100);
+  const noPriceCents = activeOutcome?.noPriceCents ?? Math.round(noPrice * 100);
+  const currentProbability = activeOutcome ? activeOutcome.yesPrice * 100 : (marketData?.probability ?? safeNumber(market.probability, 50));
   const currentPrice = tradeSide === "YES" ? yesPrice : noPrice;
   const currentVolume = marketData?.volume ?? market.volume ?? "$0";
   const currentVolume24h = marketData?.volume24hr ?? "$0";
   const currentLiquidity = marketData?.liquidity ?? "$0";
   const uniqueTraders = marketData?.uniqueTraders ?? 0;
+  
+  // Check if this is a multi-outcome market
+  const isMultiOutcome = eventData?.isMultiOutcome && eventData.markets.length > 1;
 
   const calculateShares = (amount: string) => {
     const numAmount = parseFloat(amount) || 0;
@@ -251,17 +292,84 @@ export function MarketDetail({
                 </div>
               </div>
 
-              {/* Yes/No Prices */}
-              <div className="grid grid-cols-2 gap-4 mt-4">
-                <div className="bg-gradient-to-br from-green-900/20 to-green-900/10 border border-green-500/30 rounded-lg p-4">
-                  <div className="text-xs text-green-400/70 uppercase tracking-wide mb-1">Yes Price</div>
-                  <div className="text-2xl font-light text-green-400">${yesPrice.toFixed(2)}</div>
+              {/* Multi-Outcome Markets Display (like Polymarket's Fed decision layout) */}
+              {isMultiOutcome && eventData?.markets && (
+                <div className="mt-6">
+                  <div className="text-xs text-gray-500 uppercase tracking-wide mb-3">Outcomes</div>
+                  <div className="space-y-2">
+                    {eventData.markets.map((outcome) => {
+                      const isSelected = selectedOutcome?.id === outcome.id;
+                      const probability = outcome.yesPrice * 100;
+                      return (
+                        <div
+                          key={outcome.id}
+                          onClick={() => {
+                            setSelectedOutcome(outcome);
+                            setTradeSide("YES");
+                            setShareQuantity(0);
+                            setTradeAmount("");
+                          }}
+                          className={`flex items-center justify-between p-4 rounded-lg cursor-pointer transition-all ${
+                            isSelected
+                              ? "bg-gradient-to-r from-[#4a6fa5]/20 to-[#4a6fa5]/10 border border-[#4a6fa5]/50"
+                              : "bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-800/30 hover:border-gray-700/50"
+                          }`}
+                        >
+                          <div className="flex-1">
+                            <div className={`text-sm font-normal ${isSelected ? "text-gray-100" : "text-gray-300"}`}>
+                              {outcome.outcome || outcome.question}
+                            </div>
+                            <div className="text-xs text-gray-500 mt-0.5">{outcome.volume} Vol.</div>
+                          </div>
+                          <div className="text-right flex items-center gap-4">
+                            <div className="text-xl font-light text-[#4a6fa5]">
+                              {probability < 1 ? "<1" : probability.toFixed(0)}%
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedOutcome(outcome);
+                                  setTradeSide("YES");
+                                }}
+                                className="px-3 py-1.5 text-xs font-medium bg-green-900/30 hover:bg-green-900/50 border border-green-500/30 rounded text-green-400 transition-all"
+                              >
+                                Buy Yes {outcome.yesPriceCents}¢
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setSelectedOutcome(outcome);
+                                  setTradeSide("NO");
+                                }}
+                                className="px-3 py-1.5 text-xs font-medium bg-red-900/30 hover:bg-red-900/50 border border-red-500/30 rounded text-red-400 transition-all"
+                              >
+                                Buy No {outcome.noPriceCents}¢
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                <div className="bg-gradient-to-br from-red-900/20 to-red-900/10 border border-red-500/30 rounded-lg p-4">
-                  <div className="text-xs text-red-400/70 uppercase tracking-wide mb-1">No Price</div>
-                  <div className="text-2xl font-light text-red-400">${noPrice.toFixed(2)}</div>
+              )}
+
+              {/* Simple Yes/No Prices for Binary Markets */}
+              {!isMultiOutcome && (
+                <div className="grid grid-cols-2 gap-4 mt-4">
+                  <div className="bg-gradient-to-br from-green-900/20 to-green-900/10 border border-green-500/30 rounded-lg p-4">
+                    <div className="text-xs text-green-400/70 uppercase tracking-wide mb-1">Buy Yes</div>
+                    <div className="text-2xl font-light text-green-400">{yesPriceCents}¢</div>
+                    <div className="text-xs text-green-500/50 mt-1">${yesPrice.toFixed(2)} per share</div>
+                  </div>
+                  <div className="bg-gradient-to-br from-red-900/20 to-red-900/10 border border-red-500/30 rounded-lg p-4">
+                    <div className="text-xs text-red-400/70 uppercase tracking-wide mb-1">Buy No</div>
+                    <div className="text-2xl font-light text-red-400">{noPriceCents}¢</div>
+                    <div className="text-xs text-red-500/50 mt-1">${noPrice.toFixed(2)} per share</div>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Price Chart */}
@@ -341,6 +449,14 @@ export function MarketDetail({
               </div>
 
               <div className="p-6 space-y-6">
+                {/* Selected Outcome Indicator for Multi-Outcome */}
+                {isMultiOutcome && selectedOutcome && (
+                  <div className="bg-gradient-to-r from-[#4a6fa5]/20 to-[#4a6fa5]/10 border border-[#4a6fa5]/30 rounded-lg p-3">
+                    <div className="text-xs text-gray-400 mb-1">Trading on</div>
+                    <div className="text-sm font-medium text-gray-200">{selectedOutcome.outcome || selectedOutcome.question}</div>
+                  </div>
+                )}
+
                 {/* Outcome Selection */}
                 <div>
                   <label className="block text-xs text-gray-500 mb-3 font-light uppercase tracking-wide">Select Outcome</label>
@@ -354,7 +470,7 @@ export function MarketDetail({
                       }`}
                     >
                       <div className="text-lg font-medium">YES</div>
-                      <div className={`text-xs mt-1 ${tradeSide === "YES" ? "text-green-500/70" : "text-gray-600"}`}>${yesPrice.toFixed(2)} per share</div>
+                      <div className={`text-xs mt-1 ${tradeSide === "YES" ? "text-green-500/70" : "text-gray-600"}`}>{yesPriceCents}¢ per share</div>
                       {tradeSide === "YES" && <div className="absolute top-2 right-2 w-2 h-2 bg-green-500 rounded-full"></div>}
                     </button>
                     <button
@@ -366,7 +482,7 @@ export function MarketDetail({
                       }`}
                     >
                       <div className="text-lg font-medium">NO</div>
-                      <div className={`text-xs mt-1 ${tradeSide === "NO" ? "text-red-500/70" : "text-gray-600"}`}>${noPrice.toFixed(2)} per share</div>
+                      <div className={`text-xs mt-1 ${tradeSide === "NO" ? "text-red-500/70" : "text-gray-600"}`}>{noPriceCents}¢ per share</div>
                       {tradeSide === "NO" && <div className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full"></div>}
                     </button>
                   </div>

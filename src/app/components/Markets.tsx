@@ -22,6 +22,8 @@ interface DisplayMarket {
   title?: string;
   name?: string;
   probability?: number | string;
+  yesPriceCents?: number;
+  noPriceCents?: number;
   volume?: string;
   volumeUsd?: string;
   volumeNum?: number;
@@ -78,6 +80,11 @@ function convertApiMarketToDisplay(market: any, timeframe: TimeFilter = "24h"): 
     volumeUsd = market.volume1mo || market.volumeUsd;
   }
   
+  // Calculate probability from lastPriceUsd (which is the Yes price 0-1)
+  const yesPrice = market.lastPriceUsd ? parseFloat(String(market.lastPriceUsd)) : 0.5;
+  const yesPriceCents = Math.round(yesPrice * 100);
+  const noPriceCents = 100 - yesPriceCents;
+  
   return {
     id: market.id,
     name: market.title || market.name,
@@ -85,6 +92,8 @@ function convertApiMarketToDisplay(market: any, timeframe: TimeFilter = "24h"): 
     probability: market.lastPriceUsd
       ? (parseFloat(String(market.lastPriceUsd)) * 100).toFixed(1)
       : market.probability,
+    yesPriceCents,
+    noPriceCents,
     volumeUsd: String(volumeUsd),
     volume: formatVolume(parseFloat(String(volumeUsd || 0))),
   };
@@ -106,6 +115,13 @@ const LOAD_MORE_COUNT = 15;
 export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMarketId, initialMarketData }: MarketsProps) {
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(initialMarketId || null);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("24h");
+
+  // Sync selectedMarketId when initialMarketId changes from parent (e.g., from search)
+  useEffect(() => {
+    if (initialMarketId !== undefined) {
+      setSelectedMarketId(initialMarketId);
+    }
+  }, [initialMarketId]);
   
   // Initialize with cached data if available for instant load
   const [allMarkets, setAllMarkets] = useState<DisplayMarket[]>(() => {
@@ -322,8 +338,11 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMa
                 <th className="text-left py-4 px-5 text-gray-400 font-light tracking-wide uppercase">
                   Market
                 </th>
-                <th className="text-right py-4 px-5 text-gray-400 font-light tracking-wide uppercase">
-                  Probability
+                <th className="text-center py-4 px-5 text-gray-400 font-light tracking-wide uppercase">
+                  % Chance
+                </th>
+                <th className="text-center py-4 px-5 text-gray-400 font-light tracking-wide uppercase">
+                  Buy Yes / No
                 </th>
                 <th className="text-right py-4 px-5 text-gray-400 font-light tracking-wide uppercase">
                   {timeFilter === "24h" ? "24h" : timeFilter === "7d" ? "7d" : "1M"} Volume
@@ -339,8 +358,14 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMa
                     <td className="py-3.5 px-5">
                       <div className="h-5 bg-gray-800/50 rounded w-3/4"></div>
                     </td>
-                    <td className="py-3.5 px-5 text-right">
-                      <div className="h-5 bg-gray-800/50 rounded w-12 ml-auto"></div>
+                    <td className="py-3.5 px-5 text-center">
+                      <div className="h-5 bg-gray-800/50 rounded w-12 mx-auto"></div>
+                    </td>
+                    <td className="py-3.5 px-3 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="h-6 bg-gray-800/50 rounded w-16"></div>
+                        <div className="h-6 bg-gray-800/50 rounded w-16"></div>
+                      </div>
                     </td>
                     <td className="py-3.5 px-5 text-right">
                       <div className="h-5 bg-gray-800/50 rounded w-16 ml-auto"></div>
@@ -352,18 +377,23 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMa
                 ))
               ) : error ? (
                 <tr>
-                  <td colSpan={4} className="py-8 text-center text-red-400 text-[15px]">
+                  <td colSpan={5} className="py-8 text-center text-red-400 text-[15px]">
                     Error: {error}
                   </td>
                 </tr>
               ) : allMarkets.length === 0 ? (
                 <tr>
-                  <td colSpan={4} className="py-8 text-center text-gray-400 text-[15px]">
+                  <td colSpan={5} className="py-8 text-center text-gray-400 text-[15px]">
                     No active markets found
                   </td>
                 </tr>
               ) : (
-                displayedMarkets.map((market, index) => (
+                displayedMarkets.map((market, index) => {
+                  const yesCents = market.yesPriceCents ?? Math.round(Number(market.probability));
+                  const noCents = market.noPriceCents ?? (100 - yesCents);
+                  const probabilityDisplay = Number(market.probability) < 1 ? "<1" : Number(market.probability).toFixed(0);
+                  
+                  return (
                   <tr
                     key={market.id}
                     onClick={() => handleTableMarketClick(market)}
@@ -371,11 +401,21 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMa
                       index === displayedMarkets.length - 1 ? "border-b-0" : ""
                     }`}
                   >
-                    <td className="py-3.5 px-5 text-gray-200 max-w-[500px] truncate font-light">
+                    <td className="py-3.5 px-5 text-gray-200 max-w-[400px] truncate font-light">
                       {market.name || market.title}
                     </td>
-                    <td className="py-3.5 px-5 text-right text-[#4a6fa5] font-normal">
-                      {market.probability}%
+                    <td className="py-3.5 px-5 text-center">
+                      <span className="text-xl font-light text-[#4a6fa5]">{probabilityDisplay}%</span>
+                    </td>
+                    <td className="py-3.5 px-3 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <span className="px-3 py-1.5 text-xs font-medium bg-green-900/30 border border-green-500/30 rounded text-green-400">
+                          Yes {yesCents}¢
+                        </span>
+                        <span className="px-3 py-1.5 text-xs font-medium bg-red-900/30 border border-red-500/30 rounded text-red-400">
+                          No {noCents}¢
+                        </span>
+                      </div>
                     </td>
                     <td className="py-3.5 px-5 text-right text-green-500 font-light">
                       {market.volume}
@@ -400,7 +440,8 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMa
                       </button>
                     </td>
                   </tr>
-                ))
+                  )
+                })
               )}
             </tbody>
           </table>
