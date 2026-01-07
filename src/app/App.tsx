@@ -41,6 +41,7 @@ interface DisplayMarket {
   name?: string;
   probability?: number | string;
   volume?: string;
+  image?: string | null;
 }
 
 export default function App() {
@@ -48,10 +49,7 @@ export default function App() {
   const [selectedWalletAddress, setSelectedWalletAddress] = useState<string | null>(null);
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null);
   const [selectedMarketData, setSelectedMarketData] = useState<SelectedMarketData | null>(null);
-  const [bookmarkedMarkets, setBookmarkedMarkets] = useState<BookmarkedMarket[]>([
-    { id: "1", name: "Will BTC reach $100k by Q1 2026?", probability: 67 },
-    { id: "5", name: "ETH 2.0 full rollout in 2026?", probability: 42 },
-  ]);
+  const [bookmarkedMarkets, setBookmarkedMarkets] = useState<BookmarkedMarket[]>([]);
 
   // Search state (moved from Discover)
   const [searchQuery, setSearchQuery] = useState("");
@@ -181,6 +179,7 @@ export default function App() {
             title: m.title || m.name,
             probability: m.probability || (m.lastPriceUsd ? m.lastPriceUsd * 100 : 50),
             volume: m.volume || "$0",
+            image: m.image || null,
           })));
         } else {
           setSearchResults([]);
@@ -493,6 +492,7 @@ export default function App() {
                                 id: market.id,
                                 name: market.name || market.title || "Unknown",
                                 probability: Number(market.probability) || 0,
+                                image: market.image || null,
                               });
                             }}
                             className="text-gray-500 hover:text-[#4a6fa5] transition-all"

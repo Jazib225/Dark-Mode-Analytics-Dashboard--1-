@@ -304,6 +304,8 @@ export async function getAllActiveMarkets() {
           liquidity: m.liquidity,
           outcomes: m.outcomes,
           outcomePrices: m.outcomePrices,
+          // Market image
+          image: m.image || null,
         };
       });
   } catch (error) {

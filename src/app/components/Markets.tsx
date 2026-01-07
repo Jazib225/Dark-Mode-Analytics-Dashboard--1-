@@ -313,6 +313,7 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMa
               id: selectedMarket!.id,
               name: selectedMarket!.name || selectedMarket!.title || "Unknown",
               probability: Number(selectedMarket!.probability) || 0,
+              image: selectedMarket!.image || null,
             })
           }
           onBack={() => setSelectedMarketId(null)}
@@ -488,6 +489,7 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMa
                             id: market.id,
                             name: market.name || market.title || "Unknown",
                             probability: Number(market.probability) || 0,
+                            image: market.image || null,
                           });
                         }}
                         className="text-gray-500 hover:text-[#4a6fa5] transition-all duration-200"
