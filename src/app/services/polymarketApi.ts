@@ -106,6 +106,7 @@ export async function getTrendingMarkets(timeframe: "1h" | "24h" | "7d" | "1m" =
       .map((m: any) => {
         // Parse outcomePrices which can be a JSON string like "[\"0.65\",\"0.35\"]"
         let yesPrice = 0.5;
+        let noPrice = 0.5;
         if (m.outcomePrices) {
           try {
             const prices = typeof m.outcomePrices === 'string' 
@@ -115,6 +116,7 @@ export async function getTrendingMarkets(timeframe: "1h" | "24h" | "7d" | "1m" =
               const parsed = parseFloat(String(prices[0]));
               if (!isNaN(parsed) && parsed >= 0 && parsed <= 1) {
                 yesPrice = parsed;
+                noPrice = prices.length > 1 ? parseFloat(String(prices[1])) : (1 - yesPrice);
               }
             }
           } catch (e) {
@@ -125,10 +127,16 @@ export async function getTrendingMarkets(timeframe: "1h" | "24h" | "7d" | "1m" =
         if (yesPrice === 0.5) {
           if (m.bestBid) {
             const bid = parseFloat(String(m.bestBid));
-            if (!isNaN(bid) && bid > 0 && bid < 1) yesPrice = bid;
+            if (!isNaN(bid) && bid > 0 && bid < 1) {
+              yesPrice = bid;
+              noPrice = 1 - bid;
+            }
           } else if (m.lastTradePrice) {
             const last = parseFloat(String(m.lastTradePrice));
-            if (!isNaN(last) && last > 0 && last < 1) yesPrice = last;
+            if (!isNaN(last) && last > 0 && last < 1) {
+              yesPrice = last;
+              noPrice = 1 - last;
+            }
           }
         }
         
@@ -138,6 +146,9 @@ export async function getTrendingMarkets(timeframe: "1h" | "24h" | "7d" | "1m" =
           title: m.question || m.title || "Unknown Market",
           // Use parsed price for probability
           lastPriceUsd: yesPrice,
+          // Pre-calculated cents for exact display (not rounded)
+          yesPriceCents: yesPrice * 100,
+          noPriceCents: noPrice * 100,
           // Use real volume data from API
           volumeUsd: parseFloat(String(m[volumeField] || 0)),
           volume24hr: parseFloat(String(m.volume24hr || 0)),

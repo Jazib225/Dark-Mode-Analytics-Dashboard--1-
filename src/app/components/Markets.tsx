@@ -4,6 +4,21 @@ import { BookmarkedMarket } from "../App";
 import { MarketDetail } from "./MarketDetail";
 import { getTrendingMarkets } from "../services/polymarketApi";
 
+// Format cents with proper precision like Polymarket (e.g., 0.4¢, 99.6¢)
+function formatCents(cents: number): string {
+  if (cents < 0.1) return "<0.1";
+  if (cents > 99.9) return ">99.9";
+  // Show one decimal place for precision on extremes
+  if (cents < 1 || cents > 99) {
+    return cents.toFixed(1);
+  }
+  // For values between 1-99, show integer if close, otherwise one decimal
+  if (Math.abs(cents - Math.round(cents)) < 0.05) {
+    return Math.round(cents).toString();
+  }
+  return cents.toFixed(1);
+}
+
 interface MarketsProps {
   toggleBookmark: (market: BookmarkedMarket) => void;
   isBookmarked: (marketId: string) => boolean;
@@ -33,7 +48,8 @@ interface DisplayMarket {
 type TimeFilter = "24h" | "7d" | "1m";
 
 // LocalStorage cache keys - separate cache per timeFilter for instant switching
-const MARKETS_CACHE_PREFIX = "polymarket_markets_";
+// Version 2: Added yesPriceCents and noPriceCents fields
+const MARKETS_CACHE_PREFIX = "polymarket_markets_v2_";
 const CACHE_EXPIRY_MS = 30 * 60 * 1000; // 30 minutes - longer cache for faster loads
 
 interface CachedData {
@@ -81,18 +97,25 @@ function convertApiMarketToDisplay(market: any, timeframe: TimeFilter = "24h"): 
     volumeUsd = market.volume1mo || market.volumeUsd;
   }
   
-  // Calculate probability from lastPriceUsd (which is the Yes price 0-1)
-  const yesPrice = market.lastPriceUsd ? parseFloat(String(market.lastPriceUsd)) : 0.5;
-  const yesPriceCents = Math.round(yesPrice * 100);
-  const noPriceCents = 100 - yesPriceCents;
+  // Use pre-calculated cents from API if available, otherwise calculate from lastPriceUsd
+  let yesPriceCents = market.yesPriceCents;
+  let noPriceCents = market.noPriceCents;
+  
+  // Fallback calculation if API didn't provide cents
+  if (yesPriceCents === undefined || yesPriceCents === null) {
+    const yesPrice = market.lastPriceUsd ? parseFloat(String(market.lastPriceUsd)) : 0.5;
+    yesPriceCents = yesPrice * 100;
+    noPriceCents = 100 - yesPriceCents;
+  }
+  
+  // Calculate probability for display
+  const probability = yesPriceCents;
   
   return {
     id: market.id,
     name: market.title || market.name,
     title: market.title || market.name,
-    probability: market.lastPriceUsd
-      ? (parseFloat(String(market.lastPriceUsd)) * 100).toFixed(1)
-      : market.probability,
+    probability: probability,
     yesPriceCents,
     noPriceCents,
     volumeUsd: String(volumeUsd),
@@ -394,9 +417,9 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMa
                 </tr>
               ) : (
                 displayedMarkets.map((market, index) => {
-                  const yesCents = market.yesPriceCents ?? Math.round(Number(market.probability));
+                  const yesCents = market.yesPriceCents ?? Number(market.probability);
                   const noCents = market.noPriceCents ?? (100 - yesCents);
-                  const probabilityDisplay = Number(market.probability) < 1 ? "<1" : Number(market.probability).toFixed(0);
+                  const probabilityDisplay = yesCents < 1 ? "<1" : formatCents(yesCents);
                   
                   return (
                   <tr
@@ -430,10 +453,10 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMa
                     <td className="py-3.5 px-3 text-center">
                       <div className="flex items-center justify-center gap-2">
                         <span className="px-3 py-1.5 text-xs font-medium bg-green-900/30 border border-green-500/30 rounded text-green-400">
-                          Yes {yesCents}¢
+                          Yes {formatCents(yesCents)}¢
                         </span>
                         <span className="px-3 py-1.5 text-xs font-medium bg-red-900/30 border border-red-500/30 rounded text-red-400">
-                          No {noCents}¢
+                          No {formatCents(noCents)}¢
                         </span>
                       </div>
                     </td>
