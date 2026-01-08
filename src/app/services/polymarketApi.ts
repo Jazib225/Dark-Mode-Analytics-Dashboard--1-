@@ -4,9 +4,63 @@
  * 
  * In development, uses local backend proxy to avoid CORS issues
  * In production, uses Vercel serverless API route as proxy
+ * 
+ * OPTIMIZED: Uses global market cache for instant search across ALL markets
  */
 
 const isDev = import.meta.env.DEV;
+
+// =============================================================================
+// GLOBAL MARKET CACHE - Enables instant search across ALL Polymarket markets
+// =============================================================================
+interface CachedMarket {
+  id: string;
+  title: string;
+  slug: string;
+  description: string;
+  groupItemTitle: string;
+  probability: number;
+  volumeUsd: number;
+  volume24hr: number;
+  liquidity: number;
+  image: string | null;
+  eventTitle: string;
+  conditionId: string;
+  clobTokenIds: string;
+  outcomes: string;
+  outcomePrices: string;
+  endDate: string;
+  createdAt: string;
+  closed: boolean;
+  active: boolean;
+  // Search optimization: pre-computed lowercase fields
+  _titleLower: string;
+  _slugLower: string;
+  _groupTitleLower: string;
+  _descLower: string;
+}
+
+interface MarketCache {
+  markets: CachedMarket[];
+  lastUpdated: number;
+  isLoading: boolean;
+  loadPromise: Promise<void> | null;
+}
+
+// Global singleton cache
+const globalMarketCache: MarketCache = {
+  markets: [],
+  lastUpdated: 0,
+  isLoading: false,
+  loadPromise: null,
+};
+
+// Cache duration: 5 minutes (markets don't change that frequently)
+const CACHE_DURATION_MS = 5 * 60 * 1000;
+
+// =============================================================================
+// UTILITY FUNCTIONS (must be defined before cache functions that use them)
+// =============================================================================
 
 // Helper to build URLs that work in both dev and prod
 function buildApiUrl(path: string, service: string): string {
@@ -60,6 +114,338 @@ async function fetchWithTimeout(
     clearTimeout(timeoutId);
     throw error;
   }
+}
+
+// =============================================================================
+// CACHE FUNCTIONS
+// =============================================================================
+
+/**
+ * Check if cache is valid
+ */
+function isCacheValid(): boolean {
+  return globalMarketCache.markets.length > 0 && 
+         (Date.now() - globalMarketCache.lastUpdated) < CACHE_DURATION_MS;
+}
+
+/**
+ * Initialize the global market cache - fetches ALL markets using pagination
+ * Call this on app startup for instant search
+ */
+export async function initializeMarketCache(): Promise<void> {
+  // If already loading, wait for existing load
+  if (globalMarketCache.loadPromise) {
+    return globalMarketCache.loadPromise;
+  }
+  
+  // If cache is still valid, skip reload
+  if (isCacheValid()) {
+    console.log(`Market cache valid with ${globalMarketCache.markets.length} markets`);
+    return;
+  }
+  
+  globalMarketCache.isLoading = true;
+  console.log("🚀 Initializing global market cache...");
+  
+  globalMarketCache.loadPromise = (async () => {
+    try {
+      const allMarkets: any[] = [];
+      const seenIds = new Set<string>();
+      
+      // Fetch ALL markets using pagination from events endpoint
+      let offset = 0;
+      const pageSize = 500;
+      let hasMore = true;
+      
+      console.log("📊 Fetching all markets from events endpoint...");
+      while (hasMore) {
+        try {
+          const response = await fetchWithTimeout(
+            gammaUrl("/events", { 
+              limit: String(pageSize), 
+              offset: String(offset),
+              closed: "false" 
+            }),
+            15000
+          );
+          
+          if (!response.ok) {
+            console.log(`Events fetch failed at offset ${offset}, stopping pagination`);
+            hasMore = false;
+            break;
+          }
+          
+          const events = await response.json();
+          
+          if (!Array.isArray(events) || events.length === 0) {
+            hasMore = false;
+            break;
+          }
+          
+          let marketsInPage = 0;
+          events.forEach((event: any) => {
+            if (Array.isArray(event.markets)) {
+              event.markets.forEach((m: any) => {
+                const id = m.id || m.conditionId;
+                if (id && !seenIds.has(id)) {
+                  seenIds.add(id);
+                  allMarkets.push({ ...m, eventTitle: event.title, eventSlug: event.slug });
+                  marketsInPage++;
+                }
+              });
+            }
+          });
+          
+          console.log(`  Page ${offset / pageSize + 1}: ${events.length} events, ${marketsInPage} new markets`);
+          
+          // If we got fewer events than requested, we're done
+          if (events.length < pageSize) {
+            hasMore = false;
+          } else {
+            offset += pageSize;
+          }
+          
+          // Safety limit to prevent infinite loops
+          if (offset > 10000) {
+            console.log("  Reached safety limit, stopping pagination");
+            hasMore = false;
+          }
+        } catch (e) {
+          console.log(`  Pagination error at offset ${offset}:`, e);
+          hasMore = false;
+        }
+      }
+      
+      // Also fetch from /markets endpoint to catch standalone markets
+      console.log("📊 Fetching standalone markets...");
+      offset = 0;
+      hasMore = true;
+      
+      while (hasMore) {
+        try {
+          const response = await fetchWithTimeout(
+            gammaUrl("/markets", { 
+              limit: String(pageSize), 
+              offset: String(offset),
+              closed: "false" 
+            }),
+            15000
+          );
+          
+          if (!response.ok) {
+            hasMore = false;
+            break;
+          }
+          
+          const data = await response.json();
+          const markets = Array.isArray(data) ? data : (data?.data || data?.markets || []);
+          
+          if (markets.length === 0) {
+            hasMore = false;
+            break;
+          }
+          
+          let newCount = 0;
+          markets.forEach((m: any) => {
+            const id = m.id || m.conditionId;
+            if (id && !seenIds.has(id)) {
+              seenIds.add(id);
+              allMarkets.push(m);
+              newCount++;
+            }
+          });
+          
+          if (newCount > 0) {
+            console.log(`  Markets page ${offset / pageSize + 1}: ${newCount} new markets`);
+          }
+          
+          if (markets.length < pageSize) {
+            hasMore = false;
+          } else {
+            offset += pageSize;
+          }
+          
+          if (offset > 5000) {
+            hasMore = false;
+          }
+        } catch (e) {
+          hasMore = false;
+        }
+      }
+      
+      // Transform and cache markets
+      console.log(`🔄 Processing ${allMarkets.length} markets for cache...`);
+      globalMarketCache.markets = allMarkets
+        .filter((m: any) => m.question || m.title)
+        .map((m: any): CachedMarket => {
+          const title = m.question || m.title || "";
+          const slug = m.slug || "";
+          const groupTitle = m.groupItemTitle || "";
+          const desc = m.description || "";
+          
+          return {
+            id: m.id || m.conditionId || Math.random().toString(),
+            title,
+            slug,
+            description: desc,
+            groupItemTitle: groupTitle,
+            probability: extractProbabilityFromMarket(m),
+            volumeUsd: parseFloat(String(m.volumeNum || m.volume || 0)),
+            volume24hr: parseFloat(String(m.volume24hr || 0)),
+            liquidity: parseFloat(String(m.liquidityNum || m.liquidity || 0)),
+            image: m.image || null,
+            eventTitle: m.eventTitle || "",
+            conditionId: m.conditionId || "",
+            clobTokenIds: m.clobTokenIds || "",
+            outcomes: m.outcomes || "",
+            outcomePrices: m.outcomePrices || "",
+            endDate: m.endDate || "",
+            createdAt: m.createdAt || "",
+            closed: m.closed === true,
+            active: m.active !== false,
+            // Pre-compute lowercase for faster search
+            _titleLower: title.toLowerCase(),
+            _slugLower: slug.toLowerCase(),
+            _groupTitleLower: groupTitle.toLowerCase(),
+            _descLower: desc.toLowerCase().slice(0, 500), // Limit description for memory
+          };
+        });
+      
+      globalMarketCache.lastUpdated = Date.now();
+      console.log(`✅ Market cache initialized with ${globalMarketCache.markets.length} markets`);
+      
+    } catch (error) {
+      console.error("❌ Failed to initialize market cache:", error);
+    } finally {
+      globalMarketCache.isLoading = false;
+      globalMarketCache.loadPromise = null;
+    }
+  })();
+  
+  return globalMarketCache.loadPromise;
+}
+
+/**
+ * Helper to extract probability from market data
+ */
+function extractProbabilityFromMarket(market: any): number {
+  if (market.outcomePrices) {
+    try {
+      const prices = typeof market.outcomePrices === 'string' 
+        ? JSON.parse(market.outcomePrices) 
+        : market.outcomePrices;
+      if (Array.isArray(prices) && prices.length > 0) {
+        const parsed = parseFloat(String(prices[0]));
+        if (!isNaN(parsed) && parsed >= 0 && parsed <= 1) {
+          return parsed * 100;
+        }
+      }
+    } catch (e) {}
+  }
+  if (market.bestBid) {
+    const bid = parseFloat(String(market.bestBid));
+    if (!isNaN(bid) && bid > 0 && bid < 1) return bid * 100;
+  }
+  if (market.lastTradePrice) {
+    const last = parseFloat(String(market.lastTradePrice));
+    if (!isNaN(last) && last > 0 && last < 1) return last * 100;
+  }
+  return 50;
+}
+
+/**
+ * INSTANT SEARCH - Uses the preloaded cache for immediate results
+ * Fuzzy matching with scoring for best relevance
+ */
+export function instantSearch(query: string, limit = 50): CachedMarket[] {
+  if (!query.trim()) return [];
+  
+  const lowerQuery = query.toLowerCase().trim();
+  const queryWords = lowerQuery.split(/\s+/).filter(w => w.length > 1);
+  
+  // If cache not ready, return empty (search will fall back to API)
+  if (globalMarketCache.markets.length === 0) {
+    return [];
+  }
+  
+  const scored = globalMarketCache.markets
+    .filter(m => !m.closed)
+    .map(m => {
+      let score = 0;
+      
+      // Exact phrase match - highest priority
+      if (m._titleLower.includes(lowerQuery)) {
+        score += 100;
+        if (m._titleLower.startsWith(lowerQuery)) score += 20;
+      }
+      
+      // Group title match (e.g., "Kevin Stefanski" in groupItemTitle)
+      if (m._groupTitleLower.includes(lowerQuery)) {
+        score += 90;
+      }
+      
+      // Slug match
+      if (m._slugLower.includes(lowerQuery.replace(/\s+/g, '-'))) {
+        score += 70;
+      }
+      
+      // Word-by-word matching
+      let wordMatches = 0;
+      queryWords.forEach(word => {
+        // Check for word stem matching (e.g., "stefan" matches "stefanski")
+        const wordStem = word.length > 4 ? word.slice(0, -2) : word;
+        
+        if (m._titleLower.includes(word)) {
+          score += 20;
+          wordMatches++;
+        } else if (m._titleLower.includes(wordStem)) {
+          score += 15;
+          wordMatches++;
+        }
+        
+        if (m._groupTitleLower.includes(word)) {
+          score += 18;
+          wordMatches++;
+        } else if (m._groupTitleLower.includes(wordStem)) {
+          score += 12;
+          wordMatches++;
+        }
+        
+        if (m._slugLower.includes(word)) {
+          score += 10;
+          wordMatches++;
+        }
+        
+        if (m._descLower.includes(word)) {
+          score += 5;
+        }
+      });
+      
+      // Bonus if all words match
+      if (queryWords.length > 1 && wordMatches >= queryWords.length) {
+        score += 30;
+      }
+      
+      return { market: m, score };
+    })
+    .filter(item => item.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map(item => item.market);
+  
+  return scored;
+}
+
+/**
+ * Get cache statistics
+ */
+export function getCacheStats() {
+  return {
+    totalMarkets: globalMarketCache.markets.length,
+    lastUpdated: globalMarketCache.lastUpdated,
+    isLoading: globalMarketCache.isLoading,
+    cacheAge: Date.now() - globalMarketCache.lastUpdated,
+  };
 }
 
 /**
@@ -218,10 +604,40 @@ export async function getMarketById(id: string) {
 
 /**
  * Get ALL active markets for comprehensive search
- * Fetches all markets from multiple sources to ensure nothing is missed
+ * Uses the global cache if available for instant results
  * Including new markets, niche markets, and low liquidity markets
  */
 export async function getAllActiveMarkets() {
+  // First try to use the cache for instant results
+  if (globalMarketCache.markets.length > 0) {
+    console.log(`Using cached markets: ${globalMarketCache.markets.length} markets available`);
+    return globalMarketCache.markets
+      .filter(m => !m.closed)
+      .map(m => ({
+        id: m.id,
+        title: m.title,
+        name: m.title,
+        slug: m.slug,
+        conditionId: m.conditionId,
+        clobTokenIds: m.clobTokenIds,
+        probability: m.probability,
+        volume: formatVolumeHelper(m.volumeUsd),
+        volumeUsd: m.volumeUsd,
+        volume24hr: m.volume24hr,
+        eventTitle: m.eventTitle,
+        description: m.description,
+        endDate: m.endDate,
+        createdAt: m.createdAt,
+        liquidity: m.liquidity,
+        outcomes: m.outcomes,
+        outcomePrices: m.outcomePrices,
+        image: m.image,
+      }));
+  }
+  
+  // Cache not ready, ensure it's loading then fetch directly
+  initializeMarketCache();
+  
   try {
     let allMarkets: any[] = [];
     const seenIds = new Set<string>();
@@ -690,6 +1106,33 @@ export async function getMarketTrades(marketId: string, limit = 20) {
 
 export async function searchMarkets(query: string, limit = 100) {
   try {
+    // PRIORITY 1: Use instant cache for immediate results
+    const cachedResults = instantSearch(query, limit);
+    if (cachedResults.length > 0) {
+      console.log(`⚡ Instant search returned ${cachedResults.length} results for "${query}"`);
+      return cachedResults.map(m => ({
+        id: m.id,
+        title: m.title,
+        name: m.title,
+        slug: m.slug,
+        conditionId: m.conditionId,
+        probability: m.probability,
+        lastPriceUsd: m.probability / 100,
+        volumeUsd: m.volumeUsd,
+        volume24hr: m.volume24hr,
+        volume: formatVolumeHelper(m.volumeUsd),
+        image: m.image,
+        liquidity: m.liquidity,
+        description: m.description,
+        groupItemTitle: m.groupItemTitle,
+        eventTitle: m.eventTitle,
+      }));
+    }
+    
+    // Cache not ready - ensure it's loading
+    initializeMarketCache();
+    
+    // Fallback to API search while cache loads
     const encodedQuery = encodeURIComponent(query.trim());
     let allResults: any[] = [];
     const lowerQuery = query.toLowerCase().trim();

@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Search, TrendingUp, Bookmark, Loader2, ArrowLeft, SortAsc } from "lucide-react";
-import { searchMarkets } from "../services/polymarketApi";
+import { searchMarkets, instantSearch, getCacheStats } from "../services/polymarketApi";
 import { BookmarkedMarket } from "../App";
 
 interface DisplayMarket {
@@ -46,7 +46,28 @@ export function SearchResults({
     setHasSearched(true);
     
     try {
-      // Get more results for the full search page (up to 100)
+      // PRIORITY 1: Use instant search from global cache (sub-millisecond)
+      const cacheStats = getCacheStats();
+      const cachedResults = instantSearch(query, 100);
+      
+      if (cachedResults.length > 0) {
+        const formattedResults = cachedResults.map((m: any) => ({
+          id: m.id,
+          name: m.title,
+          title: m.title,
+          probability: m.probability || 50,
+          volume: m.volumeUsd ? `$${(m.volumeUsd / 1000000).toFixed(1)}M` : "$0",
+          volumeNum: m.volumeUsd || 0,
+          image: m.image || null,
+          groupItemTitle: m.groupItemTitle,
+        }));
+        setResults(formattedResults);
+        console.log(`⚡ SearchResults: ${cachedResults.length} instant results for "${query}" (cache has ${cacheStats.totalMarkets} markets)`);
+        setIsLoading(false);
+        return;
+      }
+      
+      // FALLBACK: If cache is empty, use API search
       const searchResults = await searchMarkets(query, 100);
       
       if (searchResults && searchResults.length > 0) {

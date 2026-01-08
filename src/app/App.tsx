@@ -9,7 +9,7 @@ import { BookmarkedMarketsBar } from "./components/BookmarkedMarketsBar";
 import { SearchResults } from "./components/SearchResults";
 import { Search, X, Clock, TrendingUp, Bookmark, Loader2 } from "lucide-react";
 import paragonLogo from "../assets/paragon-logo.png";
-import { getAllActiveMarkets, searchMarkets } from "./services/polymarketApi";
+import { getAllActiveMarkets, searchMarkets, initializeMarketCache, instantSearch } from "./services/polymarketApi";
 
 type Page = "discover" | "markets" | "wallets" | "insiderlens" | "portfolio" | "search";
 
@@ -65,6 +65,12 @@ export default function App() {
   const searchRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Initialize global market cache on app startup for INSTANT search
+  useEffect(() => {
+    console.log("🚀 App starting - initializing global market cache...");
+    initializeMarketCache();
+  }, []);
 
   // Load ALL active markets for comprehensive search on mount
   useEffect(() => {
@@ -157,7 +163,7 @@ export default function App() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Search through ALL markets (local cache + API combined for comprehensive results)
+  // Search through ALL markets (instant search from global cache + API fallback)
   const performSearch = useCallback(async (query: string) => {
     if (!query.trim()) {
       setSearchResults([]);
@@ -165,10 +171,29 @@ export default function App() {
       return;
     }
     
+    // PRIORITY 1: Use instant search from global cache (sub-millisecond)
+    const instantResults = instantSearch(query, 50);
+    if (instantResults.length > 0) {
+      const mappedResults = instantResults.map(m => ({
+        id: m.id,
+        name: m.title,
+        title: m.title,
+        probability: m.probability,
+        volume: formatVolume(m.volumeUsd),
+        image: m.image,
+        groupItemTitle: m.groupItemTitle,
+        _score: 100,
+      }));
+      setSearchResults(mappedResults);
+      console.log(`⚡ Instant search: ${instantResults.length} results for "${query}"`);
+      setIsSearching(false);
+      return;
+    }
+    
+    // Fallback: search through local cache
     const lowerQuery = query.toLowerCase().trim();
     const queryWords = lowerQuery.split(/\s+/).filter(w => w.length > 1);
     
-    // First search through local cache (instant results)
     const localResults = allMarketsCache
       .filter(market => {
         const name = (market.name || market.title || "").toLowerCase();
@@ -193,8 +218,7 @@ export default function App() {
       setSearchResults(localResults);
     }
     
-    // ALWAYS call API search to find markets not in local cache
-    // This catches niche, new, and low-liquidity markets
+    // API fallback for comprehensive results
     try {
       const apiResults = await searchMarkets(query, 50);
       if (apiResults && apiResults.length > 0) {
@@ -451,7 +475,7 @@ export default function App() {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => setIsSearchFocused(true)}
                 onKeyDown={handleSearchKeyDown}
-                placeholder="Search markets... (Press Enter for all results)"
+                placeholder="Search markets..."
                 className={`w-[400px] bg-[#0d0d0d] border border-gray-800/50 pl-10 pr-10 py-2 text-[14px] text-gray-200 placeholder-gray-500 focus:outline-none focus:border-gray-600/50 transition-all ${
                   isSearchFocused && (searchHistory.length > 0 || searchQuery.trim() || isSearching) 
                     ? "rounded-t-lg rounded-b-none border-b-transparent" 
