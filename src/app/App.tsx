@@ -582,7 +582,7 @@ export default function App() {
                 initialMarketData={selectedMarketData}
               />
             )}
-            {currentPage === "wallets" && <WalletsList onWalletClick={openWalletProfile} />}
+            {currentPage === "wallets" && <WalletsList onWalletClick={openWalletProfile} onMarketClick={navigateToMarket} />}
             {currentPage === "insiderlens" && <InsiderLens onWalletClick={openWalletProfile} />}
             {currentPage === "portfolio" && <Portfolio />}
           </>
