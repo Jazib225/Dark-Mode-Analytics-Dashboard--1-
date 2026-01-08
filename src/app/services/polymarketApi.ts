@@ -218,34 +218,91 @@ export async function getMarketById(id: string) {
 
 /**
  * Get ALL active markets for comprehensive search
- * Fetches all markets without filtering by volume
+ * Fetches all markets from multiple sources to ensure nothing is missed
+ * Including new markets, niche markets, and low liquidity markets
  */
 export async function getAllActiveMarkets() {
   try {
-    // Fetch all events to get comprehensive market list
-    const response = await fetchWithTimeout(
-      gammaUrl("/events", { limit: "1000", active: "true", closed: "false" })
-    );
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const data = await response.json();
-    
-    // Extract all markets from events
     let allMarkets: any[] = [];
-    if (Array.isArray(data)) {
-      data.forEach((event: any) => {
-        if (Array.isArray(event.markets)) {
-          // Add event info to each market for context
-          const marketsWithEvent = event.markets.map((m: any) => ({
-            ...m,
-            eventTitle: event.title,
-            eventSlug: event.slug,
-          }));
-          allMarkets = allMarkets.concat(marketsWithEvent);
+    const seenIds = new Set<string>();
+    
+    // Source 1: Fetch from events endpoint (limit increased, no active filter)
+    try {
+      const eventsResponse = await fetchWithTimeout(
+        gammaUrl("/events", { limit: "2000", closed: "false" })
+      );
+      if (eventsResponse.ok) {
+        const eventsData = await eventsResponse.json();
+        if (Array.isArray(eventsData)) {
+          eventsData.forEach((event: any) => {
+            if (Array.isArray(event.markets)) {
+              event.markets.forEach((m: any) => {
+                const id = m.id || m.conditionId;
+                if (id && !seenIds.has(id)) {
+                  seenIds.add(id);
+                  allMarkets.push({
+                    ...m,
+                    eventTitle: event.title,
+                    eventSlug: event.slug,
+                  });
+                }
+              });
+            }
+          });
         }
-      });
+        console.log(`Events endpoint: ${allMarkets.length} markets`);
+      }
+    } catch (e) {
+      console.log("Events fetch failed:", e);
     }
     
-    console.log(`Fetched ${allMarkets.length} total active markets for search`);
+    // Source 2: Fetch directly from /markets endpoint (catches standalone markets)
+    try {
+      const marketsResponse = await fetchWithTimeout(
+        gammaUrl("/markets", { limit: "1000", closed: "false" })
+      );
+      if (marketsResponse.ok) {
+        const marketsData = await marketsResponse.json();
+        const markets = Array.isArray(marketsData) ? marketsData : (marketsData?.data || marketsData?.markets || []);
+        let newCount = 0;
+        markets.forEach((m: any) => {
+          const id = m.id || m.conditionId;
+          if (id && !seenIds.has(id)) {
+            seenIds.add(id);
+            allMarkets.push(m);
+            newCount++;
+          }
+        });
+        console.log(`Markets endpoint added ${newCount} additional markets, total: ${allMarkets.length}`);
+      }
+    } catch (e) {
+      console.log("Markets fetch failed:", e);
+    }
+    
+    // Source 3: Try fetching with different sort orders to catch newer markets
+    try {
+      const newestResponse = await fetchWithTimeout(
+        gammaUrl("/markets", { limit: "500", closed: "false", order: "createdAt" })
+      );
+      if (newestResponse.ok) {
+        const newestData = await newestResponse.json();
+        const markets = Array.isArray(newestData) ? newestData : (newestData?.data || newestData?.markets || []);
+        let newCount = 0;
+        markets.forEach((m: any) => {
+          const id = m.id || m.conditionId;
+          if (id && !seenIds.has(id)) {
+            seenIds.add(id);
+            allMarkets.push(m);
+            newCount++;
+          }
+        });
+        if (newCount > 0) console.log(`Newest markets endpoint added ${newCount} more, total: ${allMarkets.length}`);
+      }
+    } catch (e) {
+      // Silent fail for optional source
+    }
+    
+    console.log(`Total fetched: ${allMarkets.length} unique markets for comprehensive search`);
     
     // Map all markets with consistent structure
     return allMarkets
@@ -631,34 +688,98 @@ export async function getMarketTrades(marketId: string, limit = 20) {
   }
 }
 
-export async function searchMarkets(query: string, limit = 50) {
+export async function searchMarkets(query: string, limit = 100) {
   try {
-    // Fetch all active events to get comprehensive market list for searching
-    const response = await fetchWithTimeout(
-      gammaUrl("/events", { limit: "500", active: "true", closed: "false" })
-    );
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    const data = await response.json();
+    const encodedQuery = encodeURIComponent(query.trim());
+    let allResults: any[] = [];
     
-    // Extract all markets from events
-    let allMarkets: any[] = [];
-    if (Array.isArray(data)) {
-      data.forEach((event: any) => {
-        if (Array.isArray(event.markets)) {
-          allMarkets = allMarkets.concat(event.markets);
-        }
-      });
+    // Strategy 1: Use the dedicated Gamma search endpoint (includes ALL markets)
+    try {
+      const searchResponse = await fetchWithTimeout(
+        gammaUrl("/markets/search", { q: encodedQuery, limit: "200" })
+      );
+      if (searchResponse.ok) {
+        const searchData = await searchResponse.json();
+        const searchResults = Array.isArray(searchData) ? searchData : (searchData?.markets || searchData?.data || []);
+        console.log(`Gamma search API returned ${searchResults.length} results for "${query}"`);
+        allResults = allResults.concat(searchResults);
+      }
+    } catch (e) {
+      console.log("Gamma search endpoint failed, trying fallback...");
     }
+    
+    // Strategy 2: Also search in /markets endpoint with text_query (catches more markets)
+    try {
+      const marketsResponse = await fetchWithTimeout(
+        gammaUrl("/markets", { limit: "500", closed: "false" })
+      );
+      if (marketsResponse.ok) {
+        const marketsData = await marketsResponse.json();
+        const markets = Array.isArray(marketsData) ? marketsData : (marketsData?.data || marketsData?.markets || []);
+        // Filter markets locally to match query
+        const lowerQuery = query.toLowerCase().trim();
+        const matchedMarkets = markets.filter((m: any) => {
+          const title = (m.question || m.title || "").toLowerCase();
+          const description = (m.description || "").toLowerCase();
+          const slug = (m.slug || "").toLowerCase();
+          return title.includes(lowerQuery) || description.includes(lowerQuery) || slug.includes(lowerQuery);
+        });
+        console.log(`Markets endpoint matched ${matchedMarkets.length} markets for "${query}"`);
+        allResults = allResults.concat(matchedMarkets);
+      }
+    } catch (e) {
+      console.log("Markets fallback search failed");
+    }
+    
+    // Strategy 3: Search through ALL events (includes markets not in other endpoints)
+    try {
+      // Fetch events WITHOUT the active filter to get newer markets too
+      const eventsResponse = await fetchWithTimeout(
+        gammaUrl("/events", { limit: "1000", closed: "false" })
+      );
+      if (eventsResponse.ok) {
+        const eventsData = await eventsResponse.json();
+        if (Array.isArray(eventsData)) {
+          const lowerQuery = query.toLowerCase().trim();
+          eventsData.forEach((event: any) => {
+            // Check if event title matches
+            const eventTitle = (event.title || "").toLowerCase();
+            const eventMatches = eventTitle.includes(lowerQuery);
+            
+            if (Array.isArray(event.markets)) {
+              event.markets.forEach((m: any) => {
+                const marketTitle = (m.question || m.title || "").toLowerCase();
+                const marketDescription = (m.description || "").toLowerCase();
+                if (eventMatches || marketTitle.includes(lowerQuery) || marketDescription.includes(lowerQuery)) {
+                  allResults.push({ ...m, eventTitle: event.title });
+                }
+              });
+            }
+          });
+        }
+        console.log(`Events search found additional matches, total now: ${allResults.length}`);
+      }
+    } catch (e) {
+      console.log("Events search failed");
+    }
+    
+    // Deduplicate results by ID
+    const seenIds = new Set<string>();
+    const uniqueResults = allResults.filter((m: any) => {
+      const id = m.id || m.conditionId;
+      if (!id || seenIds.has(id)) return false;
+      seenIds.add(id);
+      return true;
+    });
     
     const lowerQuery = query.toLowerCase().trim();
     const queryWords = lowerQuery.split(/\s+/).filter(w => w.length > 0);
     
-    // Score markets based on relevance
-    const scoredMarkets = allMarkets
+    // Score and sort results by relevance
+    const scoredResults = uniqueResults
       .filter((m: any) => {
         const title = (m.question || m.title || "").toLowerCase();
-        // Must have title and be active
-        return title && m.active !== false && m.closed !== true;
+        return title && m.closed !== true;
       })
       .map((m: any) => {
         const title = (m.question || m.title || "").toLowerCase();
@@ -673,18 +794,14 @@ export async function searchMarkets(query: string, limit = 50) {
         queryWords.forEach(word => {
           if (title.includes(word)) {
             score += 10;
-            // Bonus for word at start
-            if (title.startsWith(word)) {
-              score += 5;
-            }
+            if (title.startsWith(word)) score += 5;
           }
         });
         
-        // Bonus for volume (popular markets)
-        const volume = parseFloat(String(m.volumeNum || m.volume24hr || 0));
-        if (volume > 1000000) score += 3;
-        else if (volume > 100000) score += 2;
-        else if (volume > 10000) score += 1;
+        // Small bonus for volume (but don't deprioritize low-volume markets too much)
+        const volume = parseFloat(String(m.volumeNum || m.volume24hr || m.volume || 0));
+        if (volume > 1000000) score += 2;
+        else if (volume > 100000) score += 1;
         
         return { ...m, _searchScore: score };
       })
@@ -695,19 +812,48 @@ export async function searchMarkets(query: string, limit = 50) {
         ...m,
         id: m.id || m.conditionId || Math.random().toString(),
         title: m.question || m.title || "Unknown Market",
-        lastPriceUsd: m.bestBid ? parseFloat(String(m.bestBid)) : (m.lastTradePrice ? parseFloat(String(m.lastTradePrice)) : 0.5),
-        volumeUsd: parseFloat(String(m.volumeNum || m.volume24hr || 0)),
+        name: m.question || m.title || "Unknown Market",
+        probability: extractProbability(m),
+        lastPriceUsd: extractProbability(m) / 100,
+        volumeUsd: parseFloat(String(m.volumeNum || m.volume24hr || m.volume || 0)),
         volume24hr: parseFloat(String(m.volume24hr || 0)),
-        volume7d: parseFloat(String(m.volume1wk || 0)),
-        volume1mo: parseFloat(String(m.volume1mo || 0)),
+        volume: formatVolumeHelper(parseFloat(String(m.volumeNum || m.volume24hr || m.volume || 0))),
+        image: m.image || null,
+        liquidity: m.liquidity,
       }));
     
-    console.log(`Search for "${query}" found ${scoredMarkets.length} results`);
-    return scoredMarkets;
+    console.log(`Search for "${query}" found ${scoredResults.length} unique results`);
+    return scoredResults;
   } catch (error) {
     console.error("Failed to search markets:", error);
     return [];
   }
+}
+
+// Helper to extract probability from various market data formats
+function extractProbability(market: any): number {
+  if (market.outcomePrices) {
+    try {
+      const prices = typeof market.outcomePrices === 'string' 
+        ? JSON.parse(market.outcomePrices) 
+        : market.outcomePrices;
+      if (Array.isArray(prices) && prices.length > 0) {
+        const parsed = parseFloat(String(prices[0]));
+        if (!isNaN(parsed) && parsed >= 0 && parsed <= 1) {
+          return parsed * 100;
+        }
+      }
+    } catch (e) {}
+  }
+  if (market.bestBid) {
+    const bid = parseFloat(String(market.bestBid));
+    if (!isNaN(bid) && bid > 0 && bid < 1) return bid * 100;
+  }
+  if (market.lastTradePrice) {
+    const last = parseFloat(String(market.lastTradePrice));
+    if (!isNaN(last) && last > 0 && last < 1) return last * 100;
+  }
+  return 50;
 }
 
 export async function getMarketStats(id: string) {

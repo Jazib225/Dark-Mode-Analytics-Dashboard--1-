@@ -73,30 +73,51 @@ export default function App() {
         const cached = localStorage.getItem("polymarket_all_markets_cache");
         if (cached) {
           const data = JSON.parse(cached);
-          // Use cache if less than 2 hours old (extended for faster loads)
-          if (data.timestamp && Date.now() - data.timestamp < 2 * 60 * 60 * 1000) {
+          // Use cache if less than 30 minutes old (reduced for fresher data)
+          if (data.timestamp && Date.now() - data.timestamp < 30 * 60 * 1000) {
             setAllMarketsCache(data.markets);
             console.log(`Loaded ${data.markets.length} markets from cache for search`);
             setIsLoadingAllMarkets(false);
+            // Still refresh in background for newer markets
+            refreshMarketsInBackground();
             return;
           }
         }
         
         // Fetch fresh data from API
-        const markets = await getAllActiveMarkets();
-        if (markets && markets.length > 0) {
-          setAllMarketsCache(markets);
-          // Cache for 5 minutes
-          localStorage.setItem("polymarket_all_markets_cache", JSON.stringify({
-            markets,
-            timestamp: Date.now()
-          }));
-          console.log(`Fetched ${markets.length} markets from API for search`);
-        }
+        await fetchAndCacheMarkets();
       } catch (e) {
         console.error("Failed to load all markets for search:", e);
       } finally {
         setIsLoadingAllMarkets(false);
+      }
+    };
+    
+    const fetchAndCacheMarkets = async () => {
+      const markets = await getAllActiveMarkets();
+      if (markets && markets.length > 0) {
+        setAllMarketsCache(markets);
+        localStorage.setItem("polymarket_all_markets_cache", JSON.stringify({
+          markets,
+          timestamp: Date.now()
+        }));
+        console.log(`Fetched ${markets.length} markets from API for search`);
+      }
+    };
+    
+    const refreshMarketsInBackground = async () => {
+      try {
+        const markets = await getAllActiveMarkets();
+        if (markets && markets.length > 0) {
+          setAllMarketsCache(markets);
+          localStorage.setItem("polymarket_all_markets_cache", JSON.stringify({
+            markets,
+            timestamp: Date.now()
+          }));
+          console.log(`Background refresh: ${markets.length} markets updated`);
+        }
+      } catch (e) {
+        // Silent fail for background refresh
       }
     };
     
@@ -134,7 +155,7 @@ export default function App() {
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  // Search through ALL markets (local cache + API fallback)
+  // Search through ALL markets (local cache + API combined for comprehensive results)
   const performSearch = useCallback(async (query: string) => {
     if (!query.trim()) {
       setSearchResults([]);
@@ -146,10 +167,11 @@ export default function App() {
     const queryWords = lowerQuery.split(/\s+/).filter(w => w.length > 1);
     
     // First search through local cache (instant results)
-    let localResults = allMarketsCache
+    const localResults = allMarketsCache
       .filter(market => {
         const name = (market.name || market.title || "").toLowerCase();
-        return queryWords.some(word => name.includes(word)) || name.includes(lowerQuery);
+        const description = (market.description || "").toLowerCase();
+        return queryWords.some(word => name.includes(word) || description.includes(word)) || name.includes(lowerQuery);
       })
       .map(market => {
         const name = (market.name || market.title || "").toLowerCase();
@@ -162,34 +184,47 @@ export default function App() {
         return { ...market, _score: score };
       })
       .sort((a: any, b: any) => b._score - a._score)
-      .slice(0, 20);
+      .slice(0, 30);
     
-    // If we have local results, show them immediately
+    // Show local results immediately
     if (localResults.length > 0) {
       setSearchResults(localResults);
-      setIsSearching(false);
-    } else {
-      // If no local results, try API search
-      try {
-        const apiResults = await searchMarkets(query, 20);
-        if (apiResults && apiResults.length > 0) {
-          setSearchResults(apiResults.map((m: any) => ({
+    }
+    
+    // ALWAYS call API search to find markets not in local cache
+    // This catches niche, new, and low-liquidity markets
+    try {
+      const apiResults = await searchMarkets(query, 50);
+      if (apiResults && apiResults.length > 0) {
+        // Combine API results with local results, deduplicating by ID
+        const seenIds = new Set(localResults.map(m => m.id));
+        const newApiResults = apiResults
+          .filter((m: any) => !seenIds.has(m.id))
+          .map((m: any) => ({
             id: m.id,
             name: m.title || m.name,
             title: m.title || m.name,
             probability: m.probability || (m.lastPriceUsd ? m.lastPriceUsd * 100 : 50),
             volume: m.volume || "$0",
             image: m.image || null,
-          })));
-        } else {
-          setSearchResults([]);
-        }
-      } catch (e) {
-        console.error("API search failed:", e);
+            _score: 50, // Base score for API results
+          }));
+        
+        // Merge and sort by score
+        const combinedResults = [...localResults, ...newApiResults]
+          .sort((a: any, b: any) => (b._score || 0) - (a._score || 0))
+          .slice(0, 30);
+        
+        setSearchResults(combinedResults);
+        console.log(`Combined search: ${localResults.length} local + ${newApiResults.length} API = ${combinedResults.length} results`);
+      } else if (localResults.length === 0) {
         setSearchResults([]);
       }
-      setIsSearching(false);
+    } catch (e) {
+      console.error("API search failed:", e);
+      // Keep local results if API fails
     }
+    setIsSearching(false);
   }, [allMarketsCache]);
 
   // Debounced search
