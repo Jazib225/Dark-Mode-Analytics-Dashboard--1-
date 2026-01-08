@@ -527,21 +527,27 @@ export default function App() {
               )}
             </div>
             
-            <div className="text-[15px] font-light text-gray-300">
-              <span className="text-gray-500">Balance:</span>{" "}
-              <span className="text-gray-100 font-normal">$3,320.00</span>
-            </div>
+            {/* X (Twitter) Logo - moved between search and balance */}
             <a
               href="https://x.com/ParagonAnalyst"
               target="_blank"
               rel="noopener noreferrer"
               className="text-white hover:text-gray-300 transition-colors"
             >
-              {/* X (Twitter) Logo */}
               <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
               </svg>
             </a>
+            
+            <div className="text-[15px] font-light text-gray-300">
+              <span className="text-gray-500">Balance:</span>{" "}
+              <span className="text-gray-100 font-normal">$3,320.00</span>
+            </div>
+            
+            {/* Login Button */}
+            <button className="px-4 py-1.5 bg-gradient-to-br from-[#4a6fa5] to-[#3a5f95] text-white text-[14px] font-light rounded hover:opacity-90 transition-opacity">
+              Login
+            </button>
           </div>
         </nav>
       </header>
