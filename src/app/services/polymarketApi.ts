@@ -556,7 +556,7 @@ export async function getTrendingMarkets(timeframe: "1h" | "24h" | "7d" | "1m" =
   }
 }
 
-export async function getActiveMarkets(limit = 100) {
+export async function getActiveMarkets(limit = 1000) {
   try {
     // Use Gamma API with active=true&closed=false to get live markets
     const response = await fetchWithTimeout(
@@ -1104,7 +1104,7 @@ export async function getMarketTrades(marketId: string, limit = 20) {
   }
 }
 
-export async function searchMarkets(query: string, limit = 100) {
+export async function searchMarkets(query: string, limit = 500) {
   try {
     // PRIORITY 1: Use instant cache for immediate results
     const cachedResults = instantSearch(query, limit);

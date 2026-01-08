@@ -12,7 +12,7 @@ router.get("/", async (req: Request, res: Response) => {
     const { limit, offset, order, active, closed, archived, tag } = req.query;
 
     const markets = await gammaClient.listMarkets({
-      limit: limit ? parseInt(limit as string) : 100,
+      limit: limit ? parseInt(limit as string) : 1000,
       offset: offset ? parseInt(offset as string) : 0,
       order: order as any,
       active: active === "true" ? true : active === "false" ? false : undefined,

@@ -11,6 +11,19 @@ import { Search, X, Clock, TrendingUp, Bookmark, Loader2 } from "lucide-react";
 import paragonLogo from "../assets/paragon-logo.png";
 import { getAllActiveMarkets, searchMarkets, initializeMarketCache, instantSearch } from "./services/polymarketApi";
 
+// Format probability to match bookmarks display (no unnecessary decimals)
+function formatProbability(prob: number): string {
+  if (prob < 0.1) return "<0.1";
+  if (prob > 99.9) return ">99.9";
+  if (prob < 1 || prob > 99) {
+    return prob.toFixed(1);
+  }
+  if (Math.abs(prob - Math.round(prob)) < 0.05) {
+    return Math.round(prob).toString();
+  }
+  return prob.toFixed(1);
+}
+
 type Page = "discover" | "markets" | "wallets" | "insiderlens" | "portfolio" | "search";
 
 export interface BookmarkedMarket {
@@ -520,7 +533,7 @@ export default function App() {
                           <div className="flex-1 min-w-0">
                             <div className="text-[14px] text-gray-200 truncate">{item.name}</div>
                             <div className="flex items-center gap-4 text-[13px] text-gray-500 mt-0.5">
-                              <span className="text-[#4a6fa5]">{item.probability}%</span>
+                              <span className="text-[#4a6fa5]">{formatProbability(item.probability)}%</span>
                               <span className="text-green-500">{item.volume}</span>
                             </div>
                           </div>
@@ -561,7 +574,7 @@ export default function App() {
                           <div className="flex-1 min-w-0">
                             <div className="text-[14px] text-gray-200 truncate">{market.name || market.title}</div>
                             <div className="flex items-center gap-4 text-[13px] text-gray-500 mt-0.5">
-                              <span className="text-[#4a6fa5]">{market.probability}%</span>
+                              <span className="text-[#4a6fa5]">{formatProbability(Number(market.probability))}%</span>
                               <span className="text-green-500">{market.volume}</span>
                             </div>
                           </div>

@@ -3,6 +3,19 @@ import { Search, TrendingUp, Bookmark, Loader2, ArrowLeft, SortAsc } from "lucid
 import { searchMarkets, instantSearch, getCacheStats } from "../services/polymarketApi";
 import { BookmarkedMarket } from "../App";
 
+// Format probability to match bookmarks display (no unnecessary decimals)
+function formatProbability(prob: number): string {
+  if (prob < 0.1) return "<0.1";
+  if (prob > 99.9) return ">99.9";
+  if (prob < 1 || prob > 99) {
+    return prob.toFixed(1);
+  }
+  if (Math.abs(prob - Math.round(prob)) < 0.05) {
+    return Math.round(prob).toString();
+  }
+  return prob.toFixed(1);
+}
+
 interface DisplayMarket {
   id: string;
   title?: string;
@@ -198,7 +211,6 @@ export function SearchResults({
         <div className="flex flex-col items-center justify-center py-20">
           <Loader2 className="w-8 h-8 animate-spin text-[#4a6fa5] mb-4" />
           <p className="text-gray-400 text-[15px]">Searching all markets...</p>
-          <p className="text-gray-500 text-[13px] mt-1">Including niche and low-liquidity markets</p>
         </div>
       )}
 
@@ -232,7 +244,7 @@ export function SearchResults({
                   </h3>
                   <div className="flex items-center gap-4 mt-2">
                     <span className="text-[13px] text-[#4a6fa5] font-medium">
-                      {market.probability}%
+                      {formatProbability(Number(market.probability))}%
                     </span>
                     <span className="text-[13px] text-green-500">
                       {market.volume}
