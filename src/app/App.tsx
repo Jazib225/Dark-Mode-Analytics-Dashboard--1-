@@ -6,11 +6,12 @@ import { WalletProfile } from "./components/WalletProfile";
 import { InsiderLens } from "./components/InsiderLens";
 import { Portfolio } from "./components/Portfolio";
 import { BookmarkedMarketsBar } from "./components/BookmarkedMarketsBar";
+import { SearchResults } from "./components/SearchResults";
 import { Search, X, Clock, TrendingUp, Bookmark, Loader2 } from "lucide-react";
 import paragonLogo from "../assets/paragon-logo.png";
 import { getAllActiveMarkets, searchMarkets } from "./services/polymarketApi";
 
-type Page = "discover" | "markets" | "wallets" | "insiderlens" | "portfolio";
+type Page = "discover" | "markets" | "wallets" | "insiderlens" | "portfolio" | "search";
 
 export interface BookmarkedMarket {
   id: string;
@@ -59,6 +60,7 @@ export default function App() {
   const [searchHistory, setSearchHistory] = useState<SearchHistoryItem[]>([]);
   const [allMarketsCache, setAllMarketsCache] = useState<DisplayMarket[]>([]);
   const [isLoadingAllMarkets, setIsLoadingAllMarkets] = useState(false);
+  const [searchResultsQuery, setSearchResultsQuery] = useState("");
   
   const searchRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -319,6 +321,17 @@ export default function App() {
     setCurrentPage("markets");
   };
 
+  // Handle Enter key to show full search results page
+  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter" && searchQuery.trim()) {
+      e.preventDefault();
+      setSearchResultsQuery(searchQuery.trim());
+      setSearchQuery("");
+      setIsSearchFocused(false);
+      setCurrentPage("search");
+    }
+  };
+
   const toggleBookmark = (market: BookmarkedMarket) => {
     setBookmarkedMarkets((prev) => {
       const exists = prev.find((m) => m.id === market.id);
@@ -437,7 +450,8 @@ export default function App() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => setIsSearchFocused(true)}
-                placeholder="Search markets..."
+                onKeyDown={handleSearchKeyDown}
+                placeholder="Search markets... (Press Enter for all results)"
                 className={`w-[400px] bg-[#0d0d0d] border border-gray-800/50 pl-10 pr-10 py-2 text-[14px] text-gray-200 placeholder-gray-500 focus:outline-none focus:border-gray-600/50 transition-all ${
                   isSearchFocused && (searchHistory.length > 0 || searchQuery.trim() || isSearching) 
                     ? "rounded-t-lg rounded-b-none border-b-transparent" 
@@ -633,6 +647,25 @@ export default function App() {
             {currentPage === "wallets" && <WalletsList onWalletClick={openWalletProfile} onMarketClick={navigateToMarket} />}
             {currentPage === "insiderlens" && <InsiderLens onWalletClick={openWalletProfile} />}
             {currentPage === "portfolio" && <Portfolio />}
+            {currentPage === "search" && (
+              <SearchResults
+                initialQuery={searchResultsQuery}
+                onBack={() => setCurrentPage("discover")}
+                onMarketSelect={(market) => {
+                  addToSearchHistory(market);
+                  setSelectedMarketId(market.id);
+                  setSelectedMarketData({
+                    id: market.id,
+                    name: market.name || market.title || "Unknown",
+                    probability: Number(market.probability) || 50,
+                    volume: market.volume || "$0",
+                  });
+                  setCurrentPage("markets");
+                }}
+                toggleBookmark={toggleBookmark}
+                isBookmarked={isBookmarked}
+              />
+            )}
           </>
         )}
       </main>

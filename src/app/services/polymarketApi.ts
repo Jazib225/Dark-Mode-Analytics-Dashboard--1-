@@ -692,6 +692,8 @@ export async function searchMarkets(query: string, limit = 100) {
   try {
     const encodedQuery = encodeURIComponent(query.trim());
     let allResults: any[] = [];
+    const lowerQuery = query.toLowerCase().trim();
+    const queryWords = lowerQuery.split(/\s+/).filter(w => w.length > 1);
     
     // Strategy 1: Use the dedicated Gamma search endpoint (includes ALL markets)
     try {
@@ -708,21 +710,33 @@ export async function searchMarkets(query: string, limit = 100) {
       console.log("Gamma search endpoint failed, trying fallback...");
     }
     
-    // Strategy 2: Also search in /markets endpoint with text_query (catches more markets)
+    // Strategy 2: Also search in /markets endpoint with increased limit
     try {
       const marketsResponse = await fetchWithTimeout(
-        gammaUrl("/markets", { limit: "500", closed: "false" })
+        gammaUrl("/markets", { limit: "1000", closed: "false" })
       );
       if (marketsResponse.ok) {
         const marketsData = await marketsResponse.json();
         const markets = Array.isArray(marketsData) ? marketsData : (marketsData?.data || marketsData?.markets || []);
-        // Filter markets locally to match query
-        const lowerQuery = query.toLowerCase().trim();
+        // Filter markets locally to match query - more flexible matching
         const matchedMarkets = markets.filter((m: any) => {
           const title = (m.question || m.title || "").toLowerCase();
           const description = (m.description || "").toLowerCase();
           const slug = (m.slug || "").toLowerCase();
-          return title.includes(lowerQuery) || description.includes(lowerQuery) || slug.includes(lowerQuery);
+          const groupTitle = (m.groupItemTitle || "").toLowerCase();
+          
+          // Check for full phrase match
+          if (title.includes(lowerQuery) || description.includes(lowerQuery) || slug.includes(lowerQuery)) {
+            return true;
+          }
+          
+          // Check if any query word matches (flexible matching for names)
+          return queryWords.some(word => 
+            title.includes(word) || 
+            description.includes(word) || 
+            groupTitle.includes(word) ||
+            slug.includes(word)
+          );
         });
         console.log(`Markets endpoint matched ${matchedMarkets.length} markets for "${query}"`);
         allResults = allResults.concat(matchedMarkets);
@@ -735,22 +749,44 @@ export async function searchMarkets(query: string, limit = 100) {
     try {
       // Fetch events WITHOUT the active filter to get newer markets too
       const eventsResponse = await fetchWithTimeout(
-        gammaUrl("/events", { limit: "1000", closed: "false" })
+        gammaUrl("/events", { limit: "2000", closed: "false" })
       );
       if (eventsResponse.ok) {
         const eventsData = await eventsResponse.json();
         if (Array.isArray(eventsData)) {
-          const lowerQuery = query.toLowerCase().trim();
           eventsData.forEach((event: any) => {
             // Check if event title matches
             const eventTitle = (event.title || "").toLowerCase();
-            const eventMatches = eventTitle.includes(lowerQuery);
+            const eventDescription = (event.description || "").toLowerCase();
+            const eventSlug = (event.slug || "").toLowerCase();
+            
+            // Check for event-level match
+            const eventMatchesFull = eventTitle.includes(lowerQuery) || eventSlug.includes(lowerQuery);
+            const eventMatchesWord = queryWords.some(word => 
+              eventTitle.includes(word) || 
+              eventSlug.includes(word) ||
+              eventDescription.includes(word)
+            );
             
             if (Array.isArray(event.markets)) {
               event.markets.forEach((m: any) => {
                 const marketTitle = (m.question || m.title || "").toLowerCase();
                 const marketDescription = (m.description || "").toLowerCase();
-                if (eventMatches || marketTitle.includes(lowerQuery) || marketDescription.includes(lowerQuery)) {
+                const marketSlug = (m.slug || "").toLowerCase();
+                const groupTitle = (m.groupItemTitle || "").toLowerCase();
+                
+                // Check for market-level match
+                const marketMatches = 
+                  marketTitle.includes(lowerQuery) || 
+                  marketDescription.includes(lowerQuery) ||
+                  marketSlug.includes(lowerQuery) ||
+                  queryWords.some(word => 
+                    marketTitle.includes(word) || 
+                    groupTitle.includes(word) ||
+                    marketSlug.includes(word)
+                  );
+                
+                if (eventMatchesFull || eventMatchesWord || marketMatches) {
                   allResults.push({ ...m, eventTitle: event.title });
                 }
               });
@@ -772,9 +808,6 @@ export async function searchMarkets(query: string, limit = 100) {
       return true;
     });
     
-    const lowerQuery = query.toLowerCase().trim();
-    const queryWords = lowerQuery.split(/\s+/).filter(w => w.length > 0);
-    
     // Score and sort results by relevance
     const scoredResults = uniqueResults
       .filter((m: any) => {
@@ -783,6 +816,8 @@ export async function searchMarkets(query: string, limit = 100) {
       })
       .map((m: any) => {
         const title = (m.question || m.title || "").toLowerCase();
+        const groupTitle = (m.groupItemTitle || "").toLowerCase();
+        const slug = (m.slug || "").toLowerCase();
         let score = 0;
         
         // Exact phrase match gets highest score
@@ -790,13 +825,32 @@ export async function searchMarkets(query: string, limit = 100) {
           score += 100;
         }
         
+        // Match in group title (e.g., "Kevin Stefanski" in groupItemTitle)
+        if (groupTitle.includes(lowerQuery)) {
+          score += 80;
+        }
+        
         // Score based on word matches
         queryWords.forEach(word => {
           if (title.includes(word)) {
-            score += 10;
+            score += 15;
             if (title.startsWith(word)) score += 5;
           }
+          if (groupTitle.includes(word)) {
+            score += 12;
+          }
+          if (slug.includes(word)) {
+            score += 8;
+          }
         });
+        
+        // All query words match is a strong signal
+        const allWordsMatch = queryWords.every(word => 
+          title.includes(word) || groupTitle.includes(word) || slug.includes(word)
+        );
+        if (allWordsMatch && queryWords.length > 1) {
+          score += 30;
+        }
         
         // Small bonus for volume (but don't deprioritize low-volume markets too much)
         const volume = parseFloat(String(m.volumeNum || m.volume24hr || m.volume || 0));
