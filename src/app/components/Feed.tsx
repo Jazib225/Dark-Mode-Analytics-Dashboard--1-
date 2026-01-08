@@ -114,7 +114,7 @@ export function Feed({ onWalletClick }: FeedProps) {
                   index === feedItems.length - 1 ? "border-b-0" : ""
                 }`}
               >
-                <td className="py-3.5 px-5 text-gray-500 font-mono font-light text-[11px]">
+                <td className="py-3.5 px-5 text-gray-500 font-mono font-light text-[12px]">
                   {item.timestamp}
                 </td>
                 <td

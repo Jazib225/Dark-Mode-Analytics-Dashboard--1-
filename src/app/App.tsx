@@ -318,10 +318,17 @@ export default function App() {
       <header className="border-b border-gray-800/50 bg-gradient-to-b from-[#0d0d0d] to-[#0a0a0a]">
         <nav className="flex items-center h-16 px-8">
           <div className="flex items-center gap-12">
-            <div className="flex items-center gap-3">
+            <button
+              onClick={() => {
+                setCurrentPage("discover");
+                setSelectedWalletAddress(null);
+                setSelectedMarketId(null);
+              }}
+              className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+            >
               <img src={paragonLogo} alt="Paragon" className="h-10 w-10 object-contain" />
               <div className="text-[22px] font-light tracking-tight text-gray-100">PARAGON</div>
-            </div>
+            </button>
             <div className="flex items-center gap-8">
               <button
                 onClick={() => {
@@ -422,10 +429,10 @@ export default function App() {
                   {!searchQuery.trim() && searchHistory.length > 0 && (
                     <div>
                       <div className="flex items-center justify-between px-4 py-2 border-b border-gray-800/30">
-                        <span className="text-[12px] text-gray-400 uppercase tracking-wide">Recently Searched</span>
+                        <span className="text-[13px] text-gray-400 uppercase tracking-wide">Recently Searched</span>
                         <button
                           onClick={clearSearchHistory}
-                          className="text-[12px] text-gray-500 hover:text-gray-300 transition-colors"
+                          className="text-[13px] text-gray-500 hover:text-gray-300 transition-colors"
                         >
                           Clear all
                         </button>
@@ -439,7 +446,7 @@ export default function App() {
                           <Clock className="w-4 h-4 text-gray-500 flex-shrink-0" />
                           <div className="flex-1 min-w-0">
                             <div className="text-[14px] text-gray-200 truncate">{item.name}</div>
-                            <div className="flex items-center gap-4 text-[12px] text-gray-500 mt-0.5">
+                            <div className="flex items-center gap-4 text-[13px] text-gray-500 mt-0.5">
                               <span className="text-[#4a6fa5]">{item.probability}%</span>
                               <span className="text-green-500">{item.volume}</span>
                             </div>
@@ -480,7 +487,7 @@ export default function App() {
                           <TrendingUp className="w-4 h-4 text-gray-500 flex-shrink-0" />
                           <div className="flex-1 min-w-0">
                             <div className="text-[14px] text-gray-200 truncate">{market.name || market.title}</div>
-                            <div className="flex items-center gap-4 text-[12px] text-gray-500 mt-0.5">
+                            <div className="flex items-center gap-4 text-[13px] text-gray-500 mt-0.5">
                               <span className="text-[#4a6fa5]">{market.probability}%</span>
                               <span className="text-green-500">{market.volume}</span>
                             </div>
@@ -513,7 +520,7 @@ export default function App() {
                     <div className="px-4 py-8 text-center">
                       <Search className="w-8 h-8 text-gray-600 mx-auto mb-3" />
                       <p className="text-[14px] text-gray-400">No markets found for "{searchQuery}"</p>
-                      <p className="text-[12px] text-gray-500 mt-1">Try a different search term</p>
+                      <p className="text-[13px] text-gray-500 mt-1">Try a different search term</p>
                     </div>
                   )}
                 </div>

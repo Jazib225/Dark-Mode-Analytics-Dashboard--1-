@@ -453,7 +453,7 @@ export function MarketDetail({
                   <tbody>
                     {recentTrades.map((trade, index) => (
                       <tr key={trade.id || index} className="border-b border-gray-800/30 hover:bg-gray-800/20 transition-colors">
-                        <td className="py-2.5 px-4 text-gray-500 font-mono text-[10px]">{trade.timestamp.split(" ").pop() || trade.timestamp}</td>
+                        <td className="py-2.5 px-4 text-gray-500 font-mono text-[11px]">{trade.timestamp.split(" ").pop() || trade.timestamp}</td>
                         <td className="py-2.5 px-4 text-gray-400 font-mono cursor-pointer hover:text-[#4a6fa5] transition-colors" onClick={() => onWalletClick?.(trade.wallet)}>{trade.wallet}</td>
                         <td className="py-2.5 px-4"><span className={`font-medium ${trade.side === "YES" ? "text-green-500" : "text-red-500"}`}>{trade.side}</span></td>
                         <td className="py-2.5 px-4 text-right text-gray-300">{trade.size}</td>
@@ -588,9 +588,9 @@ export function MarketDetail({
             <div className="mt-6 bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl p-5 shadow-xl shadow-black/20">
               <h4 className="text-xs font-light tracking-wide text-gray-500 uppercase mb-4">How It Works</h4>
               <div className="space-y-3 text-xs text-gray-500">
-                <div className="flex gap-3"><div className="w-5 h-5 bg-gradient-to-br from-[#4a6fa5] to-[#3a5f95] rounded-full flex items-center justify-center text-white text-[10px] font-medium flex-shrink-0">1</div><p>Buy <span className="text-green-500">YES</span> or <span className="text-red-500">NO</span> shares based on your prediction</p></div>
-                <div className="flex gap-3"><div className="w-5 h-5 bg-gradient-to-br from-[#4a6fa5] to-[#3a5f95] rounded-full flex items-center justify-center text-white text-[10px] font-medium flex-shrink-0">2</div><p>Each share pays <span className="text-gray-300">$1.00</span> if your outcome is correct</p></div>
-                <div className="flex gap-3"><div className="w-5 h-5 bg-gradient-to-br from-[#4a6fa5] to-[#3a5f95] rounded-full flex items-center justify-center text-white text-[10px] font-medium flex-shrink-0">3</div><p>Sell anytime before resolution to lock in profits or cut losses</p></div>
+                <div className="flex gap-3"><div className="w-5 h-5 bg-gradient-to-br from-[#4a6fa5] to-[#3a5f95] rounded-full flex items-center justify-center text-white text-[11px] font-medium flex-shrink-0">1</div><p>Buy <span className="text-green-500">YES</span> or <span className="text-red-500">NO</span> shares based on your prediction</p></div>
+                <div className="flex gap-3"><div className="w-5 h-5 bg-gradient-to-br from-[#4a6fa5] to-[#3a5f95] rounded-full flex items-center justify-center text-white text-[11px] font-medium flex-shrink-0">2</div><p>Each share pays <span className="text-gray-300">$1.00</span> if your outcome is correct</p></div>
+                <div className="flex gap-3"><div className="w-5 h-5 bg-gradient-to-br from-[#4a6fa5] to-[#3a5f95] rounded-full flex items-center justify-center text-white text-[11px] font-medium flex-shrink-0">3</div><p>Sell anytime before resolution to lock in profits or cut losses</p></div>
               </div>
             </div>
           </div>

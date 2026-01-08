@@ -78,7 +78,7 @@ export function InsiderLens({ onWalletClick }: InsiderLensProps) {
             <h2 className="text-[19px] font-light tracking-tight text-gray-200 uppercase">
               Leaderboard
             </h2>
-            <span className="text-[12px] text-gray-500 font-light px-2 py-1 bg-gray-800/50 rounded">
+            <span className="text-[13px] text-gray-500 font-light px-2 py-1 bg-gray-800/50 rounded">
               Updated hourly
             </span>
           </div>

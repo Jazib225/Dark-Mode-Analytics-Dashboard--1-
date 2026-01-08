@@ -21,6 +21,7 @@ interface FeedItem {
   contractType: "Yes" | "No";
   size: string;
   probability: number;
+  positionPercent: number;
 }
 
 interface WalletsListProps {
@@ -30,9 +31,9 @@ interface WalletsListProps {
 
 // Initial feed items for simulation
 const initialFeedItems: FeedItem[] = [
-  { id: "1", timestamp: "14:32:15", wallet: "0x742d...3a1f", walletLabel: "Smart Trader #1", market: "Will BTC reach $100k by Q1 2026?", marketId: "btc-100k", action: "buy", contractType: "Yes", size: "$15,000", probability: 67 },
-  { id: "2", timestamp: "14:31:42", wallet: "0x8f3c...9b2d", walletLabel: "Top Performer", market: "ETH 2.0 full rollout in 2026?", marketId: "eth-rollout", action: "sell", contractType: "No", size: "$8,500", probability: 42 },
-  { id: "3", timestamp: "14:30:18", wallet: "0x4a9b...7e5c", walletLabel: "", market: "Fed rate cut in March?", marketId: "fed-rate", action: "buy", contractType: "Yes", size: "$12,000", probability: 55 },
+  { id: "1", timestamp: "14:32:15", wallet: "0x742d...3a1f", walletLabel: "Smart Trader #1", market: "Will BTC reach $100k by Q1 2026?", marketId: "btc-100k", action: "buy", contractType: "Yes", size: "$15,000", probability: 67, positionPercent: 45 },
+  { id: "2", timestamp: "14:31:42", wallet: "0x8f3c...9b2d", walletLabel: "Top Performer", market: "ETH 2.0 full rollout in 2026?", marketId: "eth-rollout", action: "sell", contractType: "No", size: "$8,500", probability: 42, positionPercent: 100 },
+  { id: "3", timestamp: "14:30:18", wallet: "0x4a9b...7e5c", walletLabel: "", market: "Fed rate cut in March?", marketId: "fed-rate", action: "buy", contractType: "Yes", size: "$12,000", probability: 55, positionPercent: 23 },
 ];
 
 export function WalletsList({ onWalletClick, onMarketClick }: WalletsListProps) {
@@ -156,6 +157,7 @@ export function WalletsList({ onWalletClick, onMarketClick }: WalletsListProps) 
         contractType: Math.random() > 0.5 ? "Yes" : "No",
         size: `$${(Math.random() * 20000 + 5000).toFixed(0)}`,
         probability: Math.floor(Math.random() * 60 + 20),
+        positionPercent: Math.floor(Math.random() * 100) + 1,
       };
       setFeedItems((prev) => [newItem, ...prev].slice(0, 20));
     }, 5000);
@@ -179,7 +181,7 @@ export function WalletsList({ onWalletClick, onMarketClick }: WalletsListProps) 
                 value={newWalletAddress}
                 onChange={(e) => setNewWalletAddress(e.target.value)}
                 placeholder="Wallet address..."
-                className="bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-800/50 rounded px-3 py-2 text-[12px] text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-700/50 font-light shadow-inner"
+                className="bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-800/50 rounded px-3 py-2 text-[13px] text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-700/50 font-light shadow-inner"
               />
               <div className="flex gap-2">
                 <input
@@ -187,11 +189,11 @@ export function WalletsList({ onWalletClick, onMarketClick }: WalletsListProps) 
                   value={newWalletLabel}
                   onChange={(e) => setNewWalletLabel(e.target.value)}
                   placeholder="Label (optional)..."
-                  className="flex-1 bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-800/50 rounded px-3 py-2 text-[12px] text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-700/50 font-light shadow-inner"
+                  className="flex-1 bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-800/50 rounded px-3 py-2 text-[13px] text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-700/50 font-light shadow-inner"
                 />
                 <button
                   onClick={addWallet}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 rounded text-[12px] font-light text-gray-300 hover:border-gray-600/50 transition-all shadow-sm"
+                  className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 rounded text-[13px] font-light text-gray-300 hover:border-gray-600/50 transition-all shadow-sm"
                 >
                   <Plus className="w-3 h-3" />
                   Add
@@ -202,7 +204,7 @@ export function WalletsList({ onWalletClick, onMarketClick }: WalletsListProps) 
 
           {/* Tracked Wallets List */}
           <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl overflow-hidden shadow-xl shadow-black/20">
-            <table className="w-full text-[12px]">
+            <table className="w-full text-[13px]">
               <thead>
                 <tr className="border-b border-gray-800/50 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
                   <th className="text-left py-3 px-4 text-gray-500 font-light tracking-wide uppercase">Wallet</th>
@@ -229,7 +231,7 @@ export function WalletsList({ onWalletClick, onMarketClick }: WalletsListProps) 
                             type="text"
                             value={editAddress}
                             onChange={(e) => setEditAddress(e.target.value)}
-                            className="w-full bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-700/50 rounded px-2 py-1 text-[11px] text-gray-300 font-mono focus:outline-none focus:border-gray-600/50"
+                            className="w-full bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-700/50 rounded px-2 py-1 text-[12px] text-gray-300 font-mono focus:outline-none focus:border-gray-600/50"
                           />
                         </td>
                         <td className="py-2 px-4">
@@ -237,7 +239,7 @@ export function WalletsList({ onWalletClick, onMarketClick }: WalletsListProps) 
                             type="text"
                             value={editLabel}
                             onChange={(e) => setEditLabel(e.target.value)}
-                            className="w-full bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-700/50 rounded px-2 py-1 text-[11px] text-gray-300 focus:outline-none focus:border-gray-600/50"
+                            className="w-full bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-700/50 rounded px-2 py-1 text-[12px] text-gray-300 focus:outline-none focus:border-gray-600/50"
                             placeholder="Label..."
                           />
                         </td>
@@ -328,7 +330,7 @@ export function WalletsList({ onWalletClick, onMarketClick }: WalletsListProps) 
           </div>
 
           <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl overflow-hidden shadow-xl shadow-black/20">
-            <table className="w-full text-[12px]">
+            <table className="w-full text-[13px]">
               <thead>
                 <tr className="border-b border-gray-800/50 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
                   <th className="text-left py-3 px-4 text-gray-500 font-light tracking-wide uppercase">Time</th>
@@ -337,6 +339,7 @@ export function WalletsList({ onWalletClick, onMarketClick }: WalletsListProps) 
                   <th className="text-left py-3 px-4 text-gray-500 font-light tracking-wide uppercase">Action</th>
                   <th className="text-left py-3 px-4 text-gray-500 font-light tracking-wide uppercase">Contract</th>
                   <th className="text-right py-3 px-4 text-gray-500 font-light tracking-wide uppercase">Size</th>
+                  <th className="text-right py-3 px-4 text-gray-500 font-light tracking-wide uppercase">% of Pos</th>
                 </tr>
               </thead>
               <tbody>
@@ -347,11 +350,11 @@ export function WalletsList({ onWalletClick, onMarketClick }: WalletsListProps) 
                       index === feedItems.length - 1 ? "border-b-0" : ""
                     } ${index === 0 ? "animate-fade-in" : ""}`}
                   >
-                    <td className="py-3 px-4 text-gray-500 font-mono font-light text-[10px]">
+                    <td className="py-3 px-4 text-gray-500 font-mono font-light">
                       {item.timestamp}
                     </td>
                     <td
-                      className="py-3 px-4 text-gray-400 font-light cursor-pointer hover:text-[#4a6fa5] transition-colors text-[11px]"
+                      className="py-3 px-4 text-gray-400 font-light cursor-pointer hover:text-[#4a6fa5] transition-colors"
                       onClick={() => onWalletClick(item.wallet)}
                     >
                       {item.walletLabel || item.wallet}
@@ -370,7 +373,7 @@ export function WalletsList({ onWalletClick, onMarketClick }: WalletsListProps) 
                     </td>
                     <td className="py-3 px-4">
                       <span
-                        className={`font-normal text-[11px] ${
+                        className={`font-normal ${
                           item.action === "buy" ? "text-green-500" : "text-red-500"
                         }`}
                       >
@@ -379,7 +382,7 @@ export function WalletsList({ onWalletClick, onMarketClick }: WalletsListProps) 
                     </td>
                     <td className="py-3 px-4">
                       <span
-                        className={`font-normal text-[11px] px-2 py-0.5 rounded ${
+                        className={`font-normal px-2 py-0.5 rounded ${
                           item.contractType === "Yes" 
                             ? "bg-green-500/10 text-green-400" 
                             : "bg-red-500/10 text-red-400"
@@ -389,6 +392,7 @@ export function WalletsList({ onWalletClick, onMarketClick }: WalletsListProps) 
                       </span>
                     </td>
                     <td className="py-3 px-4 text-right text-gray-300 font-light">{item.size}</td>
+                    <td className="py-3 px-4 text-right text-gray-400 font-light">{item.positionPercent}%</td>
                   </tr>
                 ))}
               </tbody>

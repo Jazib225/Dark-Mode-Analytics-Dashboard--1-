@@ -265,11 +265,11 @@ export function WalletProfile({ walletAddress, onClose }: WalletProfileProps) {
               {connections.map((conn, index) => (
                 <div key={index} className="text-center">
                   <div className="w-14 h-14 rounded-full border border-gray-700/50 bg-gradient-to-br from-[#151515] to-[#0a0a0a] flex items-center justify-center mb-2 relative shadow-md">
-                    <span className="text-[10px] text-gray-500 font-mono">{conn.wallet}</span>
+                    <span className="text-[11px] text-gray-500 font-mono">{conn.wallet}</span>
                     <div className="absolute -left-10 top-1/2 w-10 h-[1px] bg-gradient-to-r from-gray-800 to-transparent"></div>
                   </div>
-                  <div className="text-[10px] text-gray-600 font-light">{conn.transfers} txs</div>
-                  <div className="text-[10px] text-gray-500 font-light">{conn.volume}</div>
+                  <div className="text-[11px] text-gray-600 font-light">{conn.transfers} txs</div>
+                  <div className="text-[11px] text-gray-500 font-light">{conn.volume}</div>
                 </div>
               ))}
             </div>
