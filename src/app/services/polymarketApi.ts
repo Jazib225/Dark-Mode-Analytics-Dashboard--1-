@@ -811,7 +811,6 @@ export async function getMarketDetails(marketId: string) {
     
     if (marketResponse.ok) {
       marketData = await marketResponse.json();
-      console.log("Gamma market data:", marketData);
     } else {
       console.log(`Gamma market fetch failed with status: ${marketResponse.status}`);
     }
@@ -899,7 +898,6 @@ export async function getMarketDetails(marketId: string) {
           yesPrice = yesParsed;
           noPrice = noParsed;
           priceSource = "outcomePrices";
-          console.log(`Using outcomePrices: YES=${yesPrice}, NO=${noPrice}`);
         }
       }
     }
@@ -960,20 +958,32 @@ export async function getMarketDetails(marketId: string) {
         
         if (orderBookResponse.ok) {
           const clobData = await orderBookResponse.json();
-          console.log("CLOB data (fallback):", clobData);
           
           if (clobData && clobData.bids && clobData.asks && clobData.bids.length > 0 && clobData.asks.length > 0) {
-            const bestBid = parseFloat(String(clobData.bids[0]?.price || 0));
-            const bestAsk = parseFloat(String(clobData.asks[0]?.price || 1));
+            // IMPORTANT: Sort bids descending and asks ascending to get true best prices
+            const sortedBids = clobData.bids
+              .map((b: any) => parseFloat(String(b.price || 0)))
+              .filter((p: number) => p > 0)
+              .sort((a: number, b: number) => b - a);
             
-            // Only use CLOB if prices are reasonable (not at extremes)
-            if (!isNaN(bestBid) && !isNaN(bestAsk) && bestBid > 0.01 && bestAsk < 0.99) {
-              // Use midpoint of bid-ask as yes price
-              yesPrice = (bestBid + bestAsk) / 2;
-              noPrice = 1 - yesPrice;
-              spread = bestAsk - bestBid;
-              priceSource = "CLOB";
-              console.log(`Using CLOB midpoint: YES=${yesPrice}, NO=${noPrice}, Spread=${spread}`);
+            const sortedAsks = clobData.asks
+              .map((a: any) => parseFloat(String(a.price || 0)))
+              .filter((p: number) => p > 0)
+              .sort((a: number, b: number) => a - b);
+            
+            if (sortedBids.length > 0 && sortedAsks.length > 0) {
+              const bestBid = sortedBids[0];
+              const bestAsk = sortedAsks[0];
+              
+              // Only use CLOB if prices are reasonable (not at extremes)
+              if (bestBid > 0.01 && bestAsk < 0.99 && bestAsk > bestBid) {
+                // Use midpoint of bid-ask as yes price
+                yesPrice = (bestBid + bestAsk) / 2;
+                noPrice = 1 - yesPrice;
+                spread = bestAsk - bestBid;
+                priceSource = "CLOB";
+                console.log(`Using CLOB midpoint: YES=${yesPrice}, NO=${noPrice}, Spread=${spread}`);
+              }
             }
           }
         }
@@ -1421,26 +1431,36 @@ export async function getOrderBook(tokenId: string) {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     
-    // Calculate spread from best bid/ask prices (more accurate)
-    const bestBid = data.bids?.[0] ? parseFloat(String(data.bids[0].price || 0)) : 0;
-    const bestAsk = data.asks?.[0] ? parseFloat(String(data.asks[0].price || 1)) : 1;
-    const calculatedSpread = bestAsk - bestBid;
+    // Parse and sort bids (highest price first - best bid is highest)
+    const parsedBids = Array.isArray(data.bids) 
+      ? data.bids.map((bid: any) => ({
+          price: parseFloat(String(bid.price || 0)),
+          size: parseFloat(String(bid.size || 0)),
+        }))
+        .filter((b: any) => b.price > 0 && b.size > 0)
+        .sort((a: any, b: any) => b.price - a.price) // Sort descending (highest bid first)
+        .slice(0, 10)
+      : [];
     
-    // Use API's spread if provided, otherwise use calculated
-    const spread = data.spread !== undefined 
-      ? parseFloat(String(data.spread)) 
-      : calculatedSpread;
+    // Parse and sort asks (lowest price first - best ask is lowest)
+    const parsedAsks = Array.isArray(data.asks)
+      ? data.asks.map((ask: any) => ({
+          price: parseFloat(String(ask.price || 0)),
+          size: parseFloat(String(ask.size || 0)),
+        }))
+        .filter((a: any) => a.price > 0 && a.size > 0)
+        .sort((a: any, b: any) => a.price - b.price) // Sort ascending (lowest ask first)
+        .slice(0, 10)
+      : [];
     
-    // Return formatted order book data
+    // Calculate spread from SORTED best bid/ask (this is now correct)
+    const bestBid = parsedBids.length > 0 ? parsedBids[0].price : 0;
+    const bestAsk = parsedAsks.length > 0 ? parsedAsks[0].price : 1;
+    const spread = bestAsk - bestBid;
+    
     return {
-      bids: Array.isArray(data.bids) ? data.bids.map((bid: any) => ({
-        price: parseFloat(String(bid.price || 0)),
-        size: parseFloat(String(bid.size || 0)),
-      })).slice(0, 10) : [],
-      asks: Array.isArray(data.asks) ? data.asks.map((ask: any) => ({
-        price: parseFloat(String(ask.price || 0)),
-        size: parseFloat(String(ask.size || 0)),
-      })).slice(0, 10) : [],
+      bids: parsedBids,
+      asks: parsedAsks,
       spread: spread,
     };
   } catch (error) {
@@ -1706,20 +1726,33 @@ export async function getClobPrices(tokenId: string) {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     
-    if (!data || !data.bids || !data.asks) {
+    if (!data || !data.bids || !data.asks || data.bids.length === 0 || data.asks.length === 0) {
       return null;
     }
     
-    const bestBid = data.bids[0] ? parseFloat(String(data.bids[0].price)) : 0;
-    const bestAsk = data.asks[0] ? parseFloat(String(data.asks[0].price)) : 1;
+    // Sort bids descending (highest first) and asks ascending (lowest first)
+    const sortedBids = [...data.bids]
+      .map((b: any) => ({ price: parseFloat(String(b.price || 0)), size: parseFloat(String(b.size || 0)) }))
+      .filter((b: any) => b.price > 0)
+      .sort((a: any, b: any) => b.price - a.price);
+    
+    const sortedAsks = [...data.asks]
+      .map((a: any) => ({ price: parseFloat(String(a.price || 0)), size: parseFloat(String(a.size || 0)) }))
+      .filter((a: any) => a.price > 0)
+      .sort((a: any, b: any) => a.price - b.price);
+    
+    if (sortedBids.length === 0 || sortedAsks.length === 0) {
+      return null;
+    }
+    
+    const bestBid = sortedBids[0].price;
+    const bestAsk = sortedAsks[0].price;
     const midPrice = (bestBid + bestAsk) / 2;
     const spread = bestAsk - bestBid;
     
-    // Calculate total liquidity at best prices
-    const bidLiquidity = data.bids.slice(0, 5).reduce((sum: number, b: any) => 
-      sum + parseFloat(String(b.size || 0)), 0);
-    const askLiquidity = data.asks.slice(0, 5).reduce((sum: number, a: any) => 
-      sum + parseFloat(String(a.size || 0)), 0);
+    // Calculate total liquidity at top 5 price levels
+    const bidLiquidity = sortedBids.slice(0, 5).reduce((sum: number, b: any) => sum + b.size, 0);
+    const askLiquidity = sortedAsks.slice(0, 5).reduce((sum: number, a: any) => sum + a.size, 0);
     
     return {
       bestBid,

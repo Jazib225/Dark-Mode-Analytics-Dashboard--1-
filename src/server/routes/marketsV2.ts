@@ -308,26 +308,34 @@ router.get("/:id/orderbook", async (req: Request, res: Response) => {
         
         const data = await apiResponse.json();
         
-        // Calculate spread from best bid/ask prices
-        const bestBid = data.bids?.[0] ? parseFloat(String(data.bids[0].price || 0)) : 0;
-        const bestAsk = data.asks?.[0] ? parseFloat(String(data.asks[0].price || 1)) : 1;
-        const calculatedSpread = bestAsk - bestBid;
-        
-        // Use API's spread if provided, otherwise use calculated
-        const spread = data.spread !== undefined 
-          ? parseFloat(String(data.spread)) 
-          : calculatedSpread;
-        
-        // Return slim orderbook
-        return {
-          bids: (data.bids || []).slice(0, 10).map((b: any) => ({
+        // Parse and sort bids (highest price first - best bid is highest)
+        const parsedBids = (data.bids || [])
+          .map((b: any) => ({
             price: parseFloat(String(b.price || 0)),
             size: parseFloat(String(b.size || 0)),
-          })),
-          asks: (data.asks || []).slice(0, 10).map((a: any) => ({
+          }))
+          .filter((b: any) => b.price > 0 && b.size > 0)
+          .sort((a: any, b: any) => b.price - a.price) // Descending
+          .slice(0, 10);
+        
+        // Parse and sort asks (lowest price first - best ask is lowest)
+        const parsedAsks = (data.asks || [])
+          .map((a: any) => ({
             price: parseFloat(String(a.price || 0)),
             size: parseFloat(String(a.size || 0)),
-          })),
+          }))
+          .filter((a: any) => a.price > 0 && a.size > 0)
+          .sort((a: any, b: any) => a.price - b.price) // Ascending
+          .slice(0, 10);
+        
+        // Calculate spread from SORTED best bid/ask
+        const bestBid = parsedBids.length > 0 ? parsedBids[0].price : 0;
+        const bestAsk = parsedAsks.length > 0 ? parsedAsks[0].price : 1;
+        const spread = bestAsk - bestBid;
+        
+        return {
+          bids: parsedBids,
+          asks: parsedAsks,
           spread: spread,
           lastUpdated: Date.now(),
         };
