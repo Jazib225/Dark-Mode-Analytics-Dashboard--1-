@@ -140,30 +140,35 @@ export function LoginPage({ onLogin, onClose }: LoginPageProps) {
     setLoading("metamask");
     setError("");
     
-    // Check for MetaMask
-    const ethereum = (window as any).ethereum;
-    
-    console.log("MetaMask check:", { 
-      ethereum: !!ethereum, 
-      isMetaMask: ethereum?.isMetaMask,
-      providers: ethereum?.providers 
-    });
-    
-    if (!ethereum) {
-      setError("MetaMask not detected. Please install MetaMask extension.");
-      setLoading(null);
-      window.open("https://metamask.io/download/", "_blank");
-      return;
-    }
+    // Small delay to ensure extensions are fully loaded
+    await new Promise(r => setTimeout(r, 100));
     
     try {
-      // Request account access - this triggers the MetaMask popup
-      console.log("Requesting MetaMask accounts...");
-      const accounts = await ethereum.request({ method: "eth_requestAccounts" });
-      console.log("MetaMask accounts:", accounts);
+      // Check if MetaMask is installed - it injects window.ethereum
+      const ethereum = (window as any).ethereum;
+      
+      if (!ethereum) {
+        setError("MetaMask not installed. Opening download page...");
+        setLoading(null);
+        window.open("https://metamask.io/download/", "_blank");
+        return;
+      }
+      
+      // If multiple wallets are installed, MetaMask might be in a providers array
+      let provider = ethereum;
+      if (ethereum.providers?.length) {
+        const mmProvider = ethereum.providers.find((p: any) => p.isMetaMask && !p.isPhantom);
+        if (mmProvider) provider = mmProvider;
+      }
+      
+      // Request accounts - this opens the MetaMask popup
+      const accounts = await provider.request({ 
+        method: "eth_requestAccounts" 
+      });
       
       if (accounts && accounts.length > 0) {
-        const address = accounts[0];
+        const address = accounts[0] as string;
+        setLoading(null);
         onLogin({
           id: `wallet_${address}`,
           walletAddress: address,
@@ -171,15 +176,18 @@ export function LoginPage({ onLogin, onClose }: LoginPageProps) {
           authMethod: "wallet",
           balance: 0,
         });
+        return;
       } else {
-        setError("No accounts found. Please unlock MetaMask.");
+        setError("No accounts returned. Please unlock MetaMask and try again.");
       }
     } catch (err: any) {
-      console.error("MetaMask error:", err);
+      console.error("MetaMask connection error:", err);
       if (err.code === 4001) {
-        setError("Connection rejected. Please approve the connection in MetaMask.");
+        setError("You rejected the connection request.");
+      } else if (err.code === -32002) {
+        setError("Connection request already pending. Check MetaMask extension.");
       } else {
-        setError(err.message || "MetaMask connection failed");
+        setError(err.message || "Failed to connect to MetaMask");
       }
     }
     setLoading(null);
@@ -189,30 +197,41 @@ export function LoginPage({ onLogin, onClose }: LoginPageProps) {
     setLoading("phantom");
     setError("");
     
-    // Check for Phantom - it injects into window.phantom.solana or window.solana
-    const phantom = (window as any).phantom?.solana || (window as any).solana;
-    
-    console.log("Phantom check:", { 
-      phantom: !!phantom, 
-      isPhantom: phantom?.isPhantom,
-      windowSolana: !!(window as any).solana,
-      windowPhantom: !!(window as any).phantom
-    });
-    
-    if (!phantom?.isPhantom) {
-      setError("Phantom not detected. Please install Phantom wallet extension.");
-      setLoading(null);
-      window.open("https://phantom.app/download", "_blank");
-      return;
-    }
+    // Small delay to ensure extensions are fully loaded
+    await new Promise(r => setTimeout(r, 100));
     
     try {
-      // Connect to Phantom - this triggers the Phantom popup
-      console.log("Connecting to Phantom...");
-      const response = await phantom.connect();
-      const publicKey = response.publicKey.toString();
-      console.log("Phantom connected:", publicKey);
+      // Get the Phantom provider - check window.phantom.solana first (recommended by Phantom docs)
+      const getPhantomProvider = (): any => {
+        if ("phantom" in window) {
+          const phantomWindow = window as any;
+          const provider = phantomWindow.phantom?.solana;
+          if (provider?.isPhantom) {
+            return provider;
+          }
+        }
+        // Fallback to window.solana for legacy support
+        const solanaWindow = window as any;
+        if (solanaWindow.solana?.isPhantom) {
+          return solanaWindow.solana;
+        }
+        return null;
+      };
       
+      const provider = getPhantomProvider();
+      
+      if (!provider) {
+        setError("Phantom not installed. Opening download page...");
+        setLoading(null);
+        window.open("https://phantom.app/", "_blank");
+        return;
+      }
+      
+      // Connect to Phantom - this opens the Phantom popup
+      const response = await provider.connect();
+      const publicKey = response.publicKey.toString();
+      
+      setLoading(null);
       onLogin({
         id: `wallet_${publicKey}`,
         walletAddress: publicKey,
@@ -220,12 +239,13 @@ export function LoginPage({ onLogin, onClose }: LoginPageProps) {
         authMethod: "wallet",
         balance: 0,
       });
+      return;
     } catch (err: any) {
-      console.error("Phantom error:", err);
+      console.error("Phantom connection error:", err);
       if (err.code === 4001) {
-        setError("Connection rejected. Please approve the connection in Phantom.");
+        setError("You rejected the connection request.");
       } else {
-        setError(err.message || "Phantom connection failed");
+        setError(err.message || "Failed to connect to Phantom");
       }
     }
     setLoading(null);

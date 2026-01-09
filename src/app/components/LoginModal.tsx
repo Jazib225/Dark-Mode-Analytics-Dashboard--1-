@@ -114,13 +114,20 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
     setError("");
     setIsConnecting(true);
     
-    // Try MetaMask first
+    // Check for MetaMask
     const ethereum = (window as any).ethereum;
+    
     if (ethereum) {
       try {
-        const accounts = await ethereum.request({ method: "eth_requestAccounts" });
+        // If multiple wallets are installed, find MetaMask
+        let provider = ethereum;
+        if (ethereum.providers?.length) {
+          provider = ethereum.providers.find((p: any) => p.isMetaMask) || ethereum;
+        }
+        
+        const accounts = await provider.request({ method: "eth_requestAccounts" });
         if (accounts && accounts.length > 0) {
-          const address = accounts[0];
+          const address = accounts[0] as string;
           login({
             id: `wallet_${address}`,
             walletAddress: address,
@@ -129,18 +136,37 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
             balance: 0,
           });
           onClose();
+          setIsConnecting(false);
           return;
         }
       } catch (err: any) {
-        if (err.code !== 4001) {
-          setError(err.message || "MetaMask connection failed");
+        console.error("MetaMask error:", err);
+        if (err.code === 4001) {
+          setError("You rejected the connection request.");
+          setIsConnecting(false);
+          return;
+        } else if (err.code === -32002) {
+          setError("Connection request pending. Please open MetaMask.");
+          setIsConnecting(false);
+          return;
         }
+        // Continue to try Phantom if MetaMask fails for other reasons
       }
     }
     
-    // Try Phantom
-    const phantom = (window as any).phantom?.solana || (window as any).solana;
-    if (phantom?.isPhantom) {
+    // Check for Phantom
+    const getPhantomProvider = () => {
+      if ("phantom" in window) {
+        const provider = (window as any).phantom?.solana;
+        if (provider?.isPhantom) return provider;
+      }
+      if ((window as any).solana?.isPhantom) return (window as any).solana;
+      return null;
+    };
+    
+    const phantom = getPhantomProvider();
+    
+    if (phantom) {
       try {
         const response = await phantom.connect();
         const publicKey = response.publicKey.toString();
@@ -152,16 +178,20 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
           balance: 0,
         });
         onClose();
+        setIsConnecting(false);
         return;
       } catch (err: any) {
-        if (err.code !== 4001) {
-          setError(err.message || "Phantom connection failed");
+        console.error("Phantom error:", err);
+        if (err.code === 4001) {
+          setError("You rejected the connection request.");
+          setIsConnecting(false);
+          return;
         }
       }
     }
     
-    if (!ethereum && !phantom?.isPhantom) {
-      setError("No wallet detected. Please install MetaMask or Phantom.");
+    if (!ethereum && !phantom) {
+      setError("No wallet detected. Please install MetaMask or Phantom extension.");
     }
     
     setIsConnecting(false);

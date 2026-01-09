@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Wallet Test</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; background: #1a1a1a; color: white; }
+    button { padding: 15px 30px; margin: 10px; font-size: 16px; cursor: pointer; border: none; border-radius: 8px; }
+    .metamask { background: #f6851b; }
+    .phantom { background: #ab9ff2; }
+    #result { margin-top: 20px; padding: 15px; background: #333; border-radius: 8px; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>Wallet Connection Test</h1>
+  
+  <div>
+    <button class="metamask" onclick="testMetaMask()">Test MetaMask</button>
+    <button class="phantom" onclick="testPhantom()">Test Phantom</button>
+  </div>
+  
+  <div id="result">Click a button to test...</div>
+  
+  <script>
+    function log(msg) {
+      document.getElementById('result').textContent += msg + '\n';
+    }
+    
+    function clear() {
+      document.getElementById('result').textContent = '';
+    }
+    
+    async function testMetaMask() {
+      clear();
+      log('Testing MetaMask...');
+      log('window.ethereum exists: ' + !!window.ethereum);
+      
+      if (window.ethereum) {
+        log('isMetaMask: ' + window.ethereum.isMetaMask);
+        log('providers: ' + JSON.stringify(window.ethereum.providers?.map(p => ({ isMetaMask: p.isMetaMask, isPhantom: p.isPhantom }))));
+        
+        try {
+          log('Requesting accounts...');
+          const accounts = await window.ethereum.request({ method: 'eth_requestAccounts' });
+          log('SUCCESS! Accounts: ' + JSON.stringify(accounts));
+        } catch (err) {
+          log('ERROR: ' + JSON.stringify({ code: err.code, message: err.message }));
+        }
+      } else {
+        log('MetaMask not installed');
+      }
+    }
+    
+    async function testPhantom() {
+      clear();
+      log('Testing Phantom...');
+      log('window.phantom exists: ' + !!window.phantom);
+      log('window.phantom.solana exists: ' + !!window.phantom?.solana);
+      log('window.solana exists: ' + !!window.solana);
+      
+      const provider = window.phantom?.solana || window.solana;
+      
+      if (provider?.isPhantom) {
+        log('isPhantom: ' + provider.isPhantom);
+        
+        try {
+          log('Connecting...');
+          const response = await provider.connect();
+          log('SUCCESS! Public Key: ' + response.publicKey.toString());
+        } catch (err) {
+          log('ERROR: ' + JSON.stringify({ code: err.code, message: err.message }));
+        }
+      } else {
+        log('Phantom not installed');
+      }
+    }
+  </script>
+</body>
+</html>
