@@ -72,7 +72,7 @@ interface DisplayMarket {
 }
 
 // User authentication section component
-function UserAuthSection() {
+function UserAuthSection({ onLoginClick }: { onLoginClick: () => void }) {
   const { user, isAuthenticated, logout, refreshBalance, isLoading } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
 
@@ -85,7 +85,14 @@ function UserAuthSection() {
   }
 
   if (!isAuthenticated || !user) {
-    return null; // Login page will be shown instead
+    return (
+      <button
+        onClick={onLoginClick}
+        className="px-4 py-2 bg-[#4a6fa5] text-white text-sm font-medium rounded-lg hover:bg-[#5a7fb5] transition-colors"
+      >
+        Login
+      </button>
+    );
   }
 
   return (
@@ -160,7 +167,13 @@ function UserAuthSection() {
   );
 }
 
-function AppContent() {
+interface AppContentProps {
+  showLoginPage: boolean;
+  setShowLoginPage: (show: boolean) => void;
+}
+
+function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
+  const { login } = useAuth();
   const [currentPage, setCurrentPage] = useState<Page>("discover");
   const [selectedWalletAddress, setSelectedWalletAddress] = useState<string | null>(null);
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null);
@@ -727,7 +740,7 @@ function AppContent() {
               </svg>
             </a>
             
-            <UserAuthSection />
+            <UserAuthSection onLoginClick={() => setShowLoginPage(true)} />
           </div>
         </nav>
       </header>
@@ -804,9 +817,10 @@ function AppContent() {
   );
 }
 
-// Wrapper that shows login page when not authenticated
+// Wrapper that manages login page state
 function AppWithAuth() {
-  const { isAuthenticated, isLoading, login } = useAuth();
+  const { isLoading, login } = useAuth();
+  const [showLoginPage, setShowLoginPage] = useState(false);
 
   if (isLoading) {
     return (
@@ -816,11 +830,19 @@ function AppWithAuth() {
     );
   }
 
-  if (!isAuthenticated) {
-    return <LoginPage onLogin={login} />;
+  if (showLoginPage) {
+    return (
+      <LoginPage
+        onLogin={(user) => {
+          login(user);
+          setShowLoginPage(false);
+        }}
+        onClose={() => setShowLoginPage(false)}
+      />
+    );
   }
 
-  return <AppContent />;
+  return <AppContent showLoginPage={showLoginPage} setShowLoginPage={setShowLoginPage} />;
 }
 
 // Main App component wrapped with AuthProvider

@@ -1,9 +1,10 @@
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import { Loader2, ArrowLeft } from "lucide-react";
 import paragonLogo from "../../assets/paragon-logo.png";
 
 interface LoginPageProps {
   onLogin: (user: { id: string; email?: string; walletAddress?: string; displayName: string; authMethod: "email" | "google" | "wallet"; balance: number }) => void;
+  onClose?: () => void;
 }
 
 // Icons as simple SVGs to avoid heavy imports
@@ -40,7 +41,7 @@ const PhantomIcon = () => (
   </svg>
 );
 
-export function LoginPage({ onLogin }: LoginPageProps) {
+export function LoginPage({ onLogin, onClose }: LoginPageProps) {
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -161,6 +162,17 @@ export function LoginPage({ onLogin }: LoginPageProps) {
   return (
     <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
+        {/* Back Button */}
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="mb-6 flex items-center gap-2 text-gray-400 hover:text-white transition-colors text-sm"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back
+          </button>
+        )}
+
         {/* Header */}
         <div className="text-center mb-8">
           <img src={paragonLogo} alt="Paragon" className="w-12 h-12 mx-auto mb-3" />
