@@ -168,13 +168,28 @@ export function LoginPage({ onLogin, onClose }: LoginPageProps) {
       
       if (accounts && accounts.length > 0) {
         const address = accounts[0] as string;
+        
+        // Fetch ETH balance
+        let balanceInEth = 0;
+        try {
+          const balanceHex = await provider.request({
+            method: "eth_getBalance",
+            params: [address, "latest"]
+          });
+          // Convert from wei (hex) to ETH
+          const balanceWei = parseInt(balanceHex as string, 16);
+          balanceInEth = balanceWei / 1e18;
+        } catch (balanceErr) {
+          console.error("Failed to fetch ETH balance:", balanceErr);
+        }
+        
         setLoading(null);
         onLogin({
           id: `wallet_${address}`,
           walletAddress: address,
           displayName: `${address.slice(0, 6)}...${address.slice(-4)}`,
           authMethod: "wallet",
-          balance: 0,
+          balance: balanceInEth,
         });
         return;
       } else {
@@ -213,13 +228,35 @@ export function LoginPage({ onLogin, onClose }: LoginPageProps) {
       const response = await provider.connect();
       const publicKey = response.publicKey.toString();
       
+      // Fetch SOL balance from Solana mainnet
+      let balanceInSol = 0;
+      try {
+        const rpcResponse = await fetch("https://api.mainnet-beta.solana.com", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            jsonrpc: "2.0",
+            id: 1,
+            method: "getBalance",
+            params: [publicKey]
+          })
+        });
+        const rpcData = await rpcResponse.json();
+        if (rpcData.result?.value !== undefined) {
+          // Convert lamports to SOL (1 SOL = 1 billion lamports)
+          balanceInSol = rpcData.result.value / 1e9;
+        }
+      } catch (balanceErr) {
+        console.error("Failed to fetch SOL balance:", balanceErr);
+      }
+      
       setLoading(null);
       onLogin({
         id: `wallet_${publicKey}`,
         walletAddress: publicKey,
         displayName: `${publicKey.slice(0, 4)}...${publicKey.slice(-4)}`,
         authMethod: "wallet",
-        balance: 0,
+        balance: balanceInSol,
       });
       
     } catch (error: any) {

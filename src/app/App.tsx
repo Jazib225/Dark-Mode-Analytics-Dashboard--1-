@@ -13,9 +13,17 @@ import { Search, X, Clock, TrendingUp, Bookmark, Loader2, LogOut, User, ChevronD
 import paragonLogo from "../assets/paragon-logo.png";
 import { getAllActiveMarkets, searchMarkets, initializeMarketCache, instantSearch } from "./services/polymarketApi";
 
-// Helper function to format balance
-function formatBalance(cents: number): string {
-  const dollars = cents / 100;
+// Helper function to format balance - handles both crypto and USD
+function formatBalance(amount: number, isWallet: boolean = false): string {
+  if (isWallet) {
+    // For wallet balances, show crypto amount with up to 4 decimal places
+    return amount.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 4,
+    });
+  }
+  // For USD/email balances (stored in cents)
+  const dollars = amount / 100;
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
@@ -95,12 +103,26 @@ function UserAuthSection({ onLoginClick }: { onLoginClick: () => void }) {
     );
   }
 
+  // Determine crypto symbol based on wallet address format
+  const getCryptoSymbol = () => {
+    if (!user.walletAddress) return "";
+    // Ethereum addresses start with 0x and are 42 chars
+    if (user.walletAddress.startsWith("0x") && user.walletAddress.length === 42) return "ETH";
+    // Solana addresses are base58 encoded, typically 32-44 chars
+    return "SOL";
+  };
+
   return (
     <>
       {/* Balance Display */}
       <div className="text-[15px] font-light text-gray-300">
         <span className="text-gray-500">Balance:</span>{" "}
-        <span className="text-gray-100 font-normal">{formatBalance(user.balance)}</span>
+        <span className="text-gray-100 font-normal">
+          {user.authMethod === "wallet" 
+            ? `${formatBalance(user.balance, true)} ${getCryptoSymbol()}`
+            : formatBalance(user.balance, false)
+          }
+        </span>
       </div>
       
       {/* User Menu */}
@@ -132,7 +154,12 @@ function UserAuthSection({ onLoginClick }: { onLoginClick: () => void }) {
                 )}
                 <div className="mt-3 p-2 bg-[#0a0a0a] rounded-lg">
                   <div className="text-xs text-gray-500 mb-1">Balance</div>
-                  <div className="text-lg text-gray-100 font-medium">{formatBalance(user.balance)}</div>
+                  <div className="text-lg text-gray-100 font-medium">
+                    {user.authMethod === "wallet" 
+                      ? `${formatBalance(user.balance, true)} ${getCryptoSymbol()}`
+                      : formatBalance(user.balance, false)
+                    }
+                  </div>
                 </div>
               </div>
               

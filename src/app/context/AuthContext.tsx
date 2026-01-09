@@ -21,17 +21,55 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 const STORAGE_KEY = "paragon_auth_user";
 
-async function fetchWalletBalance(address: string): Promise<number> {
+// Fetch ETH balance from MetaMask
+async function fetchEthBalance(address: string): Promise<number> {
   try {
-    const response = await fetch(`https://data-api.polymarket.com/portfolios/${address}`);
-    if (response.ok) {
-      const data = await response.json();
-      return Math.round(parseFloat(data.available_balance || data.total_balance || "0") * 100);
+    const ethereum = (window as any).ethereum;
+    if (ethereum) {
+      const balanceHex = await ethereum.request({
+        method: "eth_getBalance",
+        params: [address, "latest"]
+      });
+      const balanceWei = parseInt(balanceHex, 16);
+      return balanceWei / 1e18; // Convert wei to ETH
     }
   } catch (e) {
-    console.error("Balance fetch error:", e);
+    console.error("ETH balance fetch error:", e);
   }
   return 0;
+}
+
+// Fetch SOL balance from Solana mainnet
+async function fetchSolBalance(address: string): Promise<number> {
+  try {
+    const response = await fetch("https://api.mainnet-beta.solana.com", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        jsonrpc: "2.0",
+        id: 1,
+        method: "getBalance",
+        params: [address]
+      })
+    });
+    const data = await response.json();
+    if (data.result?.value !== undefined) {
+      return data.result.value / 1e9; // Convert lamports to SOL
+    }
+  } catch (e) {
+    console.error("SOL balance fetch error:", e);
+  }
+  return 0;
+}
+
+// Determine wallet type and fetch appropriate balance
+async function fetchWalletBalance(address: string): Promise<number> {
+  // Ethereum addresses start with 0x and are 42 chars
+  if (address.startsWith("0x") && address.length === 42) {
+    return fetchEthBalance(address);
+  }
+  // Otherwise assume Solana
+  return fetchSolBalance(address);
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
