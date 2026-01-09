@@ -215,10 +215,14 @@ export function MarketDetail({
           }
         }
 
-        // Fetch unique traders count
-        const tradersNum = await getMarketTradersCount(market.id);
+        // Fetch unique traders count using conditionId (required by data-api)
+        // Use conditionId from details if available, otherwise fall back to market.id
+        const marketConditionId = details?.conditionId || market.id;
+        console.log(`Fetching traders count for conditionId: ${marketConditionId}`);
+        const tradersNum = await getMarketTradersCount(marketConditionId);
         if (tradersNum > 0) {
           setTradersCount(tradersNum);
+          console.log(`Found ${tradersNum} unique traders for market`);
         }
       } catch (err) {
         console.error("Error fetching market data:", err);

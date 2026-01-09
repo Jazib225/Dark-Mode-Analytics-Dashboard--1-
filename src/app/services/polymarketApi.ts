@@ -1117,25 +1117,50 @@ export async function getMarketTrades(marketId: string, limit = 20) {
 
 /**
  * Get unique traders count for a market by fetching trades and counting unique wallets
+ * Uses the data-api /trades endpoint with market (conditionId) parameter
  */
 export async function getMarketTradersCount(marketId: string) {
   try {
-    // Fetch more trades to get a better estimate of unique traders
-    const response = await fetchWithTimeout(
-      dataUrl(`/markets/${marketId}/trades`, { limit: "500" })
-    );
+    // The data-api trades endpoint uses 'market' param with the conditionId
+    // Fetch up to 10000 trades to get a comprehensive count of unique traders
+    const url = `https://data-api.polymarket.com/trades?market=${encodeURIComponent(marketId)}&limit=10000`;
+    const response = await fetchWithTimeout(url);
     
     if (response.ok) {
       const data = await response.json();
       if (Array.isArray(data)) {
-        // Count unique wallet addresses
+        // Count unique wallet addresses (proxyWallet is the user's wallet)
         const uniqueWallets = new Set<string>();
         data.forEach((trade: any) => {
-          if (trade.maker) uniqueWallets.add(trade.maker.toLowerCase());
-          if (trade.taker) uniqueWallets.add(trade.taker.toLowerCase());
+          if (trade.proxyWallet) uniqueWallets.add(trade.proxyWallet.toLowerCase());
         });
         return uniqueWallets.size;
       }
+    }
+    
+    // Fallback: Try the holders endpoint which returns current position holders
+    try {
+      const holdersUrl = `https://data-api.polymarket.com/holders?market=${encodeURIComponent(marketId)}`;
+      const holdersResponse = await fetchWithTimeout(holdersUrl, 30000);
+      
+      if (holdersResponse.ok) {
+        const holdersData = await holdersResponse.json();
+        if (Array.isArray(holdersData)) {
+          const uniqueHolders = new Set<string>();
+          holdersData.forEach((token: any) => {
+            if (token.holders && Array.isArray(token.holders)) {
+              token.holders.forEach((holder: any) => {
+                if (holder.proxyWallet) uniqueHolders.add(holder.proxyWallet.toLowerCase());
+              });
+            }
+          });
+          if (uniqueHolders.size > 0) {
+            return uniqueHolders.size;
+          }
+        }
+      }
+    } catch (holdersError) {
+      console.warn("Holders endpoint failed, using trades count:", holdersError);
     }
     
     return 0;
