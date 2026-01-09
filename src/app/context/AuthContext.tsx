@@ -1,4 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
+import { Connection, PublicKey, LAMPORTS_PER_SOL } from "@solana/web3.js";
 
 export interface User {
   id: string;
@@ -39,41 +40,20 @@ async function fetchEthBalance(address: string): Promise<number> {
   return 0;
 }
 
-// Fetch SOL balance from Solana - try multiple RPC endpoints
+// Fetch SOL balance from Solana using @solana/web3.js
 async function fetchSolBalance(address: string): Promise<number> {
-  const rpcEndpoints = [
-    "https://api.mainnet-beta.solana.com",
-    "https://solana-api.projectserum.com"
-  ];
-  
-  for (const endpoint of rpcEndpoints) {
-    try {
-      console.log(`[RefreshBalance] Fetching SOL balance from ${endpoint} for ${address}`);
-      const response = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          jsonrpc: "2.0",
-          id: 1,
-          method: "getBalance",
-          params: [address]
-        })
-      });
-      const data = await response.json();
-      console.log("[RefreshBalance] RPC response:", data);
-      if (data.result?.value !== undefined) {
-        const balanceInSol = data.result.value / 1e9;
-        console.log(`[RefreshBalance] Balance: ${data.result.value} lamports = ${balanceInSol} SOL`);
-        return balanceInSol;
-      }
-      if (data.error) {
-        console.error("[RefreshBalance] RPC error:", data.error);
-      }
-    } catch (e) {
-      console.error(`[RefreshBalance] SOL balance fetch error from ${endpoint}:`, e);
-    }
+  try {
+    console.log(`[RefreshBalance] Fetching SOL balance for ${address}`);
+    const connection = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
+    const publicKey = new PublicKey(address);
+    const lamports = await connection.getBalance(publicKey);
+    const balanceInSol = lamports / LAMPORTS_PER_SOL;
+    console.log(`[RefreshBalance] Balance: ${lamports} lamports = ${balanceInSol} SOL`);
+    return balanceInSol;
+  } catch (e) {
+    console.error("[RefreshBalance] Failed to fetch SOL balance:", e);
+    return 0;
   }
-  return 0;
 }
 
 // Determine wallet type and fetch appropriate balance

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Loader2, ArrowLeft } from "lucide-react";
 import paragonLogo from "../../assets/paragon-logo.png";
+import { Connection, LAMPORTS_PER_SOL } from "@solana/web3.js";
 
 interface LoginPageProps {
   onLogin: (user: { id: string; email?: string; walletAddress?: string; displayName: string; authMethod: "email" | "google" | "wallet"; balance: number }) => void;
@@ -226,67 +227,30 @@ export function LoginPage({ onLogin, onClose }: LoginPageProps) {
     try {
       // Request connection - this opens the Phantom popup
       const response = await provider.connect();
-      const publicKey = response.publicKey.toString();
-      console.log("Connected to Phantom, public key:", publicKey);
+      const publicKey = response.publicKey;
+      console.log("✅ Connected to Phantom");
+      console.log("Public key:", publicKey.toString());
       
-      // Fetch SOL balance using Phantom's connection if available, or direct RPC
+      // Create a proper Solana connection using @solana/web3.js
+      const connection = new Connection("https://api.mainnet-beta.solana.com", "confirmed");
+      
+      // Fetch balance directly using the Connection object
       let balanceInSol = 0;
-      
-      // Method 1: Try using Phantom's connection object (most reliable)
       try {
-        // @solana/web3.js Connection through Phantom
-        if (provider.connection) {
-          const lamports = await provider.connection.getBalance(response.publicKey);
-          balanceInSol = lamports / 1e9;
-          console.log(`Got balance via Phantom connection: ${balanceInSol} SOL`);
-        }
-      } catch (e) {
-        console.log("Phantom connection method failed, trying RPC:", e);
+        const lamports = await connection.getBalance(publicKey);
+        balanceInSol = lamports / LAMPORTS_PER_SOL;
+        console.log(`💰 Balance: ${lamports} lamports = ${balanceInSol} SOL`);
+      } catch (balanceErr) {
+        console.error("❌ Failed to fetch balance:", balanceErr);
       }
       
-      // Method 2: If Phantom connection failed, try direct RPC with CORS-friendly endpoints
-      if (balanceInSol === 0) {
-        const rpcEndpoints = [
-          "https://api.mainnet-beta.solana.com",
-          "https://solana-api.projectserum.com"
-        ];
-        
-        for (const endpoint of rpcEndpoints) {
-          try {
-            console.log(`Trying RPC endpoint: ${endpoint}`);
-            const rpcResponse = await fetch(endpoint, {
-              method: "POST",
-              headers: { 
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify({
-                jsonrpc: "2.0",
-                id: 1,
-                method: "getBalance",
-                params: [publicKey]
-              })
-            });
-            const rpcData = await rpcResponse.json();
-            console.log("RPC response:", rpcData);
-            
-            if (rpcData.result?.value !== undefined) {
-              balanceInSol = rpcData.result.value / 1e9;
-              console.log(`Balance: ${rpcData.result.value} lamports = ${balanceInSol} SOL`);
-              break;
-            }
-          } catch (balanceErr) {
-            console.error(`Failed to fetch from ${endpoint}:`, balanceErr);
-          }
-        }
-      }
-      
-      console.log("Final SOL balance:", balanceInSol);
+      console.log("📤 Calling onLogin with balance:", balanceInSol);
       
       setLoading(null);
       onLogin({
-        id: `wallet_${publicKey}`,
-        walletAddress: publicKey,
-        displayName: `${publicKey.slice(0, 4)}...${publicKey.slice(-4)}`,
+        id: `wallet_${publicKey.toString()}`,
+        walletAddress: publicKey.toString(),
+        displayName: `${publicKey.toString().slice(0, 4)}...${publicKey.toString().slice(-4)}`,
         authMethod: "wallet",
         balance: balanceInSol,
       });
