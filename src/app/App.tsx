@@ -277,9 +277,34 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
     return "discover";
   });
   
-  const [selectedWalletAddress, setSelectedWalletAddress] = useState<string | null>(null);
-  const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null);
-  const [selectedMarketData, setSelectedMarketData] = useState<SelectedMarketData | null>(null);
+  const [selectedWalletAddress, setSelectedWalletAddress] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem("paragon_selected_wallet");
+    } catch (e) {
+      return null;
+    }
+  });
+  
+  const [selectedMarketId, setSelectedMarketId] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem("paragon_selected_market_id");
+    } catch (e) {
+      return null;
+    }
+  });
+  
+  const [selectedMarketData, setSelectedMarketData] = useState<SelectedMarketData | null>(() => {
+    try {
+      const saved = localStorage.getItem("paragon_selected_market_data");
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (e) {
+      console.error("Failed to load saved market data:", e);
+    }
+    return null;
+  });
+  
   const [bookmarkedMarkets, setBookmarkedMarkets] = useState<BookmarkedMarket[]>([]);
 
   // Save current page to localStorage whenever it changes
@@ -290,6 +315,45 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
       console.error("Failed to save current page:", e);
     }
   }, [currentPage]);
+
+  // Save selected market ID to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      if (selectedMarketId) {
+        localStorage.setItem("paragon_selected_market_id", selectedMarketId);
+      } else {
+        localStorage.removeItem("paragon_selected_market_id");
+      }
+    } catch (e) {
+      console.error("Failed to save selected market ID:", e);
+    }
+  }, [selectedMarketId]);
+
+  // Save selected market data to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      if (selectedMarketData) {
+        localStorage.setItem("paragon_selected_market_data", JSON.stringify(selectedMarketData));
+      } else {
+        localStorage.removeItem("paragon_selected_market_data");
+      }
+    } catch (e) {
+      console.error("Failed to save selected market data:", e);
+    }
+  }, [selectedMarketData]);
+
+  // Save selected wallet address to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      if (selectedWalletAddress) {
+        localStorage.setItem("paragon_selected_wallet", selectedWalletAddress);
+      } else {
+        localStorage.removeItem("paragon_selected_wallet");
+      }
+    } catch (e) {
+      console.error("Failed to save selected wallet:", e);
+    }
+  }, [selectedWalletAddress]);
 
   // Search state (moved from Discover)
   const [searchQuery, setSearchQuery] = useState("");
