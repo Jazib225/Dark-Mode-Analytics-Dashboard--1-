@@ -2,6 +2,18 @@ import { useState } from "react";
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer } from "recharts";
 import { PnLCalendar } from "./PnLCalendar";
 import { Plus, X } from "lucide-react";
+import { useAuth } from "../context/AuthContext";
+
+// Helper function to format balance
+function formatBalance(cents: number): string {
+  const dollars = cents / 100;
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(dollars);
+}
 
 const openPositions = [
   {
@@ -65,12 +77,20 @@ const pnlData = [
 type TabType = "positions" | "pnlHistory" | "topTrades";
 
 export function Portfolio() {
+  const { user, isAuthenticated } = useAuth();
   const [showPnLCalendar, setShowPnLCalendar] = useState(false);
   const [activeTab, setActiveTab] = useState<TabType>("positions");
   const [trackedWallets, setTrackedWallets] = useState([
     { wallet: "0x742d...3a1f", copyAmount: "$1,000", slippage: "0.5%", gasFee: "Standard", minLiquidity: "$10,000", maxLiquidity: "$1,000,000", minOdds: "0.10", maxOdds: "0.90" },
   ]);
   const [newWallet, setNewWallet] = useState("");
+
+  // Calculate portfolio values
+  const availableBalance = isAuthenticated && user ? user.balance : 0;
+  // For demo purposes, show some position values if user is logged in with balance
+  const inPositions = isAuthenticated && user && user.balance > 0 ? Math.round(user.balance * 13.6) : 0; // Simulated position value
+  const totalPnL = isAuthenticated && user && user.balance > 0 ? Math.round(user.balance * 2.17) : 0; // Simulated PnL
+  const totalBalance = availableBalance + inPositions;
 
   const addTrackedWallet = () => {
     if (newWallet.trim()) {
@@ -92,19 +112,21 @@ export function Portfolio() {
       <div className="grid grid-cols-4 gap-4">
         <div className="bg-[#0d0d0d] border border-gray-800 p-4">
           <div className="text-xs text-gray-500 mb-2">Total Balance</div>
-          <div className="text-xl text-gray-100">$48,420</div>
+          <div className="text-xl text-gray-100">{formatBalance(totalBalance)}</div>
         </div>
         <div className="bg-[#0d0d0d] border border-gray-800 p-4">
           <div className="text-xs text-gray-500 mb-2">In Positions</div>
-          <div className="text-xl text-gray-100">$45,100</div>
+          <div className="text-xl text-gray-100">{formatBalance(inPositions)}</div>
         </div>
         <div className="bg-[#0d0d0d] border border-gray-800 p-4">
           <div className="text-xs text-gray-500 mb-2">Available</div>
-          <div className="text-xl text-gray-100">$3,320</div>
+          <div className="text-xl text-gray-100">{formatBalance(availableBalance)}</div>
         </div>
         <div className="bg-[#0d0d0d] border border-gray-800 p-4">
           <div className="text-xs text-gray-500 mb-2">Total PnL</div>
-          <div className="text-xl text-green-500">+$7,200</div>
+          <div className={`text-xl ${totalPnL >= 0 ? "text-green-500" : "text-red-500"}`}>
+            {totalPnL >= 0 ? "+" : ""}{formatBalance(totalPnL)}
+          </div>
         </div>
       </div>
 

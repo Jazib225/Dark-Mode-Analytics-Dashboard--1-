@@ -2,6 +2,18 @@ import { ArrowLeft, Bookmark, TrendingUp, TrendingDown, DollarSign, Users, Activ
 import { XAxis, YAxis, Tooltip, ResponsiveContainer, Area, AreaChart } from "recharts";
 import { useState, useEffect } from "react";
 import { getMarketDetails, getMarketPriceHistory, getMarketTrades, getEventWithMarkets, getClobPrices, getOrderBook, getMarketTradersCount } from "../services/polymarketApi";
+import { useAuth } from "../context/AuthContext";
+
+// Helper function to format balance
+function formatBalance(cents: number): string {
+  const dollars = cents / 100;
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(dollars);
+}
 
 interface MarketDetailProps {
   market: {
@@ -111,6 +123,7 @@ export function MarketDetail({
   onBack,
   onWalletClick,
 }: MarketDetailProps) {
+  const { user, isAuthenticated } = useAuth();
   const [tradeAmount, setTradeAmount] = useState("");
   const [tradeSide, setTradeSide] = useState<"YES" | "NO">("YES");
   const [shareQuantity, setShareQuantity] = useState(0);
@@ -688,7 +701,12 @@ export function MarketDetail({
 
                 {/* Balance Info */}
                 <div className="pt-4 border-t border-gray-800/50">
-                  <div className="flex justify-between text-xs text-gray-500"><span>Available Balance</span><span className="text-gray-300 font-medium">$3,320.00</span></div>
+                  <div className="flex justify-between text-xs text-gray-500">
+                    <span>Available Balance</span>
+                    <span className="text-gray-300 font-medium">
+                      {isAuthenticated && user ? formatBalance(user.balance) : "$0.00"}
+                    </span>
+                  </div>
                 </div>
               </div>
             </div>

@@ -7,9 +7,22 @@ import { InsiderLens } from "./components/InsiderLens";
 import { Portfolio } from "./components/Portfolio";
 import { BookmarkedMarketsBar } from "./components/BookmarkedMarketsBar";
 import { SearchResults } from "./components/SearchResults";
-import { Search, X, Clock, TrendingUp, Bookmark, Loader2 } from "lucide-react";
+import { LoginModal } from "./components/LoginModal";
+import { AuthProvider, useAuth } from "./context/AuthContext";
+import { Search, X, Clock, TrendingUp, Bookmark, Loader2, LogOut, User, ChevronDown } from "lucide-react";
 import paragonLogo from "../assets/paragon-logo.png";
 import { getAllActiveMarkets, searchMarkets, initializeMarketCache, instantSearch } from "./services/polymarketApi";
+
+// Helper function to format balance
+function formatBalance(cents: number): string {
+  const dollars = cents / 100;
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(dollars);
+}
 
 // Format probability to match bookmarks display (no unnecessary decimals)
 function formatProbability(prob: number): string {
@@ -58,7 +71,111 @@ interface DisplayMarket {
   image?: string | null;
 }
 
-export default function App() {
+// User authentication section component
+function UserAuthSection() {
+  const { user, isAuthenticated, logout, refreshBalance, isLoading } = useAuth();
+  const [showLoginModal, setShowLoginModal] = useState(false);
+  const [showUserMenu, setShowUserMenu] = useState(false);
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center gap-4">
+        <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated || !user) {
+    return (
+      <>
+        <button 
+          onClick={() => setShowLoginModal(true)}
+          className="px-4 py-1.5 bg-gradient-to-br from-[#4a6fa5] to-[#3a5f95] text-white text-[14px] font-light rounded hover:opacity-90 transition-opacity"
+        >
+          Login
+        </button>
+        <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />
+      </>
+    );
+  }
+
+  return (
+    <>
+      {/* Balance Display */}
+      <div className="text-[15px] font-light text-gray-300">
+        <span className="text-gray-500">Balance:</span>{" "}
+        <span className="text-gray-100 font-normal">{formatBalance(user.balance)}</span>
+      </div>
+      
+      {/* User Menu */}
+      <div className="relative">
+        <button
+          onClick={() => setShowUserMenu(!showUserMenu)}
+          className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 rounded-lg hover:border-gray-600/50 transition-colors"
+        >
+          {user.avatar ? (
+            <img src={user.avatar} alt="" className="w-6 h-6 rounded-full" />
+          ) : (
+            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#4a6fa5] to-[#3a5f95] flex items-center justify-center">
+              <User className="w-4 h-4 text-white" />
+            </div>
+          )}
+          <span className="text-[14px] text-gray-300 font-light max-w-[100px] truncate">
+            {user.displayName}
+          </span>
+          <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${showUserMenu ? "rotate-180" : ""}`} />
+        </button>
+        
+        {showUserMenu && (
+          <>
+            <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
+            <div className="absolute right-0 mt-2 w-56 bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 rounded-xl shadow-2xl z-50 overflow-hidden">
+              <div className="p-4 border-b border-gray-800/50">
+                <div className="text-sm text-gray-300 font-medium truncate">{user.displayName}</div>
+                {user.email && (
+                  <div className="text-xs text-gray-500 truncate mt-1">{user.email}</div>
+                )}
+                {user.walletAddress && (
+                  <div className="text-xs text-gray-500 font-mono truncate mt-1">{user.walletAddress}</div>
+                )}
+                <div className="mt-3 p-2 bg-[#0a0a0a] rounded-lg">
+                  <div className="text-xs text-gray-500 mb-1">Balance</div>
+                  <div className="text-lg text-gray-100 font-medium">{formatBalance(user.balance)}</div>
+                </div>
+              </div>
+              
+              {user.authMethod === "wallet" && (
+                <button
+                  onClick={() => {
+                    refreshBalance();
+                    setShowUserMenu(false);
+                  }}
+                  className="w-full px-4 py-3 text-left text-sm text-gray-300 hover:bg-gray-800/30 transition-colors flex items-center gap-3"
+                >
+                  <Loader2 className="w-4 h-4 text-gray-500" />
+                  Refresh Balance
+                </button>
+              )}
+              
+              <button
+                onClick={() => {
+                  logout();
+                  setShowUserMenu(false);
+                }}
+                className="w-full px-4 py-3 text-left text-sm text-red-400 hover:bg-gray-800/30 transition-colors flex items-center gap-3"
+              >
+                <LogOut className="w-4 h-4" />
+                Sign Out
+              </button>
+            </div>
+          </>
+        )}
+      </div>
+    </>
+  );
+}
+
+function AppContent() {
   const [currentPage, setCurrentPage] = useState<Page>("discover");
   const [selectedWalletAddress, setSelectedWalletAddress] = useState<string | null>(null);
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null);
@@ -625,15 +742,7 @@ export default function App() {
               </svg>
             </a>
             
-            <div className="text-[15px] font-light text-gray-300">
-              <span className="text-gray-500">Balance:</span>{" "}
-              <span className="text-gray-100 font-normal">$3,320.00</span>
-            </div>
-            
-            {/* Login Button */}
-            <button className="px-4 py-1.5 bg-gradient-to-br from-[#4a6fa5] to-[#3a5f95] text-white text-[14px] font-light rounded hover:opacity-90 transition-opacity">
-              Login
-            </button>
+            <UserAuthSection />
           </div>
         </nav>
       </header>
@@ -707,5 +816,14 @@ export default function App() {
         )}
       </main>
     </div>
+  );
+}
+
+// Main App component wrapped with AuthProvider
+export default function App() {
+  return (
+    <AuthProvider>
+      <AppContent />
+    </AuthProvider>
   );
 }
