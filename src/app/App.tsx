@@ -263,11 +263,33 @@ interface AppContentProps {
 
 function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
   const { login } = useAuth();
-  const [currentPage, setCurrentPage] = useState<Page>("discover");
+  
+  // Load saved page from localStorage, default to "discover"
+  const [currentPage, setCurrentPage] = useState<Page>(() => {
+    try {
+      const savedPage = localStorage.getItem("paragon_current_page");
+      if (savedPage && ["discover", "markets", "wallets", "insiderlens", "portfolio", "search"].includes(savedPage)) {
+        return savedPage as Page;
+      }
+    } catch (e) {
+      console.error("Failed to load saved page:", e);
+    }
+    return "discover";
+  });
+  
   const [selectedWalletAddress, setSelectedWalletAddress] = useState<string | null>(null);
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(null);
   const [selectedMarketData, setSelectedMarketData] = useState<SelectedMarketData | null>(null);
   const [bookmarkedMarkets, setBookmarkedMarkets] = useState<BookmarkedMarket[]>([]);
+
+  // Save current page to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem("paragon_current_page", currentPage);
+    } catch (e) {
+      console.error("Failed to save current page:", e);
+    }
+  }, [currentPage]);
 
   // Search state (moved from Discover)
   const [searchQuery, setSearchQuery] = useState("");
@@ -632,12 +654,14 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                 }`}>
                   DISCOVER
                 </span>
-                {/* Active/Hover indicator with triangle */}
-                <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 flex flex-col items-center transition-all duration-200 ${
+                {/* Active/Hover indicator with animated stretching bar and triangle */}
+                <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${
                   currentPage === "discover" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
                 }`}>
-                  <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[4px] border-b-white" />
-                  <div className="h-[2px] bg-white" style={{ width: "calc(100% + 8px)", marginTop: "-1px" }} />
+                  <div className="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-white" />
+                  <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${
+                    currentPage === "discover" ? "w-full" : "w-0 group-hover:w-full"
+                  }`} style={{ marginTop: "-1px" }} />
                 </div>
               </button>
               <button
@@ -653,11 +677,13 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                 }`}>
                   MARKETS
                 </span>
-                <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 flex flex-col items-center transition-all duration-200 ${
+                <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${
                   currentPage === "markets" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
                 }`}>
-                  <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[4px] border-b-white" />
-                  <div className="h-[2px] bg-white" style={{ width: "calc(100% + 8px)", marginTop: "-1px" }} />
+                  <div className="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-white" />
+                  <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${
+                    currentPage === "markets" ? "w-full" : "w-0 group-hover:w-full"
+                  }`} style={{ marginTop: "-1px" }} />
                 </div>
               </button>
               <button
@@ -673,11 +699,13 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                 }`}>
                   INSIDERLENS
                 </span>
-                <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 flex flex-col items-center transition-all duration-200 ${
+                <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${
                   currentPage === "insiderlens" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
                 }`}>
-                  <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[4px] border-b-white" />
-                  <div className="h-[2px] bg-white" style={{ width: "calc(100% + 8px)", marginTop: "-1px" }} />
+                  <div className="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-white" />
+                  <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${
+                    currentPage === "insiderlens" ? "w-full" : "w-0 group-hover:w-full"
+                  }`} style={{ marginTop: "-1px" }} />
                 </div>
               </button>
               <button
@@ -693,11 +721,13 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                 }`}>
                   WALLETS
                 </span>
-                <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 flex flex-col items-center transition-all duration-200 ${
+                <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${
                   currentPage === "wallets" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
                 }`}>
-                  <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[4px] border-b-white" />
-                  <div className="h-[2px] bg-white" style={{ width: "calc(100% + 8px)", marginTop: "-1px" }} />
+                  <div className="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-white" />
+                  <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${
+                    currentPage === "wallets" ? "w-full" : "w-0 group-hover:w-full"
+                  }`} style={{ marginTop: "-1px" }} />
                 </div>
               </button>
               <button
@@ -713,11 +743,13 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                 }`}>
                   PORTFOLIO
                 </span>
-                <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 flex flex-col items-center transition-all duration-200 ${
+                <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${
                   currentPage === "portfolio" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
                 }`}>
-                  <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[4px] border-b-white" />
-                  <div className="h-[2px] bg-white" style={{ width: "calc(100% + 8px)", marginTop: "-1px" }} />
+                  <div className="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-white" />
+                  <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${
+                    currentPage === "portfolio" ? "w-full" : "w-0 group-hover:w-full"
+                  }`} style={{ marginTop: "-1px" }} />
                 </div>
               </button>
             </div>
