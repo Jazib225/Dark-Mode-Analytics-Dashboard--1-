@@ -2,6 +2,9 @@ import express from "express";
 import type { Express } from "express";
 // Node 18+ has built-in fetch support, no need to import
 
+// Optimized markets endpoint with caching
+import marketsV2Router from "./routes/marketsV2";
+
 // Routes no longer needed - frontend calls Polymarket APIs directly via backend proxy
 // import marketsRouter from "./routes/markets";
 // import tradingRouter from "./routes/trading";
@@ -26,6 +29,11 @@ app.use((req, res, next) => {
 
   next();
 });
+
+// =============================================================================
+// Optimized Markets V2 API (with server-side caching)
+// =============================================================================
+app.use("/api/v2/markets", marketsV2Router);
 
 // API Proxy for Polymarket APIs (to avoid CORS issues)
 app.get("/api/proxy/:service/*", async (req, res) => {

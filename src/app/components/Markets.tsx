@@ -3,6 +3,12 @@ import { Bookmark, Loader2 } from "lucide-react";
 import { BookmarkedMarket } from "../App";
 import { MarketDetail } from "./MarketDetail";
 import { getTrendingMarkets } from "../services/polymarketApi";
+import { 
+  fetchMarketList, 
+  prefetchMarketDetail, 
+  prefetchOtherTimeframes,
+  type MarketCardDTO 
+} from "../services/marketDataClient";
 
 // Format cents with proper precision like Polymarket (e.g., 0.4¢, 99.6¢)
 function formatCents(cents: number): string {
@@ -134,6 +140,36 @@ function convertApiMarketToDisplay(market: any, timeframe: TimeFilter = "24h"): 
   };
 }
 
+// Convert V2 MarketCardDTO to DisplayMarket
+function convertV2MarketToDisplay(market: MarketCardDTO, timeframe: TimeFilter = "24h"): DisplayMarket {
+  // V2 API already has pre-calculated volume by timeframe
+  let volumeNum = 0;
+  if (timeframe === "24h") {
+    volumeNum = market.volume24hr || 0;
+  } else if (timeframe === "7d") {
+    volumeNum = market.volume7d || 0;
+  } else if (timeframe === "1m") {
+    volumeNum = market.volume1mo || 0;
+  }
+  
+  // V2 API returns probability already as 0-100
+  const probability = market.probability || 50;
+  const yesPriceCents = probability;
+  const noPriceCents = 100 - probability;
+  
+  return {
+    id: market.id,
+    name: market.question,
+    title: market.question,
+    probability: probability,
+    yesPriceCents,
+    noPriceCents,
+    volumeUsd: String(volumeNum),
+    volume: formatVolume(volumeNum),
+    image: market.image || null,
+  };
+}
+
 function formatVolume(volume: number): string {
   if (volume >= 1000000) {
     return `$${(volume / 1000000).toFixed(2)}M`;
@@ -180,10 +216,10 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMa
     setSelectedMarketId(market.id);
   };
 
-  // Fetch markets with cache-first strategy
+  // Fetch markets with optimized cache-first strategy
   useEffect(() => {
     const fetchMarkets = async () => {
-      // Check for cached data first
+      // Check for cached data first (local cache)
       const cached = loadCachedMarkets(timeFilter);
       
       if (cached && cached.length > 0) {
@@ -205,15 +241,17 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMa
       setError(null);
       
       try {
-        const data = await getTrendingMarkets(timeFilter);
+        // Use optimized V2 endpoint with server-side caching + client deduplication
+        const { markets: data } = await fetchMarketList(timeFilter);
         
         if (!Array.isArray(data)) {
           throw new Error("Invalid data format");
         }
         
+        // V2 API returns MarketCardDTO - map to display format
         const displayMarkets = data
-          .filter((m: any) => m && m.title)
-          .map((m: any) => convertApiMarketToDisplay(m, timeFilter));
+          .filter((m: MarketCardDTO) => m && m.question)
+          .map((m: MarketCardDTO) => convertV2MarketToDisplay(m, timeFilter));
         
         setAllMarkets(displayMarkets);
         
@@ -224,12 +262,26 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMa
         preloadImages(displayMarkets);
         
       } catch (err) {
-        const message = err instanceof Error ? err.message : "Failed to fetch markets";
-        console.error("Error fetching markets:", message);
-        // Only show error if we don't have cached data
-        if (!cached || cached.length === 0) {
-          setError(message);
-          setAllMarkets([]);
+        // Fallback to legacy API if V2 fails
+        console.warn("V2 API failed, falling back to legacy:", err);
+        try {
+          const data = await getTrendingMarkets(timeFilter);
+          if (Array.isArray(data)) {
+            const displayMarkets = data
+              .filter((m: any) => m && m.title)
+              .map((m: any) => convertApiMarketToDisplay(m, timeFilter));
+            setAllMarkets(displayMarkets);
+            saveCachedMarkets(displayMarkets, timeFilter);
+            preloadImages(displayMarkets);
+          }
+        } catch (fallbackErr) {
+          const message = fallbackErr instanceof Error ? fallbackErr.message : "Failed to fetch markets";
+          console.error("Error fetching markets:", message);
+          // Only show error if we don't have cached data
+          if (!cached || cached.length === 0) {
+            setError(message);
+            setAllMarkets([]);
+          }
         }
       } finally {
         setLoading(false);
@@ -242,32 +294,14 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMa
 
   // Prefetch other time filters in background for instant switching
   useEffect(() => {
-    const prefetchOtherFilters = async () => {
-      const filters: TimeFilter[] = ["24h", "7d", "1m"];
-      const otherFilters = filters.filter(f => f !== timeFilter);
-      
-      for (const filter of otherFilters) {
-        // Skip if already cached
-        if (loadCachedMarkets(filter)) continue;
-        
-        try {
-          const data = await getTrendingMarkets(filter);
-          if (Array.isArray(data)) {
-            const displayMarkets = data
-              .filter((m: any) => m && m.title)
-              .map((m: any) => convertApiMarketToDisplay(m, filter));
-            saveCachedMarkets(displayMarkets, filter);
-          }
-        } catch (e) {
-          // Silent fail for prefetch
-        }
-      }
-    };
-
-    // Prefetch after initial load completes (with delay to not block main fetch)
-    const prefetchTimeout = setTimeout(prefetchOtherFilters, 2000);
+    // Use the optimized prefetch from marketDataClient
+    // This runs in background after initial load
+    const prefetchTimeout = setTimeout(() => {
+      prefetchOtherTimeframes(timeFilter);
+    }, 1500);
+    
     return () => clearTimeout(prefetchTimeout);
-  }, []);
+  }, [timeFilter]);
 
   // Load more markets handler
   const handleLoadMore = () => {
@@ -441,6 +475,7 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMa
                   <tr
                     key={market.id}
                     onClick={() => handleTableMarketClick(market)}
+                    onMouseEnter={() => prefetchMarketDetail(market.id)}
                     className={`border-b border-gray-800/30 hover:bg-gradient-to-r hover:from-[#111111] hover:to-transparent transition-all duration-150 cursor-pointer ${
                       index === displayedMarkets.length - 1 ? "border-b-0" : ""
                     }`}
