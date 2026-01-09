@@ -308,6 +308,16 @@ router.get("/:id/orderbook", async (req: Request, res: Response) => {
         
         const data = await apiResponse.json();
         
+        // Calculate spread from best bid/ask prices
+        const bestBid = data.bids?.[0] ? parseFloat(String(data.bids[0].price || 0)) : 0;
+        const bestAsk = data.asks?.[0] ? parseFloat(String(data.asks[0].price || 1)) : 1;
+        const calculatedSpread = bestAsk - bestBid;
+        
+        // Use API's spread if provided, otherwise use calculated
+        const spread = data.spread !== undefined 
+          ? parseFloat(String(data.spread)) 
+          : calculatedSpread;
+        
         // Return slim orderbook
         return {
           bids: (data.bids || []).slice(0, 10).map((b: any) => ({
@@ -318,9 +328,7 @@ router.get("/:id/orderbook", async (req: Request, res: Response) => {
             price: parseFloat(String(a.price || 0)),
             size: parseFloat(String(a.size || 0)),
           })),
-          spread: data.bids?.[0] && data.asks?.[0] 
-            ? parseFloat(data.asks[0].price) - parseFloat(data.bids[0].price)
-            : 0,
+          spread: spread,
           lastUpdated: Date.now(),
         };
       },

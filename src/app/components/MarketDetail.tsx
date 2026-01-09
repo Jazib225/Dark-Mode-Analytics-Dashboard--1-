@@ -520,15 +520,15 @@ export function MarketDetail({
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-0">
-                  {/* Bids (Buy Orders) */}
-                  <div className="border-r border-gray-800/30">
+                  {/* Bids (Buy Orders) - Green */}
+                  <div>
                     <div className="px-4 py-2 bg-gradient-to-b from-[#111111] to-[#0d0d0d] border-b border-gray-800/30">
                       <div className="flex justify-between text-xs text-gray-500">
                         <span>Price</span>
                         <span>Size</span>
                       </div>
                     </div>
-                    <div className="max-h-[200px] overflow-y-auto">
+                    <div className="max-h-[200px] overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                       {orderBook.bids.map((bid, index) => (
                         <div 
                           key={`bid-${index}`} 
@@ -547,7 +547,7 @@ export function MarketDetail({
                       )}
                     </div>
                   </div>
-                  {/* Asks (Sell Orders) */}
+                  {/* Asks (Sell Orders) - Red */}
                   <div>
                     <div className="px-4 py-2 bg-gradient-to-b from-[#111111] to-[#0d0d0d] border-b border-gray-800/30">
                       <div className="flex justify-between text-xs text-gray-500">
@@ -555,7 +555,7 @@ export function MarketDetail({
                         <span>Size</span>
                       </div>
                     </div>
-                    <div className="max-h-[200px] overflow-y-auto">
+                    <div className="max-h-[200px] overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                       {orderBook.asks.map((ask, index) => (
                         <div 
                           key={`ask-${index}`} 

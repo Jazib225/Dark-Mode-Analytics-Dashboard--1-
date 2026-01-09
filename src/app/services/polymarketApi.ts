@@ -1421,6 +1421,16 @@ export async function getOrderBook(tokenId: string) {
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
     const data = await response.json();
     
+    // Calculate spread from best bid/ask prices (more accurate)
+    const bestBid = data.bids?.[0] ? parseFloat(String(data.bids[0].price || 0)) : 0;
+    const bestAsk = data.asks?.[0] ? parseFloat(String(data.asks[0].price || 1)) : 1;
+    const calculatedSpread = bestAsk - bestBid;
+    
+    // Use API's spread if provided, otherwise use calculated
+    const spread = data.spread !== undefined 
+      ? parseFloat(String(data.spread)) 
+      : calculatedSpread;
+    
     // Return formatted order book data
     return {
       bids: Array.isArray(data.bids) ? data.bids.map((bid: any) => ({
@@ -1431,9 +1441,7 @@ export async function getOrderBook(tokenId: string) {
         price: parseFloat(String(ask.price || 0)),
         size: parseFloat(String(ask.size || 0)),
       })).slice(0, 10) : [],
-      spread: data.bids?.[0] && data.asks?.[0] 
-        ? (parseFloat(data.asks[0].price) - parseFloat(data.bids[0].price)) 
-        : 0,
+      spread: spread,
     };
   } catch (error) {
     console.error("Failed to fetch order book:", error);
