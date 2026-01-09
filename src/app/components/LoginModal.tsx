@@ -9,8 +9,10 @@ interface LoginModalProps {
 
 type AuthMode = "select" | "email" | "signup";
 
+const GOOGLE_CLIENT_ID = "777580466798-u444tjovi5admgv86ovkpeuoj7iq3l1m.apps.googleusercontent.com";
+
 export function LoginModal({ isOpen, onClose }: LoginModalProps) {
-  const { loginWithEmail, loginWithGoogle, loginWithWallet, isLoading } = useAuth();
+  const { login } = useAuth();
   const [mode, setMode] = useState<AuthMode>("select");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -42,7 +44,14 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
     
     try {
       setIsConnecting(true);
-      await loginWithEmail(email, password);
+      const savedBalance = localStorage.getItem(`balance_${email}`);
+      login({
+        id: `email_${email}`,
+        email,
+        displayName: email.split("@")[0],
+        authMethod: "email",
+        balance: savedBalance ? parseInt(savedBalance) : 0,
+      });
       onClose();
     } catch (err: any) {
       setError(err.message || "Login failed");
@@ -53,30 +62,109 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
   const handleGoogleLogin = async () => {
     setError("");
-    try {
-      setIsConnecting(true);
-      await loginWithGoogle();
-      onClose();
-    } catch (err: any) {
-      if (err.message !== "Cancelled") {
-        setError(err.message || "Google login failed");
+    setIsConnecting(true);
+    
+    const redirectUri = window.location.origin;
+    const scope = "email profile";
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${redirectUri}&response_type=token&scope=${scope}&prompt=select_account`;
+    
+    const width = 500;
+    const height = 600;
+    const left = window.screenX + (window.outerWidth - width) / 2;
+    const top = window.screenY + (window.outerHeight - height) / 2;
+    
+    const popup = window.open(
+      authUrl,
+      "Google Sign In",
+      `width=${width},height=${height},left=${left},top=${top}`
+    );
+    
+    const handleMessage = async (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      if (event.data.type === "GOOGLE_AUTH_SUCCESS") {
+        const { access_token } = event.data;
+        const response = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+          headers: { Authorization: `Bearer ${access_token}` }
+        });
+        const userInfo = await response.json();
+        login({
+          id: `google_${userInfo.id}`,
+          email: userInfo.email,
+          displayName: userInfo.name || userInfo.email.split("@")[0],
+          authMethod: "google",
+          balance: 0,
+        });
+        window.removeEventListener("message", handleMessage);
+        onClose();
       }
-    } finally {
-      setIsConnecting(false);
-    }
+    };
+    
+    window.addEventListener("message", handleMessage);
+    
+    const checkClosed = setInterval(() => {
+      if (popup?.closed) {
+        clearInterval(checkClosed);
+        setIsConnecting(false);
+        window.removeEventListener("message", handleMessage);
+      }
+    }, 1000);
   };
 
   const handleWalletLogin = async () => {
     setError("");
-    try {
-      setIsConnecting(true);
-      await loginWithWallet();
-      onClose();
-    } catch (err: any) {
-      setError(err.message || "Wallet connection failed");
-    } finally {
-      setIsConnecting(false);
+    setIsConnecting(true);
+    
+    // Try MetaMask first
+    const ethereum = (window as any).ethereum;
+    if (ethereum) {
+      try {
+        const accounts = await ethereum.request({ method: "eth_requestAccounts" });
+        if (accounts && accounts.length > 0) {
+          const address = accounts[0];
+          login({
+            id: `wallet_${address}`,
+            walletAddress: address,
+            displayName: `${address.slice(0, 6)}...${address.slice(-4)}`,
+            authMethod: "wallet",
+            balance: 0,
+          });
+          onClose();
+          return;
+        }
+      } catch (err: any) {
+        if (err.code !== 4001) {
+          setError(err.message || "MetaMask connection failed");
+        }
+      }
     }
+    
+    // Try Phantom
+    const phantom = (window as any).phantom?.solana || (window as any).solana;
+    if (phantom?.isPhantom) {
+      try {
+        const response = await phantom.connect();
+        const publicKey = response.publicKey.toString();
+        login({
+          id: `wallet_${publicKey}`,
+          walletAddress: publicKey,
+          displayName: `${publicKey.slice(0, 4)}...${publicKey.slice(-4)}`,
+          authMethod: "wallet",
+          balance: 0,
+        });
+        onClose();
+        return;
+      } catch (err: any) {
+        if (err.code !== 4001) {
+          setError(err.message || "Phantom connection failed");
+        }
+      }
+    }
+    
+    if (!ethereum && !phantom?.isPhantom) {
+      setError("No wallet detected. Please install MetaMask or Phantom.");
+    }
+    
+    setIsConnecting(false);
   };
 
   const resetModal = () => {
@@ -172,7 +260,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
                     <svg className="w-6 h-6" viewBox="0 0 24 24">
                       <path
                         fill="#4285F4"
-                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.Authorized redirect URIsh3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                       />
                       <path
                         fill="#34A853"
