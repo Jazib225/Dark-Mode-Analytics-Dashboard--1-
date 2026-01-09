@@ -264,6 +264,16 @@ interface AppContentProps {
 function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
   const { login } = useAuth();
   
+  // Navigation history state - tracks where user came from for proper back navigation
+  interface NavigationState {
+    page: Page;
+    marketId: string | null;
+    marketData: SelectedMarketData | null;
+    walletAddress: string | null;
+  }
+  
+  const [navigationHistory, setNavigationHistory] = useState<NavigationState[]>([]);
+  
   // Load saved page from localStorage, default to "discover"
   const [currentPage, setCurrentPage] = useState<Page>(() => {
     try {
@@ -306,6 +316,45 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
   });
   
   const [bookmarkedMarkets, setBookmarkedMarkets] = useState<BookmarkedMarket[]>([]);
+
+  // Push current state to navigation history before navigating
+  const pushToHistory = useCallback(() => {
+    setNavigationHistory(prev => {
+      const currentState: NavigationState = {
+        page: currentPage,
+        marketId: selectedMarketId,
+        marketData: selectedMarketData,
+        walletAddress: selectedWalletAddress,
+      };
+      // Limit history to 50 entries
+      const newHistory = [...prev, currentState].slice(-50);
+      return newHistory;
+    });
+  }, [currentPage, selectedMarketId, selectedMarketData, selectedWalletAddress]);
+
+  // Go back to previous state
+  const goBack = useCallback(() => {
+    setNavigationHistory(prev => {
+      if (prev.length === 0) {
+        // No history - just go to markets list (clear market selection)
+        setSelectedMarketId(null);
+        setSelectedMarketData(null);
+        return prev;
+      }
+      
+      const newHistory = [...prev];
+      const previousState = newHistory.pop();
+      
+      if (previousState) {
+        setCurrentPage(previousState.page);
+        setSelectedMarketId(previousState.marketId);
+        setSelectedMarketData(previousState.marketData);
+        setSelectedWalletAddress(previousState.walletAddress);
+      }
+      
+      return newHistory;
+    });
+  }, []);
 
   // Save current page to localStorage whenever it changes
   useEffect(() => {
@@ -354,6 +403,16 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
       console.error("Failed to save selected wallet:", e);
     }
   }, [selectedWalletAddress]);
+
+  // Handle browser back/forward buttons
+  useEffect(() => {
+    const handlePopState = () => {
+      goBack();
+    };
+    
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, [goBack]);
 
   // Search state (moved from Discover)
   const [searchQuery, setSearchQuery] = useState("");
@@ -615,6 +674,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
 
   // Handle market selection from search
   const handleSearchMarketSelect = (market: DisplayMarket) => {
+    pushToHistory();
     addToSearchHistory(market);
     setSearchQuery("");
     setIsSearchFocused(false);
@@ -630,6 +690,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
 
   // Handle selecting from history
   const handleHistorySelect = (item: SearchHistoryItem) => {
+    pushToHistory();
     addToSearchHistory({
       id: item.id,
       name: item.name,
@@ -652,6 +713,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
   const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && searchQuery.trim()) {
       e.preventDefault();
+      pushToHistory();
       setSearchResultsQuery(searchQuery.trim());
       setSearchQuery("");
       setIsSearchFocused(false);
@@ -680,6 +742,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
   };
 
   const openWalletProfile = (walletAddress: string) => {
+    pushToHistory();
     setSelectedWalletAddress(walletAddress);
   };
 
@@ -974,13 +1037,19 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
       {/* Bookmarked Markets Bar */}
       <BookmarkedMarketsBar
         bookmarkedMarkets={bookmarkedMarkets}
-        onNavigate={navigateToMarket}
+        onNavigate={(marketId) => {
+          pushToHistory();
+          navigateToMarket(marketId);
+        }}
       />
 
       {/* Main Content */}
       <main className="p-8">
         {selectedWalletAddress ? (
-          <WalletProfile walletAddress={selectedWalletAddress} onClose={closeWalletProfile} />
+          <WalletProfile walletAddress={selectedWalletAddress} onClose={() => {
+            // Go back properly instead of just closing
+            goBack();
+          }} />
         ) : (
           <>
             {currentPage === "discover" && (
@@ -989,6 +1058,8 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                 isBookmarked={isBookmarked}
                 onWalletClick={openWalletProfile}
                 onMarketClick={(market) => {
+                  // Push current state to history before navigating
+                  pushToHistory();
                   setSelectedMarketId(market.id);
                   setSelectedMarketData({
                     id: market.id,
@@ -999,6 +1070,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                   setCurrentPage("markets");
                 }}
                 onNavigate={(page) => {
+                  pushToHistory();
                   setCurrentPage(page as Page);
                   setSelectedWalletAddress(null);
                   setSelectedMarketId(null);
@@ -1010,9 +1082,12 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                 toggleBookmark={toggleBookmark} 
                 isBookmarked={isBookmarked}
                 onWalletClick={openWalletProfile}
+                onBack={goBack}
                 onMarketSelect={(market) => {
                   // Save to App state so it gets persisted to localStorage
                   if (market) {
+                    // Push current state to history before selecting market
+                    pushToHistory();
                     setSelectedMarketId(market.id);
                     setSelectedMarketData(market);
                   } else {
@@ -1025,14 +1100,18 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                 initialMarketData={selectedMarketData}
               />
             )}
-            {currentPage === "wallets" && <WalletsList onWalletClick={openWalletProfile} onMarketClick={navigateToMarket} />}
+            {currentPage === "wallets" && <WalletsList onWalletClick={openWalletProfile} onMarketClick={(marketId) => {
+              pushToHistory();
+              navigateToMarket(marketId);
+            }} />}
             {currentPage === "insiderlens" && <InsiderLens onWalletClick={openWalletProfile} />}
             {currentPage === "portfolio" && <Portfolio />}
             {currentPage === "search" && (
               <SearchResults
                 initialQuery={searchResultsQuery}
-                onBack={() => setCurrentPage("discover")}
+                onBack={goBack}
                 onMarketSelect={(market) => {
+                  pushToHistory();
                   addToSearchHistory(market);
                   setSelectedMarketId(market.id);
                   setSelectedMarketData({

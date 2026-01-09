@@ -30,6 +30,7 @@ interface MarketsProps {
   isBookmarked: (marketId: string) => boolean;
   onWalletClick?: (address: string) => void;
   onMarketSelect?: (market: { id: string; name: string; probability: number; volume: string } | null) => void;
+  onBack?: () => void;  // Global back function from App
   initialMarketId?: string | null;
   initialMarketData?: {
     id: string;
@@ -184,7 +185,7 @@ function formatVolume(volume: number): string {
 const INITIAL_LOAD = 15;
 const LOAD_MORE_COUNT = 15;
 
-export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketSelect, initialMarketId, initialMarketData }: MarketsProps) {
+export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketSelect, onBack, initialMarketId, initialMarketData }: MarketsProps) {
   // Initialize with initialMarketId - this allows persistence across refreshes
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(initialMarketId ?? null);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("24h");
@@ -374,10 +375,15 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
             })
           }
           onBack={() => {
-            setSelectedMarketId(null);
-            // Clear parent state too so it doesn't persist on refresh
-            if (onMarketSelect) {
-              onMarketSelect(null);
+            // Use global back navigation if available, otherwise just clear selection
+            if (onBack) {
+              onBack();
+            } else {
+              setSelectedMarketId(null);
+              // Clear parent state too so it doesn't persist on refresh
+              if (onMarketSelect) {
+                onMarketSelect(null);
+              }
             }
           }}
           onWalletClick={onWalletClick}
