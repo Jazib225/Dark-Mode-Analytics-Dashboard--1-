@@ -193,39 +193,25 @@ export function LoginPage({ onLogin, onClose }: LoginPageProps) {
     setLoading(null);
   };
 
-  // Phantom getProvider - EXACT copy from official Phantom sandbox
-  const getPhantomProvider = () => {
-    if ("phantom" in window) {
-      const anyWindow: any = window;
-      const provider = anyWindow.phantom?.solana;
-      if (provider?.isPhantom) {
-        return provider;
-      }
-    }
-    return null;
-  };
-
   const handlePhantom = async () => {
     setLoading("phantom");
     setError("");
     
-    // Get provider using official Phantom method
-    const provider = getPhantomProvider();
+    // Get the Phantom provider - check multiple locations
+    const win = window as any;
+    const provider = win.phantom?.solana || win.solana;
     
-    if (!provider) {
-      setError("Phantom wallet not detected. Please install it first.");
+    // Check if Phantom is actually available
+    if (!provider || !provider.isPhantom) {
+      setError("Phantom not found. Please make sure the extension is installed and enabled.");
       setLoading(null);
-      // Open Phantom download page after a short delay
-      setTimeout(() => {
-        window.open("https://phantom.app/", "_blank");
-      }, 1500);
       return;
     }
     
     try {
-      // Connect using official Phantom API - this is the EXACT method from their sandbox
-      const resp = await provider.connect();
-      const publicKey = resp.publicKey.toString();
+      // Request connection - this opens the Phantom popup
+      const response = await provider.connect();
+      const publicKey = response.publicKey.toString();
       
       setLoading(null);
       onLogin({
@@ -237,23 +223,19 @@ export function LoginPage({ onLogin, onClose }: LoginPageProps) {
       });
       
     } catch (error: any) {
-      console.error("Phantom connection error:", error);
+      console.error("Phantom error:", error);
       setLoading(null);
       
-      // Handle specific error codes from Phantom
       if (error.code === 4001) {
-        setError("You rejected the connection request.");
+        setError("Connection request was rejected.");
       } else {
-        setError(error.message || "Failed to connect to Phantom. Please try again.");
+        setError(error.message || "Could not connect to Phantom.");
       }
     }
   };
 
-  // Better wallet detection
+  // Wallet detection for MetaMask button label
   const hasMetaMask = typeof window !== "undefined" && !!(window as any).ethereum;
-  const hasPhantom = typeof window !== "undefined" && (
-    !!(window as any).phantom?.solana?.isPhantom || !!(window as any).solana?.isPhantom
-  );
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
@@ -347,7 +329,7 @@ export function LoginPage({ onLogin, onClose }: LoginPageProps) {
             className="py-3 bg-[#111] border border-gray-800 rounded-lg text-white text-sm hover:border-gray-600 disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {loading === "phantom" ? <Loader2 className="w-4 h-4 animate-spin" /> : <PhantomIcon />}
-            <span className="text-xs">{hasPhantom ? "Phantom" : "Install"}</span>
+            <span className="text-xs">Phantom</span>
           </button>
         </div>
 
