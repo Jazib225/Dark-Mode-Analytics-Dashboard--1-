@@ -1090,6 +1090,7 @@ export async function getMarketTrades(marketId: string, limit = 20) {
           id: trade.id || Math.random().toString(),
           timestamp: new Date(trade.timestamp || trade.createdAt).toLocaleString(),
           wallet: trade.maker ? `${trade.maker.slice(0, 6)}...${trade.maker.slice(-4)}` : "0x0000...0000",
+          fullWallet: trade.maker || null,
           side: trade.side === "BUY" || trade.outcome === "Yes" ? "YES" : "NO",
           size: `$${parseFloat(String(trade.size || trade.amount || 0)).toFixed(0)}`,
           price: parseFloat(String(trade.price || 0.5)),
@@ -1101,6 +1102,36 @@ export async function getMarketTrades(marketId: string, limit = 20) {
   } catch (error) {
     console.error("Failed to fetch market trades:", error);
     return [];
+  }
+}
+
+/**
+ * Get unique traders count for a market by fetching trades and counting unique wallets
+ */
+export async function getMarketTradersCount(marketId: string) {
+  try {
+    // Fetch more trades to get a better estimate of unique traders
+    const response = await fetchWithTimeout(
+      dataUrl(`/markets/${marketId}/trades`, { limit: "500" })
+    );
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        // Count unique wallet addresses
+        const uniqueWallets = new Set<string>();
+        data.forEach((trade: any) => {
+          if (trade.maker) uniqueWallets.add(trade.maker.toLowerCase());
+          if (trade.taker) uniqueWallets.add(trade.taker.toLowerCase());
+        });
+        return uniqueWallets.size;
+      }
+    }
+    
+    return 0;
+  } catch (error) {
+    console.error("Failed to fetch traders count:", error);
+    return 0;
   }
 }
 
@@ -1381,16 +1412,32 @@ export async function getCategories() {
 /**
  * Trading API - Order books and pricing
  */
-export async function getOrderBook(assetId: string) {
+export async function getOrderBook(tokenId: string) {
   try {
+    // Use the /book endpoint with token_id parameter (the working CLOB endpoint)
     const response = await fetchWithTimeout(
-      clobUrl(`/orderbooks/${assetId}`)
+      clobUrl(`/book`, { token_id: tokenId })
     );
     if (!response.ok) throw new Error(`HTTP ${response.status}`);
-    return await response.json();
+    const data = await response.json();
+    
+    // Return formatted order book data
+    return {
+      bids: Array.isArray(data.bids) ? data.bids.map((bid: any) => ({
+        price: parseFloat(String(bid.price || 0)),
+        size: parseFloat(String(bid.size || 0)),
+      })).slice(0, 10) : [],
+      asks: Array.isArray(data.asks) ? data.asks.map((ask: any) => ({
+        price: parseFloat(String(ask.price || 0)),
+        size: parseFloat(String(ask.size || 0)),
+      })).slice(0, 10) : [],
+      spread: data.bids?.[0] && data.asks?.[0] 
+        ? (parseFloat(data.asks[0].price) - parseFloat(data.bids[0].price)) 
+        : 0,
+    };
   } catch (error) {
     console.error("Failed to fetch order book:", error);
-    return {};
+    return { bids: [], asks: [], spread: 0 };
   }
 }
 

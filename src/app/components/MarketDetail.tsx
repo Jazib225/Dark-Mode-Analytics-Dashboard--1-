@@ -1,7 +1,7 @@
 import { ArrowLeft, Bookmark, TrendingUp, TrendingDown, DollarSign, Users, Activity, Minus, Plus, Loader2 } from "lucide-react";
 import { XAxis, YAxis, Tooltip, ResponsiveContainer, Area, AreaChart } from "recharts";
 import { useState, useEffect } from "react";
-import { getMarketDetails, getMarketPriceHistory, getMarketTrades, getEventWithMarkets, getClobPrices } from "../services/polymarketApi";
+import { getMarketDetails, getMarketPriceHistory, getMarketTrades, getEventWithMarkets, getClobPrices, getOrderBook, getMarketTradersCount } from "../services/polymarketApi";
 
 interface MarketDetailProps {
   market: {
@@ -78,6 +78,17 @@ interface Trade {
   price: number;
 }
 
+interface OrderBookLevel {
+  price: number;
+  size: number;
+}
+
+interface OrderBookData {
+  bids: OrderBookLevel[];
+  asks: OrderBookLevel[];
+  spread: number;
+}
+
 // Format cents with proper precision like Polymarket (e.g., 0.4¢, 99.6¢)
 function formatCents(cents: number): string {
   if (cents < 0.1) return "<0.1";
@@ -110,6 +121,8 @@ export function MarketDetail({
   const [eventData, setEventData] = useState<EventData | null>(null);
   const [priceHistory, setPriceHistory] = useState<PricePoint[]>([]);
   const [recentTrades, setRecentTrades] = useState<Trade[]>([]);
+  const [orderBook, setOrderBook] = useState<OrderBookData>({ bids: [], asks: [], spread: 0 });
+  const [tradersCount, setTradersCount] = useState<number>(0);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -171,6 +184,29 @@ export function MarketDetail({
             { id: "3", timestamp: new Date().toLocaleString(), wallet: "0x4a9b...7e5c", side: "YES", size: "$15,700", price: 0.65 },
           ]);
         }
+
+        // Fetch order book data if we have token IDs
+        if (details?.clobTokenIds && details.clobTokenIds.length > 0) {
+          const tokenId = Array.isArray(details.clobTokenIds) 
+            ? details.clobTokenIds[0] 
+            : typeof details.clobTokenIds === 'string' 
+              ? JSON.parse(details.clobTokenIds)[0] 
+              : null;
+          
+          if (tokenId) {
+            const bookData = await getOrderBook(tokenId);
+            if (bookData && (bookData.bids?.length > 0 || bookData.asks?.length > 0)) {
+              setOrderBook(bookData);
+              console.log("Order book data:", bookData);
+            }
+          }
+        }
+
+        // Fetch unique traders count
+        const tradersNum = await getMarketTradersCount(market.id);
+        if (tradersNum > 0) {
+          setTradersCount(tradersNum);
+        }
       } catch (err) {
         console.error("Error fetching market data:", err);
         setError("Failed to load market data");
@@ -200,7 +236,8 @@ export function MarketDetail({
   const currentVolume = marketData?.volume ?? market.volume ?? "$0";
   const currentVolume24h = marketData?.volume24hr ?? "$0";
   const currentLiquidity = marketData?.liquidity ?? "$0";
-  const uniqueTraders = marketData?.uniqueTraders ?? 0;
+  // Use tradersCount from API if available, otherwise fall back to marketData.uniqueTraders
+  const uniqueTraders = tradersCount > 0 ? tradersCount : (marketData?.uniqueTraders ?? 0);
   
   // Check if this is a multi-outcome market
   const isMultiOutcome = eventData?.isMultiOutcome && eventData.markets.length > 1;
@@ -468,6 +505,78 @@ export function MarketDetail({
                 </table>
               </div>
             </div>
+
+            {/* Order Book */}
+            {(orderBook.bids.length > 0 || orderBook.asks.length > 0) && (
+              <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl shadow-xl shadow-black/20">
+                <div className="p-4 border-b border-gray-800/50">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-light tracking-wide text-gray-400 uppercase">Order Book</h3>
+                    {orderBook.spread > 0 && (
+                      <span className="text-xs text-gray-500">
+                        Spread: <span className="text-gray-300">{(orderBook.spread * 100).toFixed(2)}¢</span>
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-0">
+                  {/* Bids (Buy Orders) */}
+                  <div className="border-r border-gray-800/30">
+                    <div className="px-4 py-2 bg-gradient-to-b from-[#111111] to-[#0d0d0d] border-b border-gray-800/30">
+                      <div className="flex justify-between text-xs text-gray-500">
+                        <span>Price</span>
+                        <span>Size</span>
+                      </div>
+                    </div>
+                    <div className="max-h-[200px] overflow-y-auto">
+                      {orderBook.bids.map((bid, index) => (
+                        <div 
+                          key={`bid-${index}`} 
+                          className="flex justify-between px-4 py-1.5 text-xs hover:bg-green-900/10 transition-colors relative"
+                        >
+                          <div 
+                            className="absolute inset-y-0 right-0 bg-green-500/10"
+                            style={{ width: `${Math.min(100, (bid.size / Math.max(...orderBook.bids.map(b => b.size))) * 100)}%` }}
+                          />
+                          <span className="text-green-400 relative z-10">{(bid.price * 100).toFixed(1)}¢</span>
+                          <span className="text-gray-400 relative z-10">${bid.size.toFixed(0)}</span>
+                        </div>
+                      ))}
+                      {orderBook.bids.length === 0 && (
+                        <div className="px-4 py-4 text-center text-xs text-gray-500">No bids</div>
+                      )}
+                    </div>
+                  </div>
+                  {/* Asks (Sell Orders) */}
+                  <div>
+                    <div className="px-4 py-2 bg-gradient-to-b from-[#111111] to-[#0d0d0d] border-b border-gray-800/30">
+                      <div className="flex justify-between text-xs text-gray-500">
+                        <span>Price</span>
+                        <span>Size</span>
+                      </div>
+                    </div>
+                    <div className="max-h-[200px] overflow-y-auto">
+                      {orderBook.asks.map((ask, index) => (
+                        <div 
+                          key={`ask-${index}`} 
+                          className="flex justify-between px-4 py-1.5 text-xs hover:bg-red-900/10 transition-colors relative"
+                        >
+                          <div 
+                            className="absolute inset-y-0 left-0 bg-red-500/10"
+                            style={{ width: `${Math.min(100, (ask.size / Math.max(...orderBook.asks.map(a => a.size))) * 100)}%` }}
+                          />
+                          <span className="text-red-400 relative z-10">{(ask.price * 100).toFixed(1)}¢</span>
+                          <span className="text-gray-400 relative z-10">${ask.size.toFixed(0)}</span>
+                        </div>
+                      ))}
+                      {orderBook.asks.length === 0 && (
+                        <div className="px-4 py-4 text-center text-xs text-gray-500">No asks</div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
 
           {/* RIGHT SIDE - Trading Panel */}
@@ -581,16 +690,6 @@ export function MarketDetail({
                 <div className="pt-4 border-t border-gray-800/50">
                   <div className="flex justify-between text-xs text-gray-500"><span>Available Balance</span><span className="text-gray-300 font-medium">$3,320.00</span></div>
                 </div>
-              </div>
-            </div>
-
-            {/* How It Works */}
-            <div className="mt-6 bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl p-5 shadow-xl shadow-black/20">
-              <h4 className="text-xs font-light tracking-wide text-gray-500 uppercase mb-4">How It Works</h4>
-              <div className="space-y-3 text-xs text-gray-500">
-                <div className="flex gap-3"><div className="w-5 h-5 bg-gradient-to-br from-[#4a6fa5] to-[#3a5f95] rounded-full flex items-center justify-center text-white text-[11px] font-medium flex-shrink-0">1</div><p>Buy <span className="text-green-500">YES</span> or <span className="text-red-500">NO</span> shares based on your prediction</p></div>
-                <div className="flex gap-3"><div className="w-5 h-5 bg-gradient-to-br from-[#4a6fa5] to-[#3a5f95] rounded-full flex items-center justify-center text-white text-[11px] font-medium flex-shrink-0">2</div><p>Each share pays <span className="text-gray-300">$1.00</span> if your outcome is correct</p></div>
-                <div className="flex gap-3"><div className="w-5 h-5 bg-gradient-to-br from-[#4a6fa5] to-[#3a5f95] rounded-full flex items-center justify-center text-white text-[11px] font-medium flex-shrink-0">3</div><p>Sell anytime before resolution to lock in profits or cut losses</p></div>
               </div>
             </div>
           </div>
