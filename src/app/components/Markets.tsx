@@ -29,6 +29,7 @@ interface MarketsProps {
   toggleBookmark: (market: BookmarkedMarket) => void;
   isBookmarked: (marketId: string) => boolean;
   onWalletClick?: (address: string) => void;
+  onMarketSelect?: (market: { id: string; name: string; probability: number; volume: string } | null) => void;
   initialMarketId?: string | null;
   initialMarketData?: {
     id: string;
@@ -183,13 +184,15 @@ function formatVolume(volume: number): string {
 const INITIAL_LOAD = 15;
 const LOAD_MORE_COUNT = 15;
 
-export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMarketId, initialMarketData }: MarketsProps) {
-  const [selectedMarketId, setSelectedMarketId] = useState<string | null>(initialMarketId || null);
+export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketSelect, initialMarketId, initialMarketData }: MarketsProps) {
+  // Initialize with initialMarketId - this allows persistence across refreshes
+  const [selectedMarketId, setSelectedMarketId] = useState<string | null>(initialMarketId ?? null);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("24h");
 
   // Sync selectedMarketId when initialMarketId changes from parent (e.g., from search)
+  // Only update if initialMarketId actually changed and is different from current
   useEffect(() => {
-    if (initialMarketId !== undefined) {
+    if (initialMarketId !== undefined && initialMarketId !== selectedMarketId) {
       setSelectedMarketId(initialMarketId);
     }
   }, [initialMarketId]);
@@ -214,6 +217,15 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMa
   // Handle clicking on a market from the table
   const handleTableMarketClick = (market: DisplayMarket) => {
     setSelectedMarketId(market.id);
+    // Notify parent component so it can persist the selection
+    if (onMarketSelect) {
+      onMarketSelect({
+        id: market.id,
+        name: market.name || market.title || "Unknown",
+        probability: Number(market.probability) || 50,
+        volume: market.volume || "$0",
+      });
+    }
   };
 
   // Fetch markets with optimized cache-first strategy
@@ -332,6 +344,17 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMa
       selectedMarket = allMarkets.find((m) => m.id === selectedMarketId);
     }
     
+    // If we have a market ID but no data yet, show loading or use minimal data
+    if (!selectedMarket && selectedMarketId) {
+      // Try to create minimal market from just the ID - MarketDetail will fetch the rest
+      selectedMarket = {
+        id: selectedMarketId,
+        name: "Loading...",
+        probability: 50,
+        volume: "$0",
+      };
+    }
+    
     if (selectedMarket) {
       return (
         <MarketDetail
@@ -350,7 +373,13 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, initialMa
               image: selectedMarket!.image || null,
             })
           }
-          onBack={() => setSelectedMarketId(null)}
+          onBack={() => {
+            setSelectedMarketId(null);
+            // Clear parent state too so it doesn't persist on refresh
+            if (onMarketSelect) {
+              onMarketSelect(null);
+            }
+          }}
           onWalletClick={onWalletClick}
         />
       );

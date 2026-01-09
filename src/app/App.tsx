@@ -1010,6 +1010,17 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                 toggleBookmark={toggleBookmark} 
                 isBookmarked={isBookmarked}
                 onWalletClick={openWalletProfile}
+                onMarketSelect={(market) => {
+                  // Save to App state so it gets persisted to localStorage
+                  if (market) {
+                    setSelectedMarketId(market.id);
+                    setSelectedMarketData(market);
+                  } else {
+                    // Clear selection (back button pressed)
+                    setSelectedMarketId(null);
+                    setSelectedMarketData(null);
+                  }
+                }}
                 initialMarketId={selectedMarketId}
                 initialMarketData={selectedMarketData}
               />
