@@ -80,38 +80,88 @@ export function LoginPage({ onLogin, onClose }: LoginPageProps) {
     setLoading("google");
     setError("");
     
-    // Simple Google login simulation
-    const googleEmail = prompt("Enter your Google email:");
-    if (!googleEmail || !googleEmail.includes("@")) {
-      setLoading(null);
-      return;
-    }
+    // Google OAuth Configuration
+    const GOOGLE_CLIENT_ID = "777580466798-mq096ravd140p5agdkp1bauo6s3f5mmm.apps.googleusercontent.com";
     
-    const savedBalance = localStorage.getItem(`balance_${googleEmail}`);
-    onLogin({
-      id: `google_${googleEmail}`,
-      email: googleEmail,
-      displayName: googleEmail.split("@")[0],
-      authMethod: "google",
-      balance: savedBalance ? parseInt(savedBalance) : 0,
-    });
-    setLoading(null);
+    // Open Google OAuth popup
+    const redirectUri = window.location.origin;
+    const scope = "email profile";
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?client_id=${GOOGLE_CLIENT_ID}&redirect_uri=${redirectUri}&response_type=token&scope=${scope}&prompt=select_account`;
+    
+    const width = 500;
+    const height = 600;
+    const left = window.screenX + (window.outerWidth - width) / 2;
+    const top = window.screenY + (window.outerHeight - height) / 2;
+    
+    const popup = window.open(
+      authUrl,
+      "Google Sign In",
+      `width=${width},height=${height},left=${left},top=${top}`
+    );
+    
+    // Listen for the OAuth callback
+    const handleMessage = async (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return;
+      
+      if (event.data.type === "GOOGLE_AUTH_SUCCESS") {
+        const { access_token } = event.data;
+        
+        // Fetch user info from Google
+        const response = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+          headers: { Authorization: `Bearer ${access_token}` }
+        });
+        const userInfo = await response.json();
+        
+        onLogin({
+          id: `google_${userInfo.id}`,
+          email: userInfo.email,
+          displayName: userInfo.name || userInfo.email.split("@")[0],
+          authMethod: "google",
+          balance: 0,
+        });
+        
+        window.removeEventListener("message", handleMessage);
+      }
+    };
+    
+    window.addEventListener("message", handleMessage);
+    
+    // Check if popup was closed without completing auth
+    const checkClosed = setInterval(() => {
+      if (popup?.closed) {
+        clearInterval(checkClosed);
+        setLoading(null);
+        window.removeEventListener("message", handleMessage);
+      }
+    }, 1000);
   };
 
   const handleMetaMask = async () => {
     setLoading("metamask");
     setError("");
     
+    // Check for MetaMask
     const ethereum = (window as any).ethereum;
+    
+    console.log("MetaMask check:", { 
+      ethereum: !!ethereum, 
+      isMetaMask: ethereum?.isMetaMask,
+      providers: ethereum?.providers 
+    });
+    
     if (!ethereum) {
-      setError("");
+      setError("MetaMask not detected. Please install MetaMask extension.");
       setLoading(null);
       window.open("https://metamask.io/download/", "_blank");
       return;
     }
     
     try {
+      // Request account access - this triggers the MetaMask popup
+      console.log("Requesting MetaMask accounts...");
       const accounts = await ethereum.request({ method: "eth_requestAccounts" });
+      console.log("MetaMask accounts:", accounts);
+      
       if (accounts && accounts.length > 0) {
         const address = accounts[0];
         onLogin({
@@ -119,11 +169,18 @@ export function LoginPage({ onLogin, onClose }: LoginPageProps) {
           walletAddress: address,
           displayName: `${address.slice(0, 6)}...${address.slice(-4)}`,
           authMethod: "wallet",
-          balance: 0, // Will be refreshed after login
+          balance: 0,
         });
+      } else {
+        setError("No accounts found. Please unlock MetaMask.");
       }
     } catch (err: any) {
-      setError(err.message || "MetaMask connection failed");
+      console.error("MetaMask error:", err);
+      if (err.code === 4001) {
+        setError("Connection rejected. Please approve the connection in MetaMask.");
+      } else {
+        setError(err.message || "MetaMask connection failed");
+      }
     }
     setLoading(null);
   };
@@ -132,17 +189,30 @@ export function LoginPage({ onLogin, onClose }: LoginPageProps) {
     setLoading("phantom");
     setError("");
     
-    const solana = (window as any).solana;
-    if (!solana?.isPhantom) {
-      setError("");
+    // Check for Phantom - it injects into window.phantom.solana or window.solana
+    const phantom = (window as any).phantom?.solana || (window as any).solana;
+    
+    console.log("Phantom check:", { 
+      phantom: !!phantom, 
+      isPhantom: phantom?.isPhantom,
+      windowSolana: !!(window as any).solana,
+      windowPhantom: !!(window as any).phantom
+    });
+    
+    if (!phantom?.isPhantom) {
+      setError("Phantom not detected. Please install Phantom wallet extension.");
       setLoading(null);
       window.open("https://phantom.app/download", "_blank");
       return;
     }
     
     try {
-      const response = await solana.connect();
+      // Connect to Phantom - this triggers the Phantom popup
+      console.log("Connecting to Phantom...");
+      const response = await phantom.connect();
       const publicKey = response.publicKey.toString();
+      console.log("Phantom connected:", publicKey);
+      
       onLogin({
         id: `wallet_${publicKey}`,
         walletAddress: publicKey,
@@ -151,13 +221,21 @@ export function LoginPage({ onLogin, onClose }: LoginPageProps) {
         balance: 0,
       });
     } catch (err: any) {
-      setError(err.message || "Phantom connection failed");
+      console.error("Phantom error:", err);
+      if (err.code === 4001) {
+        setError("Connection rejected. Please approve the connection in Phantom.");
+      } else {
+        setError(err.message || "Phantom connection failed");
+      }
     }
     setLoading(null);
   };
 
+  // Better wallet detection
   const hasMetaMask = typeof window !== "undefined" && !!(window as any).ethereum;
-  const hasPhantom = typeof window !== "undefined" && !!(window as any).solana?.isPhantom;
+  const hasPhantom = typeof window !== "undefined" && (
+    !!(window as any).phantom?.solana?.isPhantom || !!(window as any).solana?.isPhantom
+  );
 
   return (
     <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center p-4">
