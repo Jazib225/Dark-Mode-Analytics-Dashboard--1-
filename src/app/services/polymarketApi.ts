@@ -6,6 +6,7 @@
  * In production, uses Vercel serverless API route as proxy
  * 
  * OPTIMIZED: Uses global market cache for instant search across ALL markets
+ * OPTIMIZED: Individual market detail cache for instant loading
  */
 
 const isDev = import.meta.env.DEV;
@@ -57,6 +58,97 @@ const globalMarketCache: MarketCache = {
 
 // Cache duration: 5 minutes (markets don't change that frequently)
 const CACHE_DURATION_MS = 5 * 60 * 1000;
+
+// =============================================================================
+// MARKET DETAIL CACHE - Instant loading for individual markets
+// =============================================================================
+interface CachedMarketDetail {
+  data: any;
+  timestamp: number;
+}
+
+// In-memory cache for market details (faster than localStorage for frequent access)
+const marketDetailCache = new Map<string, CachedMarketDetail>();
+const DETAIL_CACHE_DURATION_MS = 2 * 60 * 1000; // 2 minutes for detail data
+
+// Cache for price history
+const priceHistoryCache = new Map<string, { data: any; timestamp: number }>();
+const PRICE_HISTORY_CACHE_DURATION_MS = 60 * 1000; // 1 minute
+
+// Cache for trades
+const tradesCache = new Map<string, { data: any; timestamp: number }>();
+const TRADES_CACHE_DURATION_MS = 30 * 1000; // 30 seconds for trades
+
+// Cache for order book
+const orderBookCache = new Map<string, { data: any; timestamp: number }>();
+const ORDER_BOOK_CACHE_DURATION_MS = 10 * 1000; // 10 seconds for order book
+
+/**
+ * Get cached market detail if available and not expired
+ */
+export function getCachedMarketDetail(marketId: string): any | null {
+  const cached = marketDetailCache.get(marketId);
+  if (cached && Date.now() - cached.timestamp < DETAIL_CACHE_DURATION_MS) {
+    return cached.data;
+  }
+  return null;
+}
+
+/**
+ * Set market detail in cache
+ */
+function setCachedMarketDetail(marketId: string, data: any): void {
+  marketDetailCache.set(marketId, { data, timestamp: Date.now() });
+  // Keep cache size reasonable
+  if (marketDetailCache.size > 100) {
+    const oldestKey = marketDetailCache.keys().next().value;
+    if (oldestKey) marketDetailCache.delete(oldestKey);
+  }
+}
+
+/**
+ * Get market from global cache instantly (for showing basic info while loading full details)
+ */
+export function getMarketFromCache(marketId: string): CachedMarket | null {
+  return globalMarketCache.markets.find(m => m.id === marketId || m.conditionId === marketId) || null;
+}
+
+/**
+ * Prefetch market detail data in the background (call on hover)
+ * This warms up the cache so opening a market is instant
+ */
+export async function prefetchMarketDetail(marketId: string): Promise<void> {
+  // Skip if already cached
+  if (getCachedMarketDetail(marketId)) {
+    return;
+  }
+  
+  try {
+    // Import dynamically to avoid circular deps, just call getMarketDetails
+    // This will cache the result for when the user actually clicks
+    const { getMarketDetails } = await import('./polymarketApi');
+    await getMarketDetails(marketId);
+    console.log(`Prefetched market detail for: ${marketId}`);
+  } catch (error) {
+    // Silently fail - prefetch is best effort
+    console.log(`Prefetch failed for ${marketId}:`, error);
+  }
+}
+
+/**
+ * Fetch all market detail data in parallel for instant loading
+ * Returns all data needed for MarketDetail component
+ */
+export interface AllMarketData {
+  details: any;
+  priceHistory: any[];
+  trades: any[];
+  orderBook: { bids: any[]; asks: any[]; spread: number };
+  tradersCount: number;
+  topHolders: any[];
+  topTraders: any[];
+  relatedMarkets: any[];
+}
 
 // =============================================================================
 // UTILITY FUNCTIONS (must be defined before cache functions that use them)
@@ -806,6 +898,13 @@ export async function getMarketDetails(marketId: string) {
   try {
     console.log(`Fetching market details for: ${marketId}`);
     
+    // Check cache first
+    const cached = getCachedMarketDetail(marketId);
+    if (cached) {
+      console.log(`Using cached market details for: ${marketId}`);
+      return cached;
+    }
+    
     // First get basic market info from Gamma
     const marketResponse = await fetchWithTimeout(gammaUrl(`/markets/${marketId}`));
     let marketData: any = null;
@@ -1048,6 +1147,9 @@ export async function getMarketDetails(marketId: string) {
       image: marketData.image || null,
     };
     
+    // Cache the result
+    setCachedMarketDetail(marketId, result);
+    
     console.log("Final market details:", result);
     return result;
   } catch (error) {
@@ -1061,6 +1163,14 @@ export async function getMarketDetails(marketId: string) {
  */
 export async function getMarketPriceHistory(marketId: string, interval: string = "1d") {
   try {
+    // Check cache first
+    const cacheKey = `${marketId}_${interval}`;
+    const cached = priceHistoryCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < PRICE_HISTORY_CACHE_DURATION_MS) {
+      console.log(`Using cached price history for: ${marketId}`);
+      return cached.data;
+    }
+    
     // Try to get price history from data API
     const response = await fetchWithTimeout(
       dataUrl(`/markets/${marketId}/prices`, { interval })
@@ -1069,11 +1179,14 @@ export async function getMarketPriceHistory(marketId: string, interval: string =
     if (response.ok) {
       const data = await response.json();
       if (Array.isArray(data)) {
-        return data.map((point: any) => ({
+        const result = data.map((point: any) => ({
           time: new Date(point.timestamp || point.t).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
           timestamp: point.timestamp || point.t,
           probability: (parseFloat(String(point.price || point.p || 0.5)) * 100),
         }));
+        // Cache the result
+        priceHistoryCache.set(cacheKey, { data: result, timestamp: Date.now() });
+        return result;
       }
     }
     
@@ -1090,6 +1203,14 @@ export async function getMarketPriceHistory(marketId: string, interval: string =
  */
 export async function getMarketTrades(marketId: string, limit = 20) {
   try {
+    // Check cache first
+    const cacheKey = `${marketId}_${limit}`;
+    const cached = tradesCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < TRADES_CACHE_DURATION_MS) {
+      console.log(`Using cached trades for: ${marketId}`);
+      return cached.data;
+    }
+    
     const response = await fetchWithTimeout(
       dataUrl(`/markets/${marketId}/trades`, { limit: limit.toString() })
     );
@@ -1097,7 +1218,7 @@ export async function getMarketTrades(marketId: string, limit = 20) {
     if (response.ok) {
       const data = await response.json();
       if (Array.isArray(data)) {
-        return data.map((trade: any) => ({
+        const result = data.map((trade: any) => ({
           id: trade.id || Math.random().toString(),
           timestamp: new Date(trade.timestamp || trade.createdAt).toLocaleString(),
           wallet: trade.maker ? `${trade.maker.slice(0, 6)}...${trade.maker.slice(-4)}` : "0x0000...0000",
@@ -1106,6 +1227,9 @@ export async function getMarketTrades(marketId: string, limit = 20) {
           size: `$${parseFloat(String(trade.size || trade.amount || 0)).toFixed(0)}`,
           price: parseFloat(String(trade.price || 0.5)),
         }));
+        // Cache the result
+        tradesCache.set(cacheKey, { data: result, timestamp: Date.now() });
+        return result;
       }
     }
     
@@ -1561,6 +1685,13 @@ export async function getCategories() {
  */
 export async function getOrderBook(tokenId: string) {
   try {
+    // Check cache first (order book changes frequently, short TTL)
+    const cached = orderBookCache.get(tokenId);
+    if (cached && Date.now() - cached.timestamp < ORDER_BOOK_CACHE_DURATION_MS) {
+      console.log(`Using cached order book for: ${tokenId}`);
+      return cached.data;
+    }
+    
     // Use the /book endpoint with token_id parameter (the working CLOB endpoint)
     const response = await fetchWithTimeout(
       clobUrl(`/book`, { token_id: tokenId })
@@ -1595,11 +1726,16 @@ export async function getOrderBook(tokenId: string) {
     const bestAsk = parsedAsks.length > 0 ? parsedAsks[0].price : 1;
     const spread = bestAsk - bestBid;
     
-    return {
+    const result = {
       bids: parsedBids,
       asks: parsedAsks,
       spread: spread,
     };
+    
+    // Cache the result
+    orderBookCache.set(tokenId, { data: result, timestamp: Date.now() });
+    
+    return result;
   } catch (error) {
     console.error("Failed to fetch order book:", error);
     return { bids: [], asks: [], spread: 0 };
