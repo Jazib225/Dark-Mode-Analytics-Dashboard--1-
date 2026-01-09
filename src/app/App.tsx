@@ -7,7 +7,7 @@ import { InsiderLens } from "./components/InsiderLens";
 import { Portfolio } from "./components/Portfolio";
 import { BookmarkedMarketsBar } from "./components/BookmarkedMarketsBar";
 import { SearchResults } from "./components/SearchResults";
-import { LoginModal } from "./components/LoginModal";
+import { LoginPage } from "./components/LoginPage";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { Search, X, Clock, TrendingUp, Bookmark, Loader2, LogOut, User, ChevronDown } from "lucide-react";
 import paragonLogo from "../assets/paragon-logo.png";
@@ -74,7 +74,6 @@ interface DisplayMarket {
 // User authentication section component
 function UserAuthSection() {
   const { user, isAuthenticated, logout, refreshBalance, isLoading } = useAuth();
-  const [showLoginModal, setShowLoginModal] = useState(false);
   const [showUserMenu, setShowUserMenu] = useState(false);
 
   if (isLoading) {
@@ -86,17 +85,7 @@ function UserAuthSection() {
   }
 
   if (!isAuthenticated || !user) {
-    return (
-      <>
-        <button 
-          onClick={() => setShowLoginModal(true)}
-          className="px-4 py-1.5 bg-gradient-to-br from-[#4a6fa5] to-[#3a5f95] text-white text-[14px] font-light rounded hover:opacity-90 transition-opacity"
-        >
-          Login
-        </button>
-        <LoginModal isOpen={showLoginModal} onClose={() => setShowLoginModal(false)} />
-      </>
-    );
+    return null; // Login page will be shown instead
   }
 
   return (
@@ -113,13 +102,9 @@ function UserAuthSection() {
           onClick={() => setShowUserMenu(!showUserMenu)}
           className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 rounded-lg hover:border-gray-600/50 transition-colors"
         >
-          {user.avatar ? (
-            <img src={user.avatar} alt="" className="w-6 h-6 rounded-full" />
-          ) : (
-            <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#4a6fa5] to-[#3a5f95] flex items-center justify-center">
-              <User className="w-4 h-4 text-white" />
-            </div>
-          )}
+          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#4a6fa5] to-[#3a5f95] flex items-center justify-center">
+            <User className="w-4 h-4 text-white" />
+          </div>
           <span className="text-[14px] text-gray-300 font-light max-w-[100px] truncate">
             {user.displayName}
           </span>
@@ -819,11 +804,30 @@ function AppContent() {
   );
 }
 
+// Wrapper that shows login page when not authenticated
+function AppWithAuth() {
+  const { isAuthenticated, isLoading, login } = useAuth();
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-[#0a0a0a] flex items-center justify-center">
+        <Loader2 className="w-8 h-8 text-[#4a6fa5] animate-spin" />
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <LoginPage onLogin={login} />;
+  }
+
+  return <AppContent />;
+}
+
 // Main App component wrapped with AuthProvider
 export default function App() {
   return (
     <AuthProvider>
-      <AppContent />
+      <AppWithAuth />
     </AuthProvider>
   );
 }
