@@ -1,7 +1,7 @@
-import { ArrowLeft, Bookmark, TrendingUp, TrendingDown, DollarSign, Users, Activity, Minus, Plus, Loader2 } from "lucide-react";
+import { ArrowLeft, Bookmark, TrendingUp, TrendingDown, DollarSign, Users, Activity, Minus, Plus, Loader2, BarChart3, Trophy, Wallet } from "lucide-react";
 import { XAxis, YAxis, Tooltip, ResponsiveContainer, Area, AreaChart } from "recharts";
 import { useState, useEffect } from "react";
-import { getMarketDetails, getMarketPriceHistory, getMarketTrades, getEventWithMarkets, getClobPrices, getOrderBook, getMarketTradersCount } from "../services/polymarketApi";
+import { getMarketDetails, getMarketPriceHistory, getMarketTrades, getEventWithMarkets, getClobPrices, getOrderBook, getMarketTradersCount, getMarketTopHolders, getMarketTopTraders } from "../services/polymarketApi";
 import { useAuth } from "../context/AuthContext";
 
 // Helper function to format balance
@@ -101,6 +101,26 @@ interface OrderBookData {
   spread: number;
 }
 
+interface TopHolder {
+  wallet: string;
+  displayWallet: string;
+  name: string | null;
+  amount: number;
+  side: string;
+  profileImage: string | null;
+}
+
+interface TopTrader {
+  wallet: string;
+  displayWallet: string;
+  name: string | null;
+  totalVolume: number;
+  tradeCount: number;
+  profileImage: string | null;
+}
+
+type ActivityTab = "trades" | "holders" | "traders" | "orderbook";
+
 // Format cents with proper precision like Polymarket (e.g., 0.4¢, 99.6¢)
 function formatCents(cents: number): string {
   if (cents < 0.1) return "<0.1";
@@ -136,6 +156,9 @@ export function MarketDetail({
   const [recentTrades, setRecentTrades] = useState<Trade[]>([]);
   const [orderBook, setOrderBook] = useState<OrderBookData>({ bids: [], asks: [], spread: 0 });
   const [tradersCount, setTradersCount] = useState<number>(0);
+  const [topHolders, setTopHolders] = useState<TopHolder[]>([]);
+  const [topTraders, setTopTraders] = useState<TopTrader[]>([]);
+  const [activeActivityTab, setActiveActivityTab] = useState<ActivityTab>("trades");
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -223,6 +246,22 @@ export function MarketDetail({
         if (tradersNum > 0) {
           setTradersCount(tradersNum);
           console.log(`Found ${tradersNum} unique traders for market`);
+        }
+
+        // Fetch top holders and top traders in parallel
+        const [holders, traders] = await Promise.all([
+          getMarketTopHolders(marketConditionId, 20),
+          getMarketTopTraders(marketConditionId, 20)
+        ]);
+        
+        if (holders.length > 0) {
+          setTopHolders(holders);
+          console.log(`Found ${holders.length} top holders`);
+        }
+        
+        if (traders.length > 0) {
+          setTopTraders(traders);
+          console.log(`Found ${traders.length} top traders`);
         }
       } catch (err) {
         console.error("Error fetching market data:", err);
@@ -489,111 +528,252 @@ export function MarketDetail({
               </ResponsiveContainer>
             </div>
 
-            {/* Recent Activity */}
+            {/* Activity Section with Tabs */}
             <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl shadow-xl shadow-black/20">
-              <div className="p-4 border-b border-gray-800/50">
-                <h3 className="text-sm font-light tracking-wide text-gray-400 uppercase">Recent Trades</h3>
-              </div>
-              <div className="max-h-[300px] overflow-y-auto">
-                <table className="w-full text-xs">
-                  <thead className="sticky top-0 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
-                    <tr className="border-b border-gray-800/50">
-                      <th className="text-left py-3 px-4 text-gray-500 font-light">Time</th>
-                      <th className="text-left py-3 px-4 text-gray-500 font-light">Wallet</th>
-                      <th className="text-left py-3 px-4 text-gray-500 font-light">Side</th>
-                      <th className="text-right py-3 px-4 text-gray-500 font-light">Size</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {recentTrades.map((trade, index) => (
-                      <tr key={trade.id || index} className="border-b border-gray-800/30 hover:bg-gray-800/20 transition-colors">
-                        <td className="py-2.5 px-4 text-gray-500 font-mono text-[11px]">{trade.timestamp.split(" ").pop() || trade.timestamp}</td>
-                        <td className="py-2.5 px-4 text-gray-400 font-mono cursor-pointer hover:text-[#4a6fa5] transition-colors" onClick={() => onWalletClick?.(trade.wallet)}>{trade.wallet}</td>
-                        <td className="py-2.5 px-4"><span className={`font-medium ${trade.side === "YES" ? "text-green-500" : "text-red-500"}`}>{trade.side}</span></td>
-                        <td className="py-2.5 px-4 text-right text-gray-300">{trade.size}</td>
-                      </tr>
-                    ))}
-                    {recentTrades.length === 0 && (
-                      <tr>
-                        <td colSpan={4} className="py-8 text-center text-gray-500">No recent trades</td>
-                      </tr>
+              {/* Tab Headers */}
+              <div className="flex items-center border-b border-gray-800/50">
+                {[
+                  { id: "trades" as ActivityTab, label: "Recent Trades", icon: Activity },
+                  { id: "holders" as ActivityTab, label: "Top Holders", icon: Wallet },
+                  { id: "traders" as ActivityTab, label: "Top Traders", icon: Trophy },
+                  { id: "orderbook" as ActivityTab, label: "Order Book", icon: BarChart3 },
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveActivityTab(tab.id)}
+                    className={`relative flex items-center gap-2 px-4 py-3 text-xs font-light tracking-wide transition-all ${
+                      activeActivityTab === tab.id
+                        ? "text-white"
+                        : "text-gray-500 hover:text-gray-300"
+                    }`}
+                  >
+                    <tab.icon className="w-3.5 h-3.5" />
+                    <span className="uppercase">{tab.label}</span>
+                    {activeActivityTab === tab.id && (
+                      <div className="absolute bottom-0 left-1/2 -translate-x-1/2 flex flex-col items-center">
+                        <div className="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-white" />
+                        <div className="w-full h-[2px] bg-white" style={{ width: "calc(100% - 16px)" }} />
+                      </div>
                     )}
-                  </tbody>
-                </table>
+                  </button>
+                ))}
+                {activeActivityTab === "orderbook" && orderBook.spread > 0 && (
+                  <span className="ml-auto mr-4 text-xs text-gray-500">
+                    Spread: <span className="text-gray-300">{(orderBook.spread * 100).toFixed(2)}¢</span>
+                  </span>
+                )}
+              </div>
+
+              {/* Tab Content */}
+              <div className="min-h-[300px]">
+                {/* Recent Trades Tab */}
+                {activeActivityTab === "trades" && (
+                  <div className="max-h-[350px] overflow-y-auto">
+                    <table className="w-full text-xs">
+                      <thead className="sticky top-0 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
+                        <tr className="border-b border-gray-800/50">
+                          <th className="text-left py-3 px-4 text-gray-500 font-light">Time</th>
+                          <th className="text-left py-3 px-4 text-gray-500 font-light">Wallet</th>
+                          <th className="text-left py-3 px-4 text-gray-500 font-light">Side</th>
+                          <th className="text-right py-3 px-4 text-gray-500 font-light">Size</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {recentTrades.map((trade, index) => (
+                          <tr key={trade.id || index} className="border-b border-gray-800/30 hover:bg-gray-800/20 transition-colors">
+                            <td className="py-2.5 px-4 text-gray-500 font-mono text-[11px]">{trade.timestamp.split(" ").pop() || trade.timestamp}</td>
+                            <td className="py-2.5 px-4 text-gray-400 font-mono cursor-pointer hover:text-[#4a6fa5] transition-colors" onClick={() => onWalletClick?.(trade.wallet)}>{trade.wallet}</td>
+                            <td className="py-2.5 px-4"><span className={`font-medium ${trade.side === "YES" ? "text-green-500" : "text-red-500"}`}>{trade.side}</span></td>
+                            <td className="py-2.5 px-4 text-right text-gray-300">{trade.size}</td>
+                          </tr>
+                        ))}
+                        {recentTrades.length === 0 && (
+                          <tr>
+                            <td colSpan={4} className="py-8 text-center text-gray-500">No recent trades</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Top Holders Tab */}
+                {activeActivityTab === "holders" && (
+                  <div className="max-h-[350px] overflow-y-auto">
+                    <table className="w-full text-xs">
+                      <thead className="sticky top-0 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
+                        <tr className="border-b border-gray-800/50">
+                          <th className="text-left py-3 px-4 text-gray-500 font-light">#</th>
+                          <th className="text-left py-3 px-4 text-gray-500 font-light">Holder</th>
+                          <th className="text-left py-3 px-4 text-gray-500 font-light">Position</th>
+                          <th className="text-right py-3 px-4 text-gray-500 font-light">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {topHolders.map((holder, index) => (
+                          <tr key={holder.wallet || index} className="border-b border-gray-800/30 hover:bg-gray-800/20 transition-colors">
+                            <td className="py-2.5 px-4 text-gray-600 font-light">{index + 1}</td>
+                            <td className="py-2.5 px-4">
+                              <div 
+                                className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+                                onClick={() => onWalletClick?.(holder.wallet)}
+                              >
+                                {holder.profileImage ? (
+                                  <img src={holder.profileImage} alt="" className="w-5 h-5 rounded-full object-cover" />
+                                ) : (
+                                  <div className="w-5 h-5 rounded-full bg-gradient-to-br from-gray-700 to-gray-800" />
+                                )}
+                                <span className="text-gray-300 hover:text-[#4a6fa5] transition-colors">
+                                  {holder.name || holder.displayWallet}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-4">
+                              <span className={`text-xs font-medium px-2 py-0.5 rounded ${
+                                holder.side === "YES" 
+                                  ? "bg-green-500/20 text-green-400" 
+                                  : "bg-red-500/20 text-red-400"
+                              }`}>
+                                {holder.side}
+                              </span>
+                            </td>
+                            <td className="py-2.5 px-4 text-right text-gray-300 font-mono">
+                              ${holder.amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                            </td>
+                          </tr>
+                        ))}
+                        {topHolders.length === 0 && (
+                          <tr>
+                            <td colSpan={4} className="py-8 text-center text-gray-500">No holder data available</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Top Traders Tab */}
+                {activeActivityTab === "traders" && (
+                  <div className="max-h-[350px] overflow-y-auto">
+                    <table className="w-full text-xs">
+                      <thead className="sticky top-0 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
+                        <tr className="border-b border-gray-800/50">
+                          <th className="text-left py-3 px-4 text-gray-500 font-light">#</th>
+                          <th className="text-left py-3 px-4 text-gray-500 font-light">Trader</th>
+                          <th className="text-right py-3 px-4 text-gray-500 font-light">Volume</th>
+                          <th className="text-right py-3 px-4 text-gray-500 font-light">Trades</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {topTraders.map((trader, index) => (
+                          <tr key={trader.wallet || index} className="border-b border-gray-800/30 hover:bg-gray-800/20 transition-colors">
+                            <td className="py-2.5 px-4 text-gray-600 font-light">
+                              {index < 3 ? (
+                                <span className={`text-sm ${
+                                  index === 0 ? "text-yellow-500" : 
+                                  index === 1 ? "text-gray-400" : 
+                                  "text-amber-700"
+                                }`}>
+                                  {index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉"}
+                                </span>
+                              ) : (
+                                index + 1
+                              )}
+                            </td>
+                            <td className="py-2.5 px-4">
+                              <div 
+                                className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
+                                onClick={() => onWalletClick?.(trader.wallet)}
+                              >
+                                {trader.profileImage ? (
+                                  <img src={trader.profileImage} alt="" className="w-5 h-5 rounded-full object-cover" />
+                                ) : (
+                                  <div className="w-5 h-5 rounded-full bg-gradient-to-br from-gray-700 to-gray-800" />
+                                )}
+                                <span className="text-gray-300 hover:text-[#4a6fa5] transition-colors">
+                                  {trader.name || trader.displayWallet}
+                                </span>
+                              </div>
+                            </td>
+                            <td className="py-2.5 px-4 text-right text-gray-300 font-mono">
+                              ${trader.totalVolume.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                            </td>
+                            <td className="py-2.5 px-4 text-right text-gray-500">
+                              {trader.tradeCount.toLocaleString()}
+                            </td>
+                          </tr>
+                        ))}
+                        {topTraders.length === 0 && (
+                          <tr>
+                            <td colSpan={4} className="py-8 text-center text-gray-500">No trader data available</td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
+                {/* Order Book Tab */}
+                {activeActivityTab === "orderbook" && (
+                  <div className="grid grid-cols-2 gap-0">
+                    {/* Bids (Buy Orders) - Green */}
+                    <div>
+                      <div className="px-4 py-2 bg-gradient-to-b from-[#111111] to-[#0d0d0d] border-b border-gray-800/30">
+                        <div className="flex justify-between text-xs text-gray-500">
+                          <span>Price</span>
+                          <span>Size</span>
+                        </div>
+                      </div>
+                      <div className="max-h-[280px] overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                        {orderBook.bids.map((bid, index) => (
+                          <div 
+                            key={`bid-${index}`} 
+                            className="flex justify-between px-4 py-1.5 text-xs hover:bg-green-900/10 transition-colors relative"
+                          >
+                            <div 
+                              className="absolute inset-y-0 right-0 bg-green-500/10"
+                              style={{ width: `${Math.min(100, (bid.size / Math.max(...orderBook.bids.map(b => b.size), 1)) * 100)}%` }}
+                            />
+                            <span className="text-green-400 relative z-10">{(bid.price * 100).toFixed(1)}¢</span>
+                            <span className="text-gray-400 relative z-10">${bid.size.toFixed(0)}</span>
+                          </div>
+                        ))}
+                        {orderBook.bids.length === 0 && (
+                          <div className="px-4 py-4 text-center text-xs text-gray-500">No bids</div>
+                        )}
+                      </div>
+                    </div>
+                    {/* Asks (Sell Orders) - Red */}
+                    <div>
+                      <div className="px-4 py-2 bg-gradient-to-b from-[#111111] to-[#0d0d0d] border-b border-gray-800/30">
+                        <div className="flex justify-between text-xs text-gray-500">
+                          <span>Price</span>
+                          <span>Size</span>
+                        </div>
+                      </div>
+                      <div className="max-h-[280px] overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
+                        {orderBook.asks.map((ask, index) => (
+                          <div 
+                            key={`ask-${index}`} 
+                            className="flex justify-between px-4 py-1.5 text-xs hover:bg-red-900/10 transition-colors relative"
+                          >
+                            <div 
+                              className="absolute inset-y-0 left-0 bg-red-500/10"
+                              style={{ width: `${Math.min(100, (ask.size / Math.max(...orderBook.asks.map(a => a.size), 1)) * 100)}%` }}
+                            />
+                            <span className="text-red-400 relative z-10">{(ask.price * 100).toFixed(1)}¢</span>
+                            <span className="text-gray-400 relative z-10">${ask.size.toFixed(0)}</span>
+                          </div>
+                        ))}
+                        {orderBook.asks.length === 0 && (
+                          <div className="px-4 py-4 text-center text-xs text-gray-500">No asks</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-
-            {/* Order Book */}
-            {(orderBook.bids.length > 0 || orderBook.asks.length > 0) && (
-              <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl shadow-xl shadow-black/20">
-                <div className="p-4 border-b border-gray-800/50">
-                  <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-light tracking-wide text-gray-400 uppercase">Order Book</h3>
-                    {orderBook.spread > 0 && (
-                      <span className="text-xs text-gray-500">
-                        Spread: <span className="text-gray-300">{(orderBook.spread * 100).toFixed(2)}¢</span>
-                      </span>
-                    )}
-                  </div>
-                </div>
-                <div className="grid grid-cols-2 gap-0">
-                  {/* Bids (Buy Orders) - Green */}
-                  <div>
-                    <div className="px-4 py-2 bg-gradient-to-b from-[#111111] to-[#0d0d0d] border-b border-gray-800/30">
-                      <div className="flex justify-between text-xs text-gray-500">
-                        <span>Price</span>
-                        <span>Size</span>
-                      </div>
-                    </div>
-                    <div className="max-h-[200px] overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                      {orderBook.bids.map((bid, index) => (
-                        <div 
-                          key={`bid-${index}`} 
-                          className="flex justify-between px-4 py-1.5 text-xs hover:bg-green-900/10 transition-colors relative"
-                        >
-                          <div 
-                            className="absolute inset-y-0 right-0 bg-green-500/10"
-                            style={{ width: `${Math.min(100, (bid.size / Math.max(...orderBook.bids.map(b => b.size))) * 100)}%` }}
-                          />
-                          <span className="text-green-400 relative z-10">{(bid.price * 100).toFixed(1)}¢</span>
-                          <span className="text-gray-400 relative z-10">${bid.size.toFixed(0)}</span>
-                        </div>
-                      ))}
-                      {orderBook.bids.length === 0 && (
-                        <div className="px-4 py-4 text-center text-xs text-gray-500">No bids</div>
-                      )}
-                    </div>
-                  </div>
-                  {/* Asks (Sell Orders) - Red */}
-                  <div>
-                    <div className="px-4 py-2 bg-gradient-to-b from-[#111111] to-[#0d0d0d] border-b border-gray-800/30">
-                      <div className="flex justify-between text-xs text-gray-500">
-                        <span>Price</span>
-                        <span>Size</span>
-                      </div>
-                    </div>
-                    <div className="max-h-[200px] overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
-                      {orderBook.asks.map((ask, index) => (
-                        <div 
-                          key={`ask-${index}`} 
-                          className="flex justify-between px-4 py-1.5 text-xs hover:bg-red-900/10 transition-colors relative"
-                        >
-                          <div 
-                            className="absolute inset-y-0 left-0 bg-red-500/10"
-                            style={{ width: `${Math.min(100, (ask.size / Math.max(...orderBook.asks.map(a => a.size))) * 100)}%` }}
-                          />
-                          <span className="text-red-400 relative z-10">{(ask.price * 100).toFixed(1)}¢</span>
-                          <span className="text-gray-400 relative z-10">${ask.size.toFixed(0)}</span>
-                        </div>
-                      ))}
-                      {orderBook.asks.length === 0 && (
-                        <div className="px-4 py-4 text-center text-xs text-gray-500">No asks</div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* RIGHT SIDE - Trading Panel */}

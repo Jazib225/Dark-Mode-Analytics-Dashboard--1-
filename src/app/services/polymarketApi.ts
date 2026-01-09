@@ -205,9 +205,9 @@ export async function initializeMarketCache(): Promise<void> {
             offset += pageSize;
           }
           
-          // Safety limit to prevent infinite loops
-          if (offset > 10000) {
-            console.log("  Reached safety limit, stopping pagination");
+          // Increased limit to fetch ALL markets (Polymarket has ~23,000+ active markets)
+          if (offset > 50000) {
+            console.log("  Reached maximum offset, stopping pagination");
             hasMore = false;
           }
         } catch (e) {
@@ -265,7 +265,8 @@ export async function initializeMarketCache(): Promise<void> {
             offset += pageSize;
           }
           
-          if (offset > 5000) {
+          // Increased limit to fetch ALL standalone markets
+          if (offset > 50000) {
             hasMore = false;
           }
         } catch (e) {
@@ -1167,6 +1168,117 @@ export async function getMarketTradersCount(marketId: string) {
   } catch (error) {
     console.error("Failed to fetch traders count:", error);
     return 0;
+  }
+}
+
+/**
+ * Get top holders for a market - people currently holding positions
+ */
+export async function getMarketTopHolders(marketId: string, limit = 20) {
+  try {
+    const holdersUrl = `https://data-api.polymarket.com/holders?market=${encodeURIComponent(marketId)}`;
+    const response = await fetchWithTimeout(holdersUrl, 30000);
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        const allHolders: any[] = [];
+        
+        // Combine holders from both outcomes (Yes and No)
+        data.forEach((token: any) => {
+          if (token.holders && Array.isArray(token.holders)) {
+            token.holders.forEach((holder: any) => {
+              allHolders.push({
+                wallet: holder.proxyWallet || "Unknown",
+                displayWallet: holder.proxyWallet ? `${holder.proxyWallet.slice(0, 6)}...${holder.proxyWallet.slice(-4)}` : "Unknown",
+                name: holder.name || holder.pseudonym || null,
+                amount: holder.amount || 0,
+                side: holder.outcomeIndex === 0 ? "YES" : "NO",
+                profileImage: holder.profileImage || null,
+              });
+            });
+          }
+        });
+        
+        // Sort by amount and return top holders
+        return allHolders
+          .sort((a, b) => b.amount - a.amount)
+          .slice(0, limit);
+      }
+    }
+    
+    return [];
+  } catch (error) {
+    console.error("Failed to fetch top holders:", error);
+    return [];
+  }
+}
+
+/**
+ * Get top traders for a market by analyzing trade volume
+ */
+export async function getMarketTopTraders(marketId: string, limit = 20) {
+  try {
+    const url = `https://data-api.polymarket.com/trades?market=${encodeURIComponent(marketId)}&limit=10000`;
+    const response = await fetchWithTimeout(url);
+    
+    if (response.ok) {
+      const data = await response.json();
+      if (Array.isArray(data)) {
+        // Aggregate trades by wallet
+        const traderStats = new Map<string, { 
+          wallet: string;
+          totalVolume: number;
+          tradeCount: number;
+          name: string | null;
+          profileImage: string | null;
+        }>();
+        
+        data.forEach((trade: any) => {
+          const wallet = trade.proxyWallet?.toLowerCase();
+          if (!wallet) return;
+          
+          const existing = traderStats.get(wallet) || {
+            wallet: trade.proxyWallet,
+            totalVolume: 0,
+            tradeCount: 0,
+            name: trade.name || trade.pseudonym || null,
+            profileImage: trade.profileImage || null,
+          };
+          
+          existing.totalVolume += parseFloat(String(trade.size || 0)) * parseFloat(String(trade.price || 1));
+          existing.tradeCount += 1;
+          
+          // Update name if we find one
+          if (!existing.name && (trade.name || trade.pseudonym)) {
+            existing.name = trade.name || trade.pseudonym;
+          }
+          if (!existing.profileImage && trade.profileImage) {
+            existing.profileImage = trade.profileImage;
+          }
+          
+          traderStats.set(wallet, existing);
+        });
+        
+        // Convert to array and sort by volume
+        return Array.from(traderStats.values())
+          .map(trader => ({
+            wallet: trader.wallet,
+            displayWallet: `${trader.wallet.slice(0, 6)}...${trader.wallet.slice(-4)}`,
+            name: trader.name,
+            totalVolume: trader.totalVolume,
+            tradeCount: trader.tradeCount,
+            profileImage: trader.profileImage,
+          }))
+          .sort((a, b) => b.totalVolume - a.totalVolume)
+          .slice(0, limit);
+      }
+    }
+    
+    return [];
+  } catch (error) {
+    console.error("Failed to fetch top traders:", error);
+    return [];
   }
 }
 

@@ -625,11 +625,20 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                   setSelectedWalletAddress(null);
                   setSelectedMarketId(null);
                 }}
-                className={`text-[16px] font-light tracking-wide transition-all ${
-                  currentPage === "discover" ? "text-gray-100" : "text-gray-400 hover:text-gray-200"
-                }`}
+                className="relative group py-5"
               >
-                DISCOVER
+                <span className={`text-[16px] font-light tracking-wide transition-all ${
+                  currentPage === "discover" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
+                }`}>
+                  DISCOVER
+                </span>
+                {/* Active/Hover indicator with triangle */}
+                <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 flex flex-col items-center transition-all duration-200 ${
+                  currentPage === "discover" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
+                }`}>
+                  <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[4px] border-b-white" />
+                  <div className="h-[2px] bg-white" style={{ width: "calc(100% + 8px)", marginTop: "-1px" }} />
+                </div>
               </button>
               <button
                 onClick={() => {
@@ -637,11 +646,19 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                   setSelectedWalletAddress(null);
                   setSelectedMarketId(null);
                 }}
-                className={`text-[16px] font-light tracking-wide transition-all ${
-                  currentPage === "markets" ? "text-gray-100" : "text-gray-400 hover:text-gray-200"
-                }`}
+                className="relative group py-5"
               >
-                MARKETS
+                <span className={`text-[16px] font-light tracking-wide transition-all ${
+                  currentPage === "markets" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
+                }`}>
+                  MARKETS
+                </span>
+                <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 flex flex-col items-center transition-all duration-200 ${
+                  currentPage === "markets" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
+                }`}>
+                  <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[4px] border-b-white" />
+                  <div className="h-[2px] bg-white" style={{ width: "calc(100% + 8px)", marginTop: "-1px" }} />
+                </div>
               </button>
               <button
                 onClick={() => {
@@ -649,11 +666,19 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                   setSelectedWalletAddress(null);
                   setSelectedMarketId(null);
                 }}
-                className={`text-[16px] font-light tracking-wide transition-all ${
-                  currentPage === "insiderlens" ? "text-gray-100" : "text-gray-400 hover:text-gray-200"
-                }`}
+                className="relative group py-5"
               >
-                INSIDERLENS
+                <span className={`text-[16px] font-light tracking-wide transition-all ${
+                  currentPage === "insiderlens" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
+                }`}>
+                  INSIDERLENS
+                </span>
+                <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 flex flex-col items-center transition-all duration-200 ${
+                  currentPage === "insiderlens" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
+                }`}>
+                  <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[4px] border-b-white" />
+                  <div className="h-[2px] bg-white" style={{ width: "calc(100% + 8px)", marginTop: "-1px" }} />
+                </div>
               </button>
               <button
                 onClick={() => {
@@ -661,11 +686,19 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                   setSelectedWalletAddress(null);
                   setSelectedMarketId(null);
                 }}
-                className={`text-[16px] font-light tracking-wide transition-all ${
-                  currentPage === "wallets" ? "text-gray-100" : "text-gray-400 hover:text-gray-200"
-                }`}
+                className="relative group py-5"
               >
-                WALLETS
+                <span className={`text-[16px] font-light tracking-wide transition-all ${
+                  currentPage === "wallets" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
+                }`}>
+                  WALLETS
+                </span>
+                <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 flex flex-col items-center transition-all duration-200 ${
+                  currentPage === "wallets" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
+                }`}>
+                  <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[4px] border-b-white" />
+                  <div className="h-[2px] bg-white" style={{ width: "calc(100% + 8px)", marginTop: "-1px" }} />
+                </div>
               </button>
               <button
                 onClick={() => {
@@ -673,11 +706,19 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                   setSelectedWalletAddress(null);
                   setSelectedMarketId(null);
                 }}
-                className={`text-[16px] font-light tracking-wide transition-all ${
-                  currentPage === "portfolio" ? "text-gray-100" : "text-gray-400 hover:text-gray-200"
-                }`}
+                className="relative group py-5"
               >
-                PORTFOLIO
+                <span className={`text-[16px] font-light tracking-wide transition-all ${
+                  currentPage === "portfolio" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
+                }`}>
+                  PORTFOLIO
+                </span>
+                <div className={`absolute bottom-0 left-1/2 -translate-x-1/2 flex flex-col items-center transition-all duration-200 ${
+                  currentPage === "portfolio" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
+                }`}>
+                  <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[4px] border-b-white" />
+                  <div className="h-[2px] bg-white" style={{ width: "calc(100% + 8px)", marginTop: "-1px" }} />
+                </div>
               </button>
             </div>
           </div>
