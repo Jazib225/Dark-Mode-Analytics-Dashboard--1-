@@ -201,24 +201,17 @@ export function LoginPage({ onLogin, onClose }: LoginPageProps) {
     await new Promise(r => setTimeout(r, 100));
     
     try {
-      // Get the Phantom provider - check window.phantom.solana first (recommended by Phantom docs)
-      const getPhantomProvider = (): any => {
-        if ("phantom" in window) {
-          const phantomWindow = window as any;
-          const provider = phantomWindow.phantom?.solana;
-          if (provider?.isPhantom) {
-            return provider;
-          }
-        }
-        // Fallback to window.solana for legacy support
-        const solanaWindow = window as any;
-        if (solanaWindow.solana?.isPhantom) {
-          return solanaWindow.solana;
-        }
-        return null;
-      };
+      // Get the Phantom provider following official docs
+      let provider: any = null;
       
-      const provider = getPhantomProvider();
+      // Check window.phantom.solana first (recommended)
+      if ((window as any).phantom?.solana?.isPhantom) {
+        provider = (window as any).phantom.solana;
+      }
+      // Fallback to window.solana
+      else if ((window as any).solana?.isPhantom) {
+        provider = (window as any).solana;
+      }
       
       if (!provider) {
         setError("Phantom not installed. Opening download page...");
@@ -227,8 +220,22 @@ export function LoginPage({ onLogin, onClose }: LoginPageProps) {
         return;
       }
       
-      // Connect to Phantom - this opens the Phantom popup
-      const response = await provider.connect();
+      // Check if already connected
+      if (provider.isConnected && provider.publicKey) {
+        const publicKey = provider.publicKey.toString();
+        setLoading(null);
+        onLogin({
+          id: `wallet_${publicKey}`,
+          walletAddress: publicKey,
+          displayName: `${publicKey.slice(0, 4)}...${publicKey.slice(-4)}`,
+          authMethod: "wallet",
+          balance: 0,
+        });
+        return;
+      }
+      
+      // Connect to Phantom using the request method (more reliable)
+      const response = await provider.request({ method: "connect" });
       const publicKey = response.publicKey.toString();
       
       setLoading(null);
@@ -242,10 +249,12 @@ export function LoginPage({ onLogin, onClose }: LoginPageProps) {
       return;
     } catch (err: any) {
       console.error("Phantom connection error:", err);
-      if (err.code === 4001) {
+      if (err.code === 4001 || err.message?.includes("rejected")) {
         setError("You rejected the connection request.");
+      } else if (err.message) {
+        setError(err.message);
       } else {
-        setError(err.message || "Failed to connect to Phantom");
+        setError("Failed to connect to Phantom. Please try again.");
       }
     }
     setLoading(null);
