@@ -259,6 +259,20 @@ export async function fetchOrderBook(
 // =============================================================================
 
 const prefetchedMarkets = new Set<string>();
+const fullPrefetchedMarkets = new Set<string>();
+
+// Import polymarketApi functions for full prefetch
+import { 
+  getMarketDetails, 
+  getMarketPriceHistory, 
+  getMarketTrades, 
+  getOrderBook as getOrderBookApi,
+  getEventWithMarkets,
+  getMarketTradersCount,
+  getMarketTopHolders,
+  getMarketTopTraders,
+  getCachedMarketDetail
+} from './polymarketApi';
 
 /**
  * Prefetch market detail on hover/viewport entry
@@ -269,11 +283,67 @@ export function prefetchMarketDetail(marketId: string): void {
   
   prefetchedMarkets.add(marketId);
   
-  // Fire and forget
-  fetchMarketDetail(marketId).catch(() => {
+  // Fire and forget - this prefetches EVERYTHING needed for the detail page
+  prefetchFullMarketData(marketId).catch(() => {
     // Remove from prefetched set so it can be retried
     prefetchedMarkets.delete(marketId);
   });
+}
+
+/**
+ * Full prefetch - loads ALL data needed for MarketDetail page
+ * Called on hover to make click feel instant
+ */
+export async function prefetchFullMarketData(marketId: string): Promise<void> {
+  // Skip if already fully prefetched
+  if (fullPrefetchedMarkets.has(marketId)) return;
+  
+  console.log(`[Prefetch] Starting full prefetch for ${marketId}`);
+  
+  try {
+    // First, get market details (this also caches internally)
+    const details = await getMarketDetails(marketId);
+    
+    if (!details) {
+      console.log(`[Prefetch] No details found for ${marketId}`);
+      return;
+    }
+    
+    // Get token ID and condition ID for additional fetches
+    const tokenId = details.clobTokenIds?.[0] || 
+      (typeof details.clobTokenIds === 'string' ? JSON.parse(details.clobTokenIds)[0] : null);
+    const conditionId = details.conditionId || marketId;
+    
+    // Fire ALL other requests in parallel - don't await individually
+    const promises = [
+      getMarketPriceHistory(marketId, "1d"),
+      getMarketTrades(marketId, 10),
+      getEventWithMarkets(marketId),
+      getMarketTradersCount(conditionId),
+      getMarketTopHolders(conditionId, 20),
+      getMarketTopTraders(conditionId, 20),
+    ];
+    
+    // Add order book if we have token ID
+    if (tokenId) {
+      promises.push(getOrderBookApi(tokenId));
+    }
+    
+    // Wait for all to complete
+    await Promise.all(promises);
+    
+    fullPrefetchedMarkets.add(marketId);
+    console.log(`[Prefetch] Completed full prefetch for ${marketId}`);
+  } catch (error) {
+    console.log(`[Prefetch] Error prefetching ${marketId}:`, error);
+  }
+}
+
+/**
+ * Check if a market has been fully prefetched
+ */
+export function isMarketFullyPrefetched(marketId: string): boolean {
+  return fullPrefetchedMarkets.has(marketId) || getCachedMarketDetail(marketId) !== null;
 }
 
 /**

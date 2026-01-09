@@ -1,7 +1,26 @@
 import { ArrowLeft, Bookmark, TrendingUp, TrendingDown, DollarSign, Users, Activity, Minus, Plus, Loader2, BarChart3, Trophy, Wallet } from "lucide-react";
 import { XAxis, YAxis, Tooltip, ResponsiveContainer, Area, AreaChart } from "recharts";
 import { useState, useEffect, useMemo } from "react";
-import { getMarketDetails, getMarketPriceHistory, getMarketTrades, getEventWithMarkets, getClobPrices, getOrderBook, getMarketTradersCount, getMarketTopHolders, getMarketTopTraders, getCachedMarketDetail, getMarketFromCache } from "../services/polymarketApi";
+import { 
+  getMarketDetails, 
+  getMarketPriceHistory, 
+  getMarketTrades, 
+  getEventWithMarkets, 
+  getClobPrices, 
+  getOrderBook, 
+  getMarketTradersCount, 
+  getMarketTopHolders, 
+  getMarketTopTraders, 
+  getCachedMarketDetail, 
+  getMarketFromCache,
+  getCachedPriceHistory,
+  getCachedTrades,
+  getCachedOrderBook,
+  getCachedEventData,
+  getCachedTradersCount,
+  getCachedTopHolders,
+  getCachedTopTraders
+} from "../services/polymarketApi";
 import { useAuth } from "../context/AuthContext";
 
 // Helper function to format balance
@@ -159,171 +178,209 @@ export function MarketDetail({
   const [topHolders, setTopHolders] = useState<TopHolder[]>([]);
   const [topTraders, setTopTraders] = useState<TopTrader[]>([]);
   const [activeActivityTab, setActiveActivityTab] = useState<ActivityTab>("trades");
-  const [isLoading, setIsLoading] = useState(true);
-  const [isLoadingDetails, setIsLoadingDetails] = useState(true);
-  const [isLoadingChart, setIsLoadingChart] = useState(true);
-  const [isLoadingActivity, setIsLoadingActivity] = useState(true);
+  const [isLoading, setIsLoading] = useState(false); // Start false - we'll show cached data immediately
   const [error, setError] = useState<string | null>(null);
 
-  // Check for cached/instant data on mount - show immediately without loading
-  const instantData = useMemo(() => {
-    // Check if we have cached market detail
+  // INSTANT LOAD: Check ALL caches immediately on mount and populate state
+  useEffect(() => {
+    console.log(`[MarketDetail] Loading market: ${market.id}`);
+    const startTime = performance.now();
+    
+    // 1. Check for cached market detail (full data)
     const cachedDetail = getCachedMarketDetail(market.id);
     if (cachedDetail) {
-      return cachedDetail;
+      console.log(`[MarketDetail] Found cached detail`);
+      setMarketData(cachedDetail);
+    } else {
+      // Fall back to global market cache (basic data)
+      const cachedMarket = getMarketFromCache(market.id);
+      if (cachedMarket) {
+        console.log(`[MarketDetail] Found market in global cache`);
+        setMarketData({
+          id: cachedMarket.id,
+          name: cachedMarket.title,
+          title: cachedMarket.title,
+          description: cachedMarket.description || '',
+          yesPrice: cachedMarket.probability / 100,
+          noPrice: 1 - (cachedMarket.probability / 100),
+          probability: cachedMarket.probability,
+          spread: 0,
+          volume: `$${(cachedMarket.volumeUsd / 1000000).toFixed(1)}M`,
+          volumeUsd: cachedMarket.volumeUsd,
+          volume24hr: `$${(cachedMarket.volume24hr / 1000).toFixed(0)}K`,
+          volume24hrNum: cachedMarket.volume24hr,
+          liquidity: `$${(cachedMarket.liquidity / 1000).toFixed(0)}K`,
+          liquidityNum: cachedMarket.liquidity,
+          outcomes: cachedMarket.outcomes ? (typeof cachedMarket.outcomes === 'string' ? JSON.parse(cachedMarket.outcomes) : cachedMarket.outcomes) : ["Yes", "No"],
+          outcomePrices: cachedMarket.outcomePrices ? (typeof cachedMarket.outcomePrices === 'string' ? JSON.parse(cachedMarket.outcomePrices).map(Number) : cachedMarket.outcomePrices) : [cachedMarket.probability / 100, 1 - cachedMarket.probability / 100],
+          endDate: cachedMarket.endDate,
+          uniqueTraders: 0,
+          tradesCount: 0,
+          image: cachedMarket.image,
+        } as any);
+      }
     }
     
-    // Check if we have the market in global cache (from markets list)
-    const cachedMarket = getMarketFromCache(market.id);
-    if (cachedMarket) {
-      // Convert cached market to MarketData format for instant display
-      return {
-        id: cachedMarket.id,
-        name: cachedMarket.title,
-        title: cachedMarket.title,
-        description: cachedMarket.description || '',
-        yesPrice: cachedMarket.probability / 100,
-        noPrice: 1 - (cachedMarket.probability / 100),
-        probability: cachedMarket.probability,
-        spread: 0,
-        volume: `$${(cachedMarket.volumeUsd / 1000000).toFixed(1)}M`,
-        volumeUsd: cachedMarket.volumeUsd,
-        volume24hr: `$${(cachedMarket.volume24hr / 1000).toFixed(0)}K`,
-        volume24hrNum: cachedMarket.volume24hr,
-        liquidity: `$${(cachedMarket.liquidity / 1000).toFixed(0)}K`,
-        liquidityNum: cachedMarket.liquidity,
-        outcomes: cachedMarket.outcomes ? (typeof cachedMarket.outcomes === 'string' ? JSON.parse(cachedMarket.outcomes) : cachedMarket.outcomes) : ["Yes", "No"],
-        outcomePrices: cachedMarket.outcomePrices ? (typeof cachedMarket.outcomePrices === 'string' ? JSON.parse(cachedMarket.outcomePrices).map(Number) : cachedMarket.outcomePrices) : [cachedMarket.probability / 100, 1 - cachedMarket.probability / 100],
-        endDate: cachedMarket.endDate,
-        uniqueTraders: 0,
-        tradesCount: 0,
-        image: cachedMarket.image,
-      };
+    // 2. Check for cached price history
+    const cachedHistory = getCachedPriceHistory(market.id, "1d");
+    if (cachedHistory && cachedHistory.length > 0) {
+      console.log(`[MarketDetail] Found cached price history`);
+      setPriceHistory(cachedHistory);
     }
     
-    return null;
+    // 3. Check for cached trades
+    const cachedTrades = getCachedTrades(market.id, 10);
+    if (cachedTrades && cachedTrades.length > 0) {
+      console.log(`[MarketDetail] Found cached trades`);
+      setRecentTrades(cachedTrades);
+    }
+    
+    // 4. Check for cached event data
+    const cachedEvent = getCachedEventData(market.id);
+    if (cachedEvent) {
+      console.log(`[MarketDetail] Found cached event data`);
+      setEventData(cachedEvent);
+      if (cachedEvent.isMultiOutcome && cachedEvent.targetMarket) {
+        setSelectedOutcome(cachedEvent.targetMarket);
+      }
+    }
+    
+    // Get condition ID for additional cached data
+    const conditionId = cachedDetail?.conditionId || market.id;
+    
+    // 5. Check for cached traders count
+    const cachedCount = getCachedTradersCount(conditionId);
+    if (cachedCount !== null) {
+      console.log(`[MarketDetail] Found cached traders count`);
+      setTradersCount(cachedCount);
+    }
+    
+    // 6. Check for cached top holders
+    const cachedHolders = getCachedTopHolders(conditionId);
+    if (cachedHolders && cachedHolders.length > 0) {
+      console.log(`[MarketDetail] Found cached top holders`);
+      setTopHolders(cachedHolders);
+    }
+    
+    // 7. Check for cached top traders
+    const cachedTraders = getCachedTopTraders(conditionId);
+    if (cachedTraders && cachedTraders.length > 0) {
+      console.log(`[MarketDetail] Found cached top traders`);
+      setTopTraders(cachedTraders);
+    }
+    
+    // 8. Check for cached order book (need token ID)
+    const tokenId = cachedDetail?.clobTokenIds?.[0] || 
+      (cachedDetail?.clobTokenIds && typeof cachedDetail.clobTokenIds === 'string' 
+        ? JSON.parse(cachedDetail.clobTokenIds)[0] 
+        : null);
+    if (tokenId) {
+      const cachedBook = getCachedOrderBook(tokenId);
+      if (cachedBook) {
+        console.log(`[MarketDetail] Found cached order book`);
+        setOrderBook(cachedBook);
+      }
+    }
+    
+    const cacheTime = performance.now() - startTime;
+    console.log(`[MarketDetail] Cache load completed in ${cacheTime.toFixed(0)}ms`);
+    
+    // Now fetch fresh data in background (non-blocking)
+    fetchFreshData();
   }, [market.id]);
-
-  // Fetch real market data on mount - ALL IN PARALLEL
-  useEffect(() => {
-    const fetchAllData = async () => {
-      // If we have instant data, don't show the main loading state
-      if (instantData) {
-        setMarketData(instantData);
-        setIsLoading(false);
-      } else {
-        setIsLoading(true);
-      }
-      setError(null);
+  
+  // Background fetch for fresh data
+  const fetchFreshData = async () => {
+    try {
+      console.log(`[MarketDetail] Starting background fetch for fresh data`);
+      const startTime = performance.now();
       
-      try {
-        // Start ALL fetches in parallel - don't wait for one to complete before starting another
-        const detailsPromise = getMarketDetails(market.id);
-        const eventPromise = getEventWithMarkets(market.id);
-        const historyPromise = getMarketPriceHistory(market.id, "1d");
-        const tradesPromise = getMarketTrades(market.id, 10);
+      // Fire ALL requests in parallel
+      const [details, event, history, trades] = await Promise.all([
+        getMarketDetails(market.id),
+        getEventWithMarkets(market.id),
+        getMarketPriceHistory(market.id, "1d"),
+        getMarketTrades(market.id, 10),
+      ]);
+      
+      // Update with fresh details
+      if (details) {
+        setMarketData(details);
         
-        // Wait for details first (needed for other fetches)
-        const details = await detailsPromise;
+        // Now fetch data that depends on details
+        const tokenId = details.clobTokenIds?.[0] || 
+          (typeof details.clobTokenIds === 'string' ? JSON.parse(details.clobTokenIds)[0] : null);
+        const conditionId = details.conditionId || market.id;
         
-        if (details) {
-          setMarketData(details);
-          setIsLoadingDetails(false);
-          
-          // Now we can start fetches that depend on details
-          const tokenId = details.clobTokenIds?.[0] || 
-            (typeof details.clobTokenIds === 'string' ? JSON.parse(details.clobTokenIds)[0] : null);
-          const marketConditionId = details.conditionId || market.id;
-          
-          // Start remaining fetches in parallel
-          const orderBookPromise = tokenId ? getOrderBook(tokenId) : Promise.resolve({ bids: [], asks: [], spread: 0 });
-          const tradersCountPromise = getMarketTradersCount(marketConditionId);
-          const holdersPromise = getMarketTopHolders(marketConditionId, 20);
-          const tradersPromise = getMarketTopTraders(marketConditionId, 20);
-          
-          // Process results as they come in (event data)
-          const event = await eventPromise;
-          if (event) {
-            setEventData(event);
-            if (event.isMultiOutcome && event.targetMarket) {
-              setSelectedOutcome(event.targetMarket);
-            }
-          }
-          
-          // Process price history
-          const history = await historyPromise;
-          if (history && history.length > 0) {
-            setPriceHistory(history);
-          } else {
-            // Generate placeholder data
-            const now = new Date();
-            const placeholderHistory: PricePoint[] = [];
-            const baseProb = details?.probability || market.probability || 50;
-            for (let i = 6; i >= 0; i--) {
-              const date = new Date(now);
-              date.setDate(date.getDate() - i);
-              const variance = (Math.random() - 0.5) * 10;
-              placeholderHistory.push({
-                time: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-                timestamp: date.getTime(),
-                probability: Math.max(1, Math.min(99, baseProb + variance)),
-              });
-            }
-            setPriceHistory(placeholderHistory);
-          }
-          setIsLoadingChart(false);
-          
-          // Process trades
-          const trades = await tradesPromise;
-          if (trades && trades.length > 0) {
-            setRecentTrades(trades);
-          } else {
-            setRecentTrades([
-              { id: "1", timestamp: new Date().toLocaleString(), wallet: "0x742d...3a1f", side: "YES", size: "$12,500", price: 0.67 },
-              { id: "2", timestamp: new Date().toLocaleString(), wallet: "0x8f3c...9b2d", side: "NO", size: "$8,200", price: 0.33 },
-              { id: "3", timestamp: new Date().toLocaleString(), wallet: "0x4a9b...7e5c", side: "YES", size: "$15,700", price: 0.65 },
-            ]);
-          }
-          
-          // Process remaining parallel fetches
-          const [bookData, tradersNum, holders, traders] = await Promise.all([
-            orderBookPromise,
-            tradersCountPromise,
-            holdersPromise,
-            tradersPromise
-          ]);
-          
-          if (bookData && (bookData.bids?.length > 0 || bookData.asks?.length > 0)) {
-            setOrderBook(bookData);
-          }
-          
-          if (tradersNum > 0) {
-            setTradersCount(tradersNum);
-          }
-          
-          if (holders.length > 0) {
-            setTopHolders(holders);
-          }
-          
-          if (traders.length > 0) {
-            setTopTraders(traders);
-          }
-          
-          setIsLoadingActivity(false);
+        // Fire all dependent requests in parallel
+        const [bookData, tradersNum, holders, tradersList] = await Promise.all([
+          tokenId ? getOrderBook(tokenId) : Promise.resolve({ bids: [], asks: [], spread: 0 }),
+          getMarketTradersCount(conditionId),
+          getMarketTopHolders(conditionId, 20),
+          getMarketTopTraders(conditionId, 20),
+        ]);
+        
+        if (bookData && (bookData.bids?.length > 0 || bookData.asks?.length > 0)) {
+          setOrderBook(bookData);
         }
-      } catch (err) {
-        console.error("Error fetching market data:", err);
-        setError("Failed to load market data");
-      } finally {
-        setIsLoading(false);
-        setIsLoadingDetails(false);
-        setIsLoadingChart(false);
-        setIsLoadingActivity(false);
+        
+        if (tradersNum > 0) {
+          setTradersCount(tradersNum);
+        }
+        
+        if (holders.length > 0) {
+          setTopHolders(holders);
+        }
+        
+        if (tradersList.length > 0) {
+          setTopTraders(tradersList);
+        }
       }
-    };
-    
-    fetchAllData();
-  }, [market.id, instantData]);
+      
+      // Update event data
+      if (event) {
+        setEventData(event);
+        if (event.isMultiOutcome && event.targetMarket) {
+          setSelectedOutcome(event.targetMarket);
+        }
+      }
+      
+      // Update price history
+      if (history && history.length > 0) {
+        setPriceHistory(history);
+      } else if (priceHistory.length === 0) {
+        // Generate placeholder only if we have no data
+        const now = new Date();
+        const placeholderHistory: PricePoint[] = [];
+        const baseProb = details?.probability || market.probability || 50;
+        for (let i = 6; i >= 0; i--) {
+          const date = new Date(now);
+          date.setDate(date.getDate() - i);
+          const variance = (Math.random() - 0.5) * 10;
+          placeholderHistory.push({
+            time: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+            timestamp: date.getTime(),
+            probability: Math.max(1, Math.min(99, baseProb + variance)),
+          });
+        }
+        setPriceHistory(placeholderHistory);
+      }
+      
+      // Update trades
+      if (trades && trades.length > 0) {
+        setRecentTrades(trades);
+      }
+      
+      const totalTime = performance.now() - startTime;
+      console.log(`[MarketDetail] Background fetch completed in ${totalTime.toFixed(0)}ms`);
+    } catch (err) {
+      console.error("[MarketDetail] Error fetching fresh data:", err);
+      // Don't show error if we have cached data
+      if (!marketData) {
+        setError("Failed to load market data");
+      }
+    }
+  };
 
   // Use real data or fallback to props with safe number conversion
   const safeNumber = (val: any, fallback: number) => {

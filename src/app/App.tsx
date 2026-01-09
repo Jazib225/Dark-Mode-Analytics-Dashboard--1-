@@ -11,7 +11,7 @@ import { LoginPage } from "./components/LoginPage";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { Search, X, Clock, TrendingUp, Bookmark, Loader2, LogOut, User, ChevronDown } from "lucide-react";
 import paragonLogo from "../assets/paragon-logo.png";
-import { getAllActiveMarkets, searchMarkets, initializeMarketCache, instantSearch } from "./services/polymarketApi";
+import { getAllActiveMarkets, searchMarkets, initializeMarketCache, instantSearch, prefetchMarketDetail } from "./services/polymarketApi";
 
 // Helper function to format balance - handles both crypto and USD
 function formatBalance(amount: number, isWallet: boolean = false): string {
@@ -972,6 +972,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                         <div
                           key={market.id}
                           onClick={() => handleSearchMarketSelect(market)}
+                          onMouseEnter={() => prefetchMarketDetail(market.id)}
                           className="flex items-center gap-3 px-4 py-3 hover:bg-[#111111] cursor-pointer transition-all"
                         >
                           <TrendingUp className="w-4 h-4 text-gray-500 flex-shrink-0" />

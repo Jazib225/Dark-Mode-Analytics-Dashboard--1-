@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { Search, TrendingUp, Bookmark, Loader2, ArrowLeft, SortAsc } from "lucide-react";
-import { searchMarkets, instantSearch, getCacheStats } from "../services/polymarketApi";
+import { searchMarkets, instantSearch, getCacheStats, prefetchMarketDetail } from "../services/polymarketApi";
 import { BookmarkedMarket } from "../App";
 
 // Format probability to match bookmarks display (no unnecessary decimals)
@@ -221,6 +221,7 @@ export function SearchResults({
             <div
               key={market.id}
               onClick={() => onMarketSelect(market)}
+              onMouseEnter={() => prefetchMarketDetail(market.id)}
               className="bg-[#111111] border border-gray-800/50 rounded-xl p-4 hover:border-gray-700/50 cursor-pointer transition-all group"
             >
               <div className="flex items-start gap-3">

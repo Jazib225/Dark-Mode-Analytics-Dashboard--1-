@@ -83,12 +83,107 @@ const TRADES_CACHE_DURATION_MS = 30 * 1000; // 30 seconds for trades
 const orderBookCache = new Map<string, { data: any; timestamp: number }>();
 const ORDER_BOOK_CACHE_DURATION_MS = 10 * 1000; // 10 seconds for order book
 
+// Cache for event data (multi-outcome markets)
+const eventCache = new Map<string, { data: any; timestamp: number }>();
+const EVENT_CACHE_DURATION_MS = 2 * 60 * 1000; // 2 minutes
+
+// Cache for traders count
+const tradersCountCache = new Map<string, { data: number; timestamp: number }>();
+const TRADERS_COUNT_CACHE_DURATION_MS = 60 * 1000; // 1 minute
+
+// Cache for top holders
+const topHoldersCache = new Map<string, { data: any[]; timestamp: number }>();
+const TOP_HOLDERS_CACHE_DURATION_MS = 60 * 1000; // 1 minute
+
+// Cache for top traders
+const topTradersCache = new Map<string, { data: any[]; timestamp: number }>();
+const TOP_TRADERS_CACHE_DURATION_MS = 60 * 1000; // 1 minute
+
 /**
  * Get cached market detail if available and not expired
  */
 export function getCachedMarketDetail(marketId: string): any | null {
   const cached = marketDetailCache.get(marketId);
   if (cached && Date.now() - cached.timestamp < DETAIL_CACHE_DURATION_MS) {
+    return cached.data;
+  }
+  return null;
+}
+
+/**
+ * Get cached price history if available
+ */
+export function getCachedPriceHistory(marketId: string, interval: string = "1d"): any[] | null {
+  const cacheKey = `${marketId}_${interval}`;
+  const cached = priceHistoryCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < PRICE_HISTORY_CACHE_DURATION_MS) {
+    return cached.data;
+  }
+  return null;
+}
+
+/**
+ * Get cached trades if available
+ */
+export function getCachedTrades(marketId: string, limit: number = 20): any[] | null {
+  const cacheKey = `${marketId}_${limit}`;
+  const cached = tradesCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < TRADES_CACHE_DURATION_MS) {
+    return cached.data;
+  }
+  return null;
+}
+
+/**
+ * Get cached order book if available
+ */
+export function getCachedOrderBook(tokenId: string): any | null {
+  const cached = orderBookCache.get(tokenId);
+  if (cached && Date.now() - cached.timestamp < ORDER_BOOK_CACHE_DURATION_MS) {
+    return cached.data;
+  }
+  return null;
+}
+
+/**
+ * Get cached event data if available
+ */
+export function getCachedEventData(marketId: string): any | null {
+  const cached = eventCache.get(marketId);
+  if (cached && Date.now() - cached.timestamp < EVENT_CACHE_DURATION_MS) {
+    return cached.data;
+  }
+  return null;
+}
+
+/**
+ * Get cached traders count if available
+ */
+export function getCachedTradersCount(conditionId: string): number | null {
+  const cached = tradersCountCache.get(conditionId);
+  if (cached && Date.now() - cached.timestamp < TRADERS_COUNT_CACHE_DURATION_MS) {
+    return cached.data;
+  }
+  return null;
+}
+
+/**
+ * Get cached top holders if available
+ */
+export function getCachedTopHolders(conditionId: string): any[] | null {
+  const cached = topHoldersCache.get(conditionId);
+  if (cached && Date.now() - cached.timestamp < TOP_HOLDERS_CACHE_DURATION_MS) {
+    return cached.data;
+  }
+  return null;
+}
+
+/**
+ * Get cached top traders if available
+ */
+export function getCachedTopTraders(conditionId: string): any[] | null {
+  const cached = topTradersCache.get(conditionId);
+  if (cached && Date.now() - cached.timestamp < TOP_TRADERS_CACHE_DURATION_MS) {
     return cached.data;
   }
   return null;
@@ -1246,6 +1341,13 @@ export async function getMarketTrades(marketId: string, limit = 20) {
  */
 export async function getMarketTradersCount(marketId: string) {
   try {
+    // Check cache first
+    const cached = tradersCountCache.get(marketId);
+    if (cached && Date.now() - cached.timestamp < TRADERS_COUNT_CACHE_DURATION_MS) {
+      console.log(`Using cached traders count for: ${marketId}`);
+      return cached.data;
+    }
+    
     // The data-api trades endpoint uses 'market' param with the conditionId
     // Fetch up to 10000 trades to get a comprehensive count of unique traders
     const url = `https://data-api.polymarket.com/trades?market=${encodeURIComponent(marketId)}&limit=10000`;
@@ -1259,7 +1361,10 @@ export async function getMarketTradersCount(marketId: string) {
         data.forEach((trade: any) => {
           if (trade.proxyWallet) uniqueWallets.add(trade.proxyWallet.toLowerCase());
         });
-        return uniqueWallets.size;
+        const count = uniqueWallets.size;
+        // Cache the result
+        tradersCountCache.set(marketId, { data: count, timestamp: Date.now() });
+        return count;
       }
     }
     
@@ -1280,7 +1385,10 @@ export async function getMarketTradersCount(marketId: string) {
             }
           });
           if (uniqueHolders.size > 0) {
-            return uniqueHolders.size;
+            const count = uniqueHolders.size;
+            // Cache the result
+            tradersCountCache.set(marketId, { data: count, timestamp: Date.now() });
+            return count;
           }
         }
       }
@@ -1300,6 +1408,14 @@ export async function getMarketTradersCount(marketId: string) {
  */
 export async function getMarketTopHolders(marketId: string, limit = 20) {
   try {
+    // Check cache first
+    const cacheKey = `${marketId}_${limit}`;
+    const cached = topHoldersCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < TOP_HOLDERS_CACHE_DURATION_MS) {
+      console.log(`Using cached top holders for: ${marketId}`);
+      return cached.data;
+    }
+    
     const holdersUrl = `https://data-api.polymarket.com/holders?market=${encodeURIComponent(marketId)}`;
     const response = await fetchWithTimeout(holdersUrl, 30000);
     
@@ -1325,9 +1441,13 @@ export async function getMarketTopHolders(marketId: string, limit = 20) {
         });
         
         // Sort by amount and return top holders
-        return allHolders
+        const result = allHolders
           .sort((a, b) => b.amount - a.amount)
           .slice(0, limit);
+        
+        // Cache the result
+        topHoldersCache.set(cacheKey, { data: result, timestamp: Date.now() });
+        return result;
       }
     }
     
@@ -1343,6 +1463,14 @@ export async function getMarketTopHolders(marketId: string, limit = 20) {
  */
 export async function getMarketTopTraders(marketId: string, limit = 20) {
   try {
+    // Check cache first
+    const cacheKey = `${marketId}_${limit}`;
+    const cached = topTradersCache.get(cacheKey);
+    if (cached && Date.now() - cached.timestamp < TOP_TRADERS_CACHE_DURATION_MS) {
+      console.log(`Using cached top traders for: ${marketId}`);
+      return cached.data;
+    }
+    
     const url = `https://data-api.polymarket.com/trades?market=${encodeURIComponent(marketId)}&limit=10000`;
     const response = await fetchWithTimeout(url);
     
@@ -1385,7 +1513,7 @@ export async function getMarketTopTraders(marketId: string, limit = 20) {
         });
         
         // Convert to array and sort by volume
-        return Array.from(traderStats.values())
+        const result = Array.from(traderStats.values())
           .map(trader => ({
             wallet: trader.wallet,
             displayWallet: `${trader.wallet.slice(0, 6)}...${trader.wallet.slice(-4)}`,
@@ -1396,6 +1524,10 @@ export async function getMarketTopTraders(marketId: string, limit = 20) {
           }))
           .sort((a, b) => b.totalVolume - a.totalVolume)
           .slice(0, limit);
+        
+        // Cache the result
+        topTradersCache.set(cacheKey, { data: result, timestamp: Date.now() });
+        return result;
       }
     }
     
@@ -1821,6 +1953,13 @@ export async function getRecentTrades(limit = 50, offset = 0) {
  */
 export async function getEventWithMarkets(marketId: string) {
   try {
+    // Check cache first
+    const cached = eventCache.get(marketId);
+    if (cached && Date.now() - cached.timestamp < EVENT_CACHE_DURATION_MS) {
+      console.log(`Using cached event data for: ${marketId}`);
+      return cached.data;
+    }
+    
     console.log(`Fetching event for market: ${marketId}`);
     
     // First, find the event that contains this market
@@ -1979,6 +2118,11 @@ export async function getEventWithMarkets(marketId: string) {
       // The specific market that was requested
       targetMarket: marketsWithPrices.find((m: any) => m.id === marketId),
     };
+    
+    // Cache the result
+    eventCache.set(marketId, { data: result, timestamp: Date.now() });
+    
+    return result;
   } catch (error) {
     console.error("Failed to fetch event with markets:", error);
     return null;
