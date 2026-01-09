@@ -198,45 +198,81 @@ export function LoginPage({ onLogin, onClose }: LoginPageProps) {
     setError("");
     
     // Small delay to ensure extensions are fully loaded
-    await new Promise(r => setTimeout(r, 100));
+    await new Promise(r => setTimeout(r, 150));
+    
+    // Get the Phantom provider following official docs
+    let provider: any = null;
     
     try {
-      // Get the Phantom provider following official docs
-      let provider: any = null;
-      
-      // Check window.phantom.solana first (recommended)
-      if ((window as any).phantom?.solana?.isPhantom) {
+      // Check window.phantom.solana first (recommended by Phantom)
+      if (typeof window !== "undefined" && (window as any).phantom?.solana?.isPhantom) {
         provider = (window as any).phantom.solana;
       }
-      // Fallback to window.solana
-      else if ((window as any).solana?.isPhantom) {
+      // Fallback to window.solana for legacy
+      else if (typeof window !== "undefined" && (window as any).solana?.isPhantom) {
         provider = (window as any).solana;
       }
-      
-      if (!provider) {
-        setError("Phantom not installed. Opening download page...");
-        setLoading(null);
-        window.open("https://phantom.app/", "_blank");
-        return;
+    } catch (e) {
+      console.error("Error detecting Phantom:", e);
+    }
+    
+    if (!provider) {
+      setError("Phantom not installed. Opening download page...");
+      setLoading(null);
+      window.open("https://phantom.app/", "_blank");
+      return;
+    }
+    
+    try {
+      // Check if already connected and has a public key
+      if (provider.isConnected) {
+        try {
+          const existingKey = provider.publicKey;
+          if (existingKey) {
+            const publicKey = existingKey.toString();
+            setLoading(null);
+            onLogin({
+              id: `wallet_${publicKey}`,
+              walletAddress: publicKey,
+              displayName: `${publicKey.slice(0, 4)}...${publicKey.slice(-4)}`,
+              authMethod: "wallet",
+              balance: 0,
+            });
+            return;
+          }
+        } catch (e) {
+          // Public key not available, proceed with connect
+        }
       }
       
-      // Check if already connected
-      if (provider.isConnected && provider.publicKey) {
-        const publicKey = provider.publicKey.toString();
-        setLoading(null);
-        onLogin({
-          id: `wallet_${publicKey}`,
-          walletAddress: publicKey,
-          displayName: `${publicKey.slice(0, 4)}...${publicKey.slice(-4)}`,
-          authMethod: "wallet",
-          balance: 0,
-        });
-        return;
-      }
+      // Try the connect() method first (simpler API)
+      let publicKey: string;
       
-      // Connect to Phantom using the request method (more reliable)
-      const response = await provider.request({ method: "connect" });
-      const publicKey = response.publicKey.toString();
+      try {
+        const resp = await provider.connect();
+        publicKey = resp.publicKey.toString();
+      } catch (connectErr: any) {
+        // If connect() fails, try the request API
+        if (connectErr.code === 4001) {
+          setError("You rejected the connection request.");
+          setLoading(null);
+          return;
+        }
+        
+        // Try request method as fallback
+        try {
+          const resp = await provider.request({ method: "connect" });
+          publicKey = resp.publicKey.toString();
+        } catch (requestErr: any) {
+          if (requestErr.code === 4001) {
+            setError("You rejected the connection request.");
+          } else {
+            setError(requestErr.message || "Connection failed. Please try again.");
+          }
+          setLoading(null);
+          return;
+        }
+      }
       
       setLoading(null);
       onLogin({
@@ -246,18 +282,20 @@ export function LoginPage({ onLogin, onClose }: LoginPageProps) {
         authMethod: "wallet",
         balance: 0,
       });
-      return;
+      
     } catch (err: any) {
       console.error("Phantom connection error:", err);
-      if (err.code === 4001 || err.message?.includes("rejected")) {
+      const errorMsg = err?.message || String(err) || "Unknown error";
+      
+      if (err?.code === 4001 || errorMsg.toLowerCase().includes("rejected") || errorMsg.toLowerCase().includes("denied")) {
         setError("You rejected the connection request.");
-      } else if (err.message) {
-        setError(err.message);
+      } else if (errorMsg.toLowerCase().includes("already pending")) {
+        setError("Request already pending. Please check Phantom extension.");
       } else {
-        setError("Failed to connect to Phantom. Please try again.");
+        setError(`Connection failed: ${errorMsg}`);
       }
+      setLoading(null);
     }
-    setLoading(null);
   };
 
   // Better wallet detection

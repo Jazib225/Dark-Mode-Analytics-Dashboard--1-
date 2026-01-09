@@ -7,7 +7,7 @@
     button { padding: 15px 30px; margin: 10px; font-size: 16px; cursor: pointer; border: none; border-radius: 8px; }
     .metamask { background: #f6851b; }
     .phantom { background: #ab9ff2; }
-    #result { margin-top: 20px; padding: 15px; background: #333; border-radius: 8px; white-space: pre-wrap; }
+    #result { margin-top: 20px; padding: 15px; background: #333; border-radius: 8px; white-space: pre-wrap; max-height: 400px; overflow-y: auto; }
   </style>
 </head>
 <body>
@@ -16,6 +16,7 @@
   <div>
     <button class="metamask" onclick="testMetaMask()">Test MetaMask</button>
     <button class="phantom" onclick="testPhantom()">Test Phantom</button>
+    <button style="background:#666" onclick="clear()">Clear</button>
   </div>
   
   <div id="result">Click a button to test...</div>
@@ -23,6 +24,7 @@
   <script>
     function log(msg) {
       document.getElementById('result').textContent += msg + '\n';
+      console.log(msg);
     }
     
     function clear() {
@@ -52,26 +54,70 @@
     
     async function testPhantom() {
       clear();
-      log('Testing Phantom...');
-      log('window.phantom exists: ' + !!window.phantom);
-      log('window.phantom.solana exists: ' + !!window.phantom?.solana);
-      log('window.solana exists: ' + !!window.solana);
+      log('=== PHANTOM CONNECTION TEST ===\n');
       
-      const provider = window.phantom?.solana || window.solana;
+      // Step 1: Detection
+      log('Step 1: Detecting Phantom...');
+      log('  window.phantom exists: ' + !!window.phantom);
+      log('  window.phantom.solana exists: ' + !!window.phantom?.solana);
+      log('  window.phantom.solana.isPhantom: ' + !!window.phantom?.solana?.isPhantom);
+      log('  window.solana exists: ' + !!window.solana);
+      log('  window.solana.isPhantom: ' + !!window.solana?.isPhantom);
       
-      if (provider?.isPhantom) {
-        log('isPhantom: ' + provider.isPhantom);
-        
-        try {
-          log('Connecting...');
-          const response = await provider.connect();
-          log('SUCCESS! Public Key: ' + response.publicKey.toString());
-        } catch (err) {
-          log('ERROR: ' + JSON.stringify({ code: err.code, message: err.message }));
-        }
-      } else {
-        log('Phantom not installed');
+      // Get provider
+      let provider = null;
+      if (window.phantom?.solana?.isPhantom) {
+        provider = window.phantom.solana;
+        log('\n  Using: window.phantom.solana');
+      } else if (window.solana?.isPhantom) {
+        provider = window.solana;
+        log('\n  Using: window.solana');
       }
+      
+      if (!provider) {
+        log('\n❌ Phantom NOT DETECTED - Please install Phantom extension');
+        return;
+      }
+      
+      log('\n✅ Provider found!');
+      log('  isPhantom: ' + provider.isPhantom);
+      log('  isConnected: ' + provider.isConnected);
+      
+      // Step 2: Check existing connection
+      log('\nStep 2: Checking existing connection...');
+      if (provider.isConnected && provider.publicKey) {
+        log('  Already connected!');
+        log('  Public Key: ' + provider.publicKey.toString());
+      } else {
+        log('  Not connected yet');
+      }
+      
+      // Step 3: Try connecting
+      log('\nStep 3: Attempting connection...');
+      
+      // Try connect() method
+      try {
+        log('  Trying provider.connect()...');
+        const resp = await provider.connect();
+        log('  ✅ SUCCESS with connect()!');
+        log('  Public Key: ' + resp.publicKey.toString());
+        return;
+      } catch (err) {
+        log('  ❌ connect() failed: ' + JSON.stringify({ code: err.code, message: err.message, name: err.name }));
+      }
+      
+      // Try request method
+      try {
+        log('\n  Trying provider.request({ method: "connect" })...');
+        const resp = await provider.request({ method: 'connect' });
+        log('  ✅ SUCCESS with request()!');
+        log('  Public Key: ' + resp.publicKey.toString());
+        return;
+      } catch (err) {
+        log('  ❌ request() failed: ' + JSON.stringify({ code: err.code, message: err.message, name: err.name }));
+      }
+      
+      log('\n❌ All connection methods failed');
     }
   </script>
 </body>
