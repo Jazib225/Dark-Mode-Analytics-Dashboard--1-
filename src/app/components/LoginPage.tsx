@@ -227,28 +227,60 @@ export function LoginPage({ onLogin, onClose }: LoginPageProps) {
       // Request connection - this opens the Phantom popup
       const response = await provider.connect();
       const publicKey = response.publicKey.toString();
+      console.log("Connected to Phantom, public key:", publicKey);
       
-      // Fetch SOL balance from Solana mainnet
+      // Fetch SOL balance using Phantom's connection if available, or direct RPC
       let balanceInSol = 0;
+      
+      // Method 1: Try using Phantom's connection object (most reliable)
       try {
-        const rpcResponse = await fetch("https://api.mainnet-beta.solana.com", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            jsonrpc: "2.0",
-            id: 1,
-            method: "getBalance",
-            params: [publicKey]
-          })
-        });
-        const rpcData = await rpcResponse.json();
-        if (rpcData.result?.value !== undefined) {
-          // Convert lamports to SOL (1 SOL = 1 billion lamports)
-          balanceInSol = rpcData.result.value / 1e9;
+        // @solana/web3.js Connection through Phantom
+        if (provider.connection) {
+          const lamports = await provider.connection.getBalance(response.publicKey);
+          balanceInSol = lamports / 1e9;
+          console.log(`Got balance via Phantom connection: ${balanceInSol} SOL`);
         }
-      } catch (balanceErr) {
-        console.error("Failed to fetch SOL balance:", balanceErr);
+      } catch (e) {
+        console.log("Phantom connection method failed, trying RPC:", e);
       }
+      
+      // Method 2: If Phantom connection failed, try direct RPC with CORS-friendly endpoints
+      if (balanceInSol === 0) {
+        const rpcEndpoints = [
+          "https://api.mainnet-beta.solana.com",
+          "https://solana-api.projectserum.com"
+        ];
+        
+        for (const endpoint of rpcEndpoints) {
+          try {
+            console.log(`Trying RPC endpoint: ${endpoint}`);
+            const rpcResponse = await fetch(endpoint, {
+              method: "POST",
+              headers: { 
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                jsonrpc: "2.0",
+                id: 1,
+                method: "getBalance",
+                params: [publicKey]
+              })
+            });
+            const rpcData = await rpcResponse.json();
+            console.log("RPC response:", rpcData);
+            
+            if (rpcData.result?.value !== undefined) {
+              balanceInSol = rpcData.result.value / 1e9;
+              console.log(`Balance: ${rpcData.result.value} lamports = ${balanceInSol} SOL`);
+              break;
+            }
+          } catch (balanceErr) {
+            console.error(`Failed to fetch from ${endpoint}:`, balanceErr);
+          }
+        }
+      }
+      
+      console.log("Final SOL balance:", balanceInSol);
       
       setLoading(null);
       onLogin({

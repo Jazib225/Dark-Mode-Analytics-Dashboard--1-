@@ -31,7 +31,7 @@ async function fetchEthBalance(address: string): Promise<number> {
         params: [address, "latest"]
       });
       const balanceWei = parseInt(balanceHex, 16);
-      return balanceWei / 1e18; // Convert wei to ETH
+      return balanceWei / 1e18;
     }
   } catch (e) {
     console.error("ETH balance fetch error:", e);
@@ -39,32 +39,45 @@ async function fetchEthBalance(address: string): Promise<number> {
   return 0;
 }
 
-// Fetch SOL balance from Solana mainnet
+// Fetch SOL balance from Solana - try multiple RPC endpoints
 async function fetchSolBalance(address: string): Promise<number> {
-  try {
-    const response = await fetch("https://api.mainnet-beta.solana.com", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        jsonrpc: "2.0",
-        id: 1,
-        method: "getBalance",
-        params: [address]
-      })
-    });
-    const data = await response.json();
-    if (data.result?.value !== undefined) {
-      return data.result.value / 1e9; // Convert lamports to SOL
+  const rpcEndpoints = [
+    "https://api.mainnet-beta.solana.com",
+    "https://solana-api.projectserum.com"
+  ];
+  
+  for (const endpoint of rpcEndpoints) {
+    try {
+      console.log(`[RefreshBalance] Fetching SOL balance from ${endpoint} for ${address}`);
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "getBalance",
+          params: [address]
+        })
+      });
+      const data = await response.json();
+      console.log("[RefreshBalance] RPC response:", data);
+      if (data.result?.value !== undefined) {
+        const balanceInSol = data.result.value / 1e9;
+        console.log(`[RefreshBalance] Balance: ${data.result.value} lamports = ${balanceInSol} SOL`);
+        return balanceInSol;
+      }
+      if (data.error) {
+        console.error("[RefreshBalance] RPC error:", data.error);
+      }
+    } catch (e) {
+      console.error(`[RefreshBalance] SOL balance fetch error from ${endpoint}:`, e);
     }
-  } catch (e) {
-    console.error("SOL balance fetch error:", e);
   }
   return 0;
 }
 
 // Determine wallet type and fetch appropriate balance
 async function fetchWalletBalance(address: string): Promise<number> {
-  // Ethereum addresses start with 0x and are 42 chars
   if (address.startsWith("0x") && address.length === 42) {
     return fetchEthBalance(address);
   }
@@ -103,9 +116,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [user]);
 
   const login = useCallback((newUser: User) => {
+    console.log("Login called with user:", newUser);
     setUser(newUser);
-    if (newUser.authMethod === "wallet" && newUser.walletAddress) {
+    // Only fetch balance if we don't already have one (balance === 0)
+    // The LoginPage already fetches the balance, so we shouldn't overwrite it
+    if (newUser.authMethod === "wallet" && newUser.walletAddress && newUser.balance === 0) {
+      console.log("Balance is 0, fetching from blockchain...");
       fetchWalletBalance(newUser.walletAddress).then(balance => {
+        console.log("Fetched balance:", balance);
         setUser(prev => prev ? { ...prev, balance } : null);
       });
     }
