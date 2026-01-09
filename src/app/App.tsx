@@ -16,20 +16,19 @@ import { getAllActiveMarkets, searchMarkets, initializeMarketCache, instantSearc
 // Helper function to format balance - handles both crypto and USD
 function formatBalance(amount: number, isWallet: boolean = false): string {
   if (isWallet) {
-    // For wallet balances, show crypto amount with up to 4 decimal places
+    // For wallet balances, show crypto amount with up to 5 decimal places
     return amount.toLocaleString("en-US", {
       minimumFractionDigits: 2,
-      maximumFractionDigits: 4,
+      maximumFractionDigits: 5,
     });
   }
-  // For USD/email balances (stored in cents)
-  const dollars = amount / 100;
+  // For USD balances
   return new Intl.NumberFormat("en-US", {
     style: "currency",
     currency: "USD",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
-  }).format(dollars);
+  }).format(amount);
 }
 
 // Format probability to match bookmarks display (no unnecessary decimals)
@@ -83,6 +82,28 @@ interface DisplayMarket {
 function UserAuthSection({ onLoginClick }: { onLoginClick: () => void }) {
   const { user, isAuthenticated, logout, refreshBalance, isLoading } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
+  const [showInUsd, setShowInUsd] = useState(false);
+  const [solPrice, setSolPrice] = useState<number | null>(null);
+
+  // Fetch SOL price on mount and periodically
+  useEffect(() => {
+    const fetchSolPrice = async () => {
+      try {
+        const response = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd");
+        const data = await response.json();
+        if (data.solana?.usd) {
+          setSolPrice(data.solana.usd);
+        }
+      } catch (e) {
+        console.error("Failed to fetch SOL price:", e);
+        // Fallback price if API fails
+        setSolPrice(138.89);
+      }
+    };
+    fetchSolPrice();
+    const interval = setInterval(fetchSolPrice, 60000); // Update every minute
+    return () => clearInterval(interval);
+  }, []);
 
   if (isLoading) {
     return (
@@ -112,17 +133,43 @@ function UserAuthSection({ onLoginClick }: { onLoginClick: () => void }) {
     return "SOL";
   };
 
+  // Calculate USD value from SOL
+  const getUsdValue = () => {
+    if (!solPrice) return null;
+    return user.balance * solPrice;
+  };
+
+  // Format the balance display based on toggle
+  const getBalanceDisplay = () => {
+    if (user.authMethod !== "wallet") {
+      return formatBalance(user.balance / 100, false); // Email/Google users - stored in cents
+    }
+    
+    const cryptoSymbol = getCryptoSymbol();
+    if (showInUsd && solPrice && cryptoSymbol === "SOL") {
+      const usdValue = getUsdValue();
+      return usdValue !== null ? formatBalance(usdValue, false) : `${formatBalance(user.balance, true)} ${cryptoSymbol}`;
+    }
+    return `${formatBalance(user.balance, true)} ${cryptoSymbol}`;
+  };
+
   return (
     <>
-      {/* Balance Display */}
-      <div className="text-[15px] font-light text-gray-300">
-        <span className="text-gray-500">Balance:</span>{" "}
-        <span className="text-gray-100 font-normal">
-          {user.authMethod === "wallet" 
-            ? `${formatBalance(user.balance, true)} ${getCryptoSymbol()}`
-            : formatBalance(user.balance, false)
-          }
-        </span>
+      {/* Balance Display with Toggle */}
+      <div className="flex items-center gap-2">
+        <div className="text-[15px] font-light text-gray-300">
+          <span className="text-gray-500">Balance:</span>{" "}
+          <span className="text-gray-100 font-normal">{getBalanceDisplay()}</span>
+        </div>
+        {user.authMethod === "wallet" && getCryptoSymbol() === "SOL" && (
+          <button
+            onClick={() => setShowInUsd(!showInUsd)}
+            className="px-2 py-0.5 text-[10px] font-medium rounded bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors border border-gray-700"
+            title={showInUsd ? "Show in SOL" : "Show in USD"}
+          >
+            {showInUsd ? "SOL" : "USD"}
+          </button>
+        )}
       </div>
       
       {/* User Menu */}
@@ -153,13 +200,28 @@ function UserAuthSection({ onLoginClick }: { onLoginClick: () => void }) {
                   <div className="text-xs text-gray-500 font-mono truncate mt-1">{user.walletAddress}</div>
                 )}
                 <div className="mt-3 p-2 bg-[#0a0a0a] rounded-lg">
-                  <div className="text-xs text-gray-500 mb-1">Balance</div>
-                  <div className="text-lg text-gray-100 font-medium">
-                    {user.authMethod === "wallet" 
-                      ? `${formatBalance(user.balance, true)} ${getCryptoSymbol()}`
-                      : formatBalance(user.balance, false)
-                    }
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-xs text-gray-500">Balance</span>
+                    {user.authMethod === "wallet" && getCryptoSymbol() === "SOL" && (
+                      <button
+                        onClick={() => setShowInUsd(!showInUsd)}
+                        className="px-1.5 py-0.5 text-[9px] font-medium rounded bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+                      >
+                        {showInUsd ? "SOL" : "USD"}
+                      </button>
+                    )}
                   </div>
+                  <div className="text-lg text-gray-100 font-medium">
+                    {getBalanceDisplay()}
+                  </div>
+                  {user.authMethod === "wallet" && getCryptoSymbol() === "SOL" && solPrice && (
+                    <div className="text-xs text-gray-500 mt-1">
+                      {showInUsd 
+                        ? `≈ ${formatBalance(user.balance, true)} SOL`
+                        : `≈ ${formatBalance(user.balance * solPrice, false)}`
+                      }
+                    </div>
+                  )}
                 </div>
               </div>
               
