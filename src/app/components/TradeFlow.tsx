@@ -37,6 +37,9 @@ export function TradeFlow() {
 
   // Track if workflow has unsaved changes
   const isUnsaved = JSON.stringify(workflow) !== JSON.stringify(lastSavedWorkflow);
+  
+  // Track pending handle IDs for edge creation
+  const [pendingHandles, setPendingHandles] = useState<{ sourceHandle: string; targetHandle: string } | null>(null);
 
   const selectedNode = workflow.nodes.find((n: any) => n.id === workflow.selectedNodeId) || null;
 
@@ -88,7 +91,10 @@ export function TradeFlow() {
     const targetNode = workflow.nodes.find((n: any) => n.id === targetId);
 
     if (sourceNode && targetNode && canConnect(sourceNode.type, targetNode.type, sourceNode.stage, targetNode.stage)) {
-      setWorkflow(addEdge(workflow, sourceId, targetId));
+      const sourceHandle = pendingHandles?.sourceHandle || "right";
+      const targetHandle = pendingHandles?.targetHandle || "left";
+      setWorkflow(addEdge(workflow, sourceId, targetId, sourceHandle, targetHandle));
+      setPendingHandles(null);
       setSuccessMessage("Connection created!");
       setTimeout(() => setSuccessMessage(""), 2000);
     } else {
@@ -382,6 +388,7 @@ export function TradeFlow() {
           onNodeMove={handleNodeMove}
           onNodeDrop={handleNodeDrop}
           onEdgeCreate={handleEdgeCreate}
+          onSetPendingHandles={(sourceHandle: string, targetHandle: string) => setPendingHandles({ sourceHandle, targetHandle })}
           onEdgeLogicAdd={handleEdgeLogicAdd}
           onCanvasClick={handleCanvasClick}
         />

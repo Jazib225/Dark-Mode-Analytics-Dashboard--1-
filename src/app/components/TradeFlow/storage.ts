@@ -252,12 +252,14 @@ export function removeNode(workflow: WorkflowSchema, nodeId: string): WorkflowSc
 export function addEdge(
   workflow: WorkflowSchema,
   sourceId: string,
-  targetId: string
+  targetId: string,
+  sourceHandle: string = "right",
+  targetHandle: string = "left"
 ): WorkflowSchema {
   const edgeId = `edge_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   return {
     ...workflow,
-    edges: [...workflow.edges, { id: edgeId, source: sourceId, target: targetId }],
+    edges: [...workflow.edges, { id: edgeId, source: sourceId, target: targetId, sourceHandle, targetHandle }],
   };
 }
 
