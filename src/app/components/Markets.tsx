@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Bookmark, Loader2, TrendingUp, Sparkles, Clock, Search } from "lucide-react";
+import { Bookmark, Loader2 } from "lucide-react";
 import { BookmarkedMarket } from "../App";
 import { MarketDetail } from "./MarketDetail";
 import { getTrendingMarkets } from "../services/polymarketApi";
@@ -14,9 +14,11 @@ import {
 function formatCents(cents: number): string {
   if (cents < 0.1) return "<0.1";
   if (cents > 99.9) return ">99.9";
+  // Show one decimal place for precision on extremes
   if (cents < 1 || cents > 99) {
     return cents.toFixed(1);
   }
+  // For values between 1-99, show integer if close, otherwise one decimal
   if (Math.abs(cents - Math.round(cents)) < 0.05) {
     return Math.round(cents).toString();
   }
@@ -28,7 +30,7 @@ interface MarketsProps {
   isBookmarked: (marketId: string) => boolean;
   onWalletClick?: (address: string) => void;
   onMarketSelect?: (market: { id: string; name: string; probability: number; volume: string } | null) => void;
-  onBack?: () => void;
+  onBack?: () => void;  // Global back function from App
   initialMarketId?: string | null;
   initialMarketData?: {
     id: string;
@@ -47,14 +49,18 @@ interface DisplayMarket {
   noPriceCents?: number;
   volume?: string;
   volumeUsd?: string;
+  volumeNum?: number;
   image?: string | null;
 }
 
 type TimeFilter = "24h" | "7d" | "1m";
 
+// LocalStorage cache keys - separate cache per timeFilter for instant switching
+// Version 2: Added yesPriceCents and noPriceCents fields
 const MARKETS_CACHE_PREFIX = "polymarket_markets_v2_";
-const CACHE_EXPIRY_MS = 2 * 60 * 60 * 1000;
+const CACHE_EXPIRY_MS = 2 * 60 * 60 * 1000; // 2 hours - longer cache for instant loads
 
+// Preload images for faster display
 function preloadImages(markets: DisplayMarket[]): void {
   markets.forEach(market => {
     if (market.image) {
@@ -69,11 +75,13 @@ interface CachedData {
   timestamp: number;
 }
 
+// Load cached markets from localStorage for specific timeFilter
 function loadCachedMarkets(timeFilter: TimeFilter): DisplayMarket[] | null {
   try {
     const cached = localStorage.getItem(MARKETS_CACHE_PREFIX + timeFilter);
     if (cached) {
       const data: CachedData = JSON.parse(cached);
+      // Check if cache is not expired
       if (Date.now() - data.timestamp < CACHE_EXPIRY_MS) {
         return data.markets;
       }
@@ -84,6 +92,7 @@ function loadCachedMarkets(timeFilter: TimeFilter): DisplayMarket[] | null {
   return null;
 }
 
+// Save markets to localStorage cache for specific timeFilter
 function saveCachedMarkets(markets: DisplayMarket[], timeFilter: TimeFilter): void {
   try {
     const data: CachedData = {
@@ -96,7 +105,46 @@ function saveCachedMarkets(markets: DisplayMarket[], timeFilter: TimeFilter): vo
   }
 }
 
+function convertApiMarketToDisplay(market: any, timeframe: TimeFilter = "24h"): DisplayMarket {
+  let volumeUsd = market.volumeUsd;
+  if (timeframe === "24h") {
+    volumeUsd = market.volume24hr || market.volumeUsd;
+  } else if (timeframe === "7d") {
+    volumeUsd = market.volume7d || market.volumeUsd;
+  } else if (timeframe === "1m") {
+    volumeUsd = market.volume1mo || market.volumeUsd;
+  }
+  
+  // Use pre-calculated cents from API if available, otherwise calculate from lastPriceUsd
+  let yesPriceCents = market.yesPriceCents;
+  let noPriceCents = market.noPriceCents;
+  
+  // Fallback calculation if API didn't provide cents
+  if (yesPriceCents === undefined || yesPriceCents === null) {
+    const yesPrice = market.lastPriceUsd ? parseFloat(String(market.lastPriceUsd)) : 0.5;
+    yesPriceCents = yesPrice * 100;
+    noPriceCents = 100 - yesPriceCents;
+  }
+  
+  // Calculate probability for display
+  const probability = yesPriceCents;
+  
+  return {
+    id: market.id,
+    name: market.title || market.name,
+    title: market.title || market.name,
+    probability: probability,
+    yesPriceCents,
+    noPriceCents,
+    volumeUsd: String(volumeUsd),
+    volume: formatVolume(parseFloat(String(volumeUsd || 0))),
+    image: market.image || null,
+  };
+}
+
+// Convert V2 MarketCardDTO to DisplayMarket
 function convertV2MarketToDisplay(market: MarketCardDTO, timeframe: TimeFilter = "24h"): DisplayMarket {
+  // V2 API already has pre-calculated volume by timeframe
   let volumeNum = 0;
   if (timeframe === "24h") {
     volumeNum = market.volume24hr || 0;
@@ -106,6 +154,7 @@ function convertV2MarketToDisplay(market: MarketCardDTO, timeframe: TimeFilter =
     volumeNum = market.volume1mo || 0;
   }
   
+  // V2 API returns probability already as 0-100
   const probability = market.probability || 50;
   const yesPriceCents = probability;
   const noPriceCents = 100 - probability;
@@ -132,33 +181,44 @@ function formatVolume(volume: number): string {
   return `$${volume.toFixed(2)}`;
 }
 
+// Constants for pagination
 const INITIAL_LOAD = 15;
 const LOAD_MORE_COUNT = 15;
 
 export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketSelect, onBack, initialMarketId, initialMarketData }: MarketsProps) {
+  // Initialize with initialMarketId - this allows persistence across refreshes
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(initialMarketId ?? null);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("24h");
 
+  // Sync selectedMarketId when initialMarketId changes from parent (e.g., from search)
+  // Only update if initialMarketId actually changed and is different from current
   useEffect(() => {
     if (initialMarketId !== undefined && initialMarketId !== selectedMarketId) {
       setSelectedMarketId(initialMarketId);
     }
   }, [initialMarketId]);
   
+  // Initialize with cached data if available for instant load
   const [allMarkets, setAllMarkets] = useState<DisplayMarket[]>(() => {
     const cached = loadCachedMarkets("24h");
-    return cached || [];
+    if (cached) {
+      return cached;
+    }
+    return [];
   });
   const [displayedCount, setDisplayedCount] = useState(INITIAL_LOAD);
   const [loading, setLoading] = useState(() => {
+    // Only show loading if no cached data
     return loadCachedMarkets("24h") === null;
   });
-  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false); // Background refresh indicator
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
   
+  // Handle clicking on a market from the table
   const handleTableMarketClick = (market: DisplayMarket) => {
     setSelectedMarketId(market.id);
+    // Notify parent component so it can persist the selection
     if (onMarketSelect) {
       onMarketSelect({
         id: market.id,
@@ -169,17 +229,24 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
     }
   };
 
+  // Fetch markets with optimized cache-first strategy
   useEffect(() => {
     const fetchMarkets = async () => {
+      // Check for cached data first (local cache)
       const cached = loadCachedMarkets(timeFilter);
       
       if (cached && cached.length > 0) {
+        // Use cached data immediately (no loading state)
         setAllMarkets(cached);
         setLoading(false);
         setDisplayedCount(INITIAL_LOAD);
+        
+        // Refresh in background
         setIsRefreshing(true);
+        // Preload cached images immediately
         preloadImages(cached);
       } else {
+        // No cache - show loading
         setLoading(true);
         setDisplayedCount(INITIAL_LOAD);
       }
@@ -187,38 +254,35 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
       setError(null);
       
       try {
+        // Use optimized V2 endpoint with server-side caching + client deduplication
         const { markets: data } = await fetchMarketList(timeFilter);
         
         if (!Array.isArray(data)) {
           throw new Error("Invalid data format");
         }
         
+        // V2 API returns MarketCardDTO - map to display format
         const displayMarkets = data
           .filter((m: MarketCardDTO) => m && m.question)
           .map((m: MarketCardDTO) => convertV2MarketToDisplay(m, timeFilter));
         
         setAllMarkets(displayMarkets);
+        
+        // Save to localStorage cache
         saveCachedMarkets(displayMarkets, timeFilter);
+        
+        // Preload images for fast display
         preloadImages(displayMarkets);
         
       } catch (err) {
+        // Fallback to legacy API if V2 fails
         console.warn("V2 API failed, falling back to legacy:", err);
         try {
           const data = await getTrendingMarkets(timeFilter);
           if (Array.isArray(data)) {
             const displayMarkets = data
-              .filter((m: any) => m && (m.title || m.question))
-              .map((m: any) => ({
-                id: m.id,
-                name: m.question || m.title,
-                title: m.question || m.title,
-                probability: m.probability || 50,
-                yesPriceCents: m.yesPriceCents || m.probability,
-                noPriceCents: m.noPriceCents || (100 - (m.probability || 50)),
-                volume: formatVolume(parseFloat(m.volumeUsd || 0)),
-                volumeUsd: String(m.volumeUsd || 0),
-                image: m.image || null,
-              }));
+              .filter((m: any) => m && m.title)
+              .map((m: any) => convertApiMarketToDisplay(m, timeFilter));
             setAllMarkets(displayMarkets);
             saveCachedMarkets(displayMarkets, timeFilter);
             preloadImages(displayMarkets);
@@ -226,6 +290,7 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
         } catch (fallbackErr) {
           const message = fallbackErr instanceof Error ? fallbackErr.message : "Failed to fetch markets";
           console.error("Error fetching markets:", message);
+          // Only show error if we don't have cached data
           if (!cached || cached.length === 0) {
             setError(message);
             setAllMarkets([]);
@@ -240,7 +305,10 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
     fetchMarkets();
   }, [timeFilter]);
 
+  // Prefetch other time filters in background for instant switching
   useEffect(() => {
+    // Use the optimized prefetch from marketDataClient
+    // This runs in background after initial load
     const prefetchTimeout = setTimeout(() => {
       prefetchOtherTimeframes(timeFilter);
     }, 1500);
@@ -248,6 +316,7 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
     return () => clearTimeout(prefetchTimeout);
   }, [timeFilter]);
 
+  // Load more markets handler
   const handleLoadMore = () => {
     setLoadingMore(true);
     setTimeout(() => {
@@ -256,15 +325,13 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
     }, 200);
   };
 
+  // Get markets to display (paginated)
   const displayedMarkets = allMarkets.slice(0, displayedCount);
   const hasMoreMarkets = displayedCount < allMarkets.length;
 
-  const trendingMarkets = displayedMarkets;
-  const newMarkets = [...allMarkets].slice(0, displayedCount);
-  const resolvingSoonMarkets = [...allMarkets].slice(0, displayedCount);
-
   // Show market detail if selected
   if (selectedMarketId) {
+    // Use initialMarketData if it matches, otherwise find from allMarkets
     let selectedMarket: DisplayMarket | undefined;
     
     if (initialMarketData && initialMarketData.id === selectedMarketId) {
@@ -278,7 +345,9 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
       selectedMarket = allMarkets.find((m) => m.id === selectedMarketId);
     }
     
+    // If we have a market ID but no data yet, show loading or use minimal data
     if (!selectedMarket && selectedMarketId) {
+      // Try to create minimal market from just the ID - MarketDetail will fetch the rest
       selectedMarket = {
         id: selectedMarketId,
         name: "Loading...",
@@ -306,10 +375,12 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
             })
           }
           onBack={() => {
+            // Use global back navigation if available, otherwise just clear selection
             if (onBack) {
               onBack();
             } else {
               setSelectedMarketId(null);
+              // Clear parent state too so it doesn't persist on refresh
               if (onMarketSelect) {
                 onMarketSelect(null);
               }
@@ -321,135 +392,222 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
     }
   }
 
-  // Render a column with markets
-  const renderColumn = (title: string, icon: React.ReactNode, markets: DisplayMarket[]) => (
-    <div className="flex flex-col h-full border-l border-slate-800 first:border-l-0 bg-slate-900/30">
-      {/* Column Header */}
-      <div className="px-6 py-4 border-b border-slate-800 bg-slate-900/50 sticky top-0 z-10">
-        <div className="flex items-center gap-2 mb-2">
-          {icon}
-          <h2 className="text-lg font-bold text-white">{title}</h2>
-        </div>
-        <p className="text-sm text-slate-400">{markets.length} markets</p>
-      </div>
-
-      {/* Scrollable Content */}
-      <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-        {markets.length > 0 ? (
-          markets.map((market) => (
-            <div
-              key={market.id}
-              onClick={() => {
-                handleTableMarketClick(market);
-                prefetchMarketDetail(market.id);
-              }}
-              className="cursor-pointer group"
-            >
-              <div className="p-3 bg-slate-800/50 rounded-lg border border-slate-700 hover:border-blue-600 hover:bg-slate-800 transition-all duration-200">
-                <h3 className="font-semibold text-white text-sm mb-2 line-clamp-2 group-hover:text-blue-400">
-                  {market.name || market.title}
-                </h3>
-                <div className="flex items-center justify-between gap-2 text-xs text-slate-400">
-                  <span className="inline-block px-2 py-1 bg-slate-700/50 rounded text-xs">
-                    {market.volume}
-                  </span>
-                  {market.probability && (
-                    <span className="font-medium text-blue-400">
-                      {Math.round(Number(market.probability) || 0)}%
-                    </span>
-                  )}
-                </div>
+  return (
+    <div className="max-w-[1800px] mx-auto space-y-8">
+      {/* Trending Markets */}
+      <div>
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <h2 className="text-[19px] font-light tracking-tight text-gray-200 uppercase">
+              Trending Markets
+            </h2>
+            {isRefreshing && (
+              <div className="flex items-center gap-1.5 text-[14px] text-gray-500">
+                <Loader2 className="w-3 h-3 animate-spin" />
+                <span>Updating...</span>
               </div>
-            </div>
-          ))
-        ) : (
-          <div className="flex items-center justify-center h-32 text-slate-500 text-sm">
-            No markets available
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => setTimeFilter("24h")}
+              className={`px-4 py-1.5 text-[14px] font-light tracking-wide rounded transition-all ${
+                timeFilter === "24h"
+                  ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
+                  : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
+              }`}
+            >
+              24H
+            </button>
+            <button
+              onClick={() => setTimeFilter("7d")}
+              className={`px-4 py-1.5 text-[14px] font-light tracking-wide rounded transition-all ${
+                timeFilter === "7d"
+                  ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
+                  : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
+              }`}
+            >
+              7D
+            </button>
+            <button
+              onClick={() => setTimeFilter("1m")}
+              className={`px-4 py-1.5 text-[14px] font-light tracking-wide rounded transition-all ${
+                timeFilter === "1m"
+                  ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
+                  : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
+              }`}
+            >
+              1M
+            </button>
+          </div>
+        </div>
+        <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl overflow-hidden shadow-xl shadow-black/20">
+          <table className="w-full text-[14px]">
+            <thead>
+              <tr className="border-b border-gray-800/50 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
+                <th className="text-left py-4 px-5 text-gray-400 font-light tracking-wide uppercase">
+                  Market
+                </th>
+                <th className="text-center py-4 px-5 text-gray-400 font-light tracking-wide uppercase">
+                  % Chance
+                </th>
+                <th className="text-center py-4 px-5 text-gray-400 font-light tracking-wide uppercase">
+                  Buy Yes / No
+                </th>
+                <th className="text-right py-4 px-5 text-gray-400 font-light tracking-wide uppercase">
+                  {timeFilter === "24h" ? "24h" : timeFilter === "7d" ? "7d" : "1M"} Volume
+                </th>
+                <th className="w-10"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {loading ? (
+                // Skeleton loading rows - shows instantly, feels faster
+                [...Array(8)].map((_, i) => (
+                  <tr key={i} className="border-b border-gray-800/30 animate-pulse">
+                    <td className="py-3.5 px-5">
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 bg-gray-800/50 rounded-lg flex-shrink-0"></div>
+                        <div className="h-5 bg-gray-800/50 rounded w-3/4"></div>
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-5 text-center">
+                      <div className="h-5 bg-gray-800/50 rounded w-12 mx-auto"></div>
+                    </td>
+                    <td className="py-3.5 px-3 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <div className="h-6 bg-gray-800/50 rounded w-16"></div>
+                        <div className="h-6 bg-gray-800/50 rounded w-16"></div>
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-5 text-right">
+                      <div className="h-5 bg-gray-800/50 rounded w-16 ml-auto"></div>
+                    </td>
+                    <td className="py-3.5 px-5 text-right">
+                      <div className="h-5 bg-gray-800/50 rounded w-4 ml-auto"></div>
+                    </td>
+                  </tr>
+                ))
+              ) : error ? (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-red-400 text-[15px]">
+                    Error: {error}
+                  </td>
+                </tr>
+              ) : allMarkets.length === 0 ? (
+                <tr>
+                  <td colSpan={5} className="py-8 text-center text-gray-400 text-[15px]">
+                    No active markets found
+                  </td>
+                </tr>
+              ) : (
+                displayedMarkets.map((market, index) => {
+                  const yesCents = market.yesPriceCents ?? Number(market.probability);
+                  const noCents = market.noPriceCents ?? (100 - yesCents);
+                  const probabilityDisplay = yesCents < 1 ? "<1" : formatCents(yesCents);
+                  
+                  return (
+                  <tr
+                    key={market.id}
+                    onClick={() => handleTableMarketClick(market)}
+                    onMouseEnter={() => prefetchMarketDetail(market.id)}
+                    className={`border-b border-gray-800/30 hover:bg-gradient-to-r hover:from-[#111111] hover:to-transparent transition-all duration-150 cursor-pointer ${
+                      index === displayedMarkets.length - 1 ? "border-b-0" : ""
+                    }`}
+                  >
+                    <td className="py-3.5 px-5 text-gray-200 max-w-[400px] font-light">
+                      <div className="flex items-center gap-3">
+                        {market.image ? (
+                          <img 
+                            src={market.image} 
+                            alt="" 
+                            className="w-8 h-8 rounded-lg object-cover flex-shrink-0"
+                            loading="eager"
+                            decoding="async"
+                            onError={(e) => {
+                              // Hide broken images
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                        ) : (
+                          <div className="w-8 h-8 rounded-lg bg-gray-800/50 flex-shrink-0" />
+                        )}
+                        <span className="truncate">{market.name || market.title}</span>
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-5 text-center">
+                      <span className="text-xl font-light text-[#4a6fa5]">{probabilityDisplay}%</span>
+                    </td>
+                    <td className="py-3.5 px-3 text-center">
+                      <div className="flex items-center justify-center gap-2">
+                        <span className="px-3 py-1.5 text-xs font-medium bg-green-900/30 border border-green-500/30 rounded text-green-400">
+                          Yes {formatCents(yesCents)}¢
+                        </span>
+                        <span className="px-3 py-1.5 text-xs font-medium bg-red-900/30 border border-red-500/30 rounded text-red-400">
+                          No {formatCents(noCents)}¢
+                        </span>
+                      </div>
+                    </td>
+                    <td className="py-3.5 px-5 text-right text-green-500 font-light">
+                      {market.volume}
+                    </td>
+                    <td className="py-3.5 px-5 text-right">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleBookmark({
+                            id: market.id,
+                            name: market.name || market.title || "Unknown",
+                            probability: Number(market.probability) || 0,
+                            image: market.image || null,
+                          });
+                        }}
+                        className="text-gray-500 hover:text-[#4a6fa5] transition-all duration-200"
+                      >
+                        <Bookmark
+                          className={`w-4 h-4 ${
+                            isBookmarked(market.id) ? "fill-current text-[#4a6fa5]" : ""
+                          }`}
+                        />
+                      </button>
+                    </td>
+                  </tr>
+                  )
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+        
+        {/* Load More Button */}
+        {!loading && hasMoreMarkets && (
+          <div className="flex justify-center mt-6">
+            <button
+              onClick={handleLoadMore}
+              disabled={loadingMore}
+              className="px-8 py-3 bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 rounded-lg text-[15px] font-light text-gray-200 hover:text-gray-100 hover:border-gray-600/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {loadingMore ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Loading...
+                </>
+              ) : (
+                <>
+                  Load More Markets
+                  <span className="text-gray-400 text-[13px]">
+                    ({allMarkets.length - displayedCount} remaining)
+                  </span>
+                </>
+              )}
+            </button>
           </div>
         )}
-      </div>
-    </div>
-  );
-
-  return (
-    <div className="w-screen h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-slate-950 flex flex-col overflow-hidden">
-      {/* Fixed Header */}
-      <div className="flex-shrink-0 z-20 bg-slate-950/80 backdrop-blur-sm border-b border-slate-800">
-        <div className="px-6 py-4">
-          <div className="flex items-center justify-between gap-4">
-            <h1 className="text-2xl font-bold text-white">Markets</h1>
-            <div className="flex items-center gap-4">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setTimeFilter("24h")}
-                  className={`px-4 py-1.5 text-[14px] font-light tracking-wide rounded transition-all ${
-                    timeFilter === "24h"
-                      ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
-                      : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
-                  }`}
-                >
-                  24H
-                </button>
-                <button
-                  onClick={() => setTimeFilter("7d")}
-                  className={`px-4 py-1.5 text-[14px] font-light tracking-wide rounded transition-all ${
-                    timeFilter === "7d"
-                      ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
-                      : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
-                  }`}
-                >
-                  7D
-                </button>
-                <button
-                  onClick={() => setTimeFilter("1m")}
-                  className={`px-4 py-1.5 text-[14px] font-light tracking-wide rounded transition-all ${
-                    timeFilter === "1m"
-                      ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
-                      : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
-                  }`}
-                >
-                  1M
-                </button>
-              </div>
-              {isRefreshing && (
-                <div className="flex items-center gap-1.5 text-[14px] text-gray-500">
-                  <Loader2 className="w-3 h-3 animate-spin" />
-                  <span>Updating...</span>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 3-Column Layout */}
-      <div className="flex-1 overflow-hidden grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-0 bg-slate-950">
-        {loading && !allMarkets.length ? (
-          <div className="col-span-full flex items-center justify-center h-full">
-            <div className="text-center">
-              <Loader2 className="w-8 h-8 animate-spin text-blue-500 mx-auto mb-2" />
-              <p className="text-slate-300">Loading markets...</p>
-            </div>
-          </div>
-        ) : error && !allMarkets.length ? (
-          <div className="col-span-full flex items-center justify-center h-full">
-            <div className="text-center">
-              <Search className="w-12 h-12 text-slate-500 mx-auto mb-2" />
-              <p className="text-slate-300">Error: {error}</p>
-            </div>
-          </div>
-        ) : allMarkets.length > 0 ? (
-          <>
-            {renderColumn("🔥 Trending", <TrendingUp className="w-5 h-5 text-orange-500" />, trendingMarkets)}
-            {renderColumn("✨ New", <Sparkles className="w-5 h-5 text-blue-500" />, newMarkets)}
-            {renderColumn("⏰ Resolving Soon", <Clock className="w-5 h-5 text-green-500" />, resolvingSoonMarkets)}
-          </>
-        ) : (
-          <div className="col-span-full flex items-center justify-center h-full">
-            <div className="text-center">
-              <Search className="w-12 h-12 text-slate-500 mx-auto mb-2" />
-              <p className="text-slate-300">No markets found</p>
-            </div>
+        
+        {/* All loaded indicator */}
+        {!loading && !hasMoreMarkets && allMarkets.length > INITIAL_LOAD && (
+          <div className="text-center mt-4 text-gray-500 text-[14px]">
+            All {allMarkets.length} markets loaded
           </div>
         )}
       </div>
