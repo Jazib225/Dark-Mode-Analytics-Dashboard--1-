@@ -33,6 +33,7 @@ interface WorkflowNodeProps {
   isSelected: boolean;
   onSelect: (nodeId: string) => void;
   onDelete: (nodeId: string) => void;
+  highlightedInputHandle?: boolean;
 }
 
 export function WorkflowNode({
@@ -40,6 +41,7 @@ export function WorkflowNode({
   isSelected,
   onSelect,
   onDelete,
+  highlightedInputHandle = false,
 }: WorkflowNodeProps) {
   const baseColor = nodeColors[node.type] || "bg-gray-800 border-gray-700";
   const label = nodeLabels[node.type] || node.type;
@@ -83,17 +85,21 @@ export function WorkflowNode({
       </div>
       {displayData && <div className="text-xs text-gray-300">{displayData}</div>}
       
-      {/* Input handle (left side) - for connection targets */}
+      {/* Input handle (left side) - solid black dot at center */}
       <div 
-        className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 w-4 h-4 bg-blue-500 rounded-full hover:bg-blue-400 transition-colors cursor-crosshair shadow-lg"
+        className={`absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full hover:bg-gray-300 transition-all cursor-crosshair shadow-lg border border-gray-600 ${
+          highlightedInputHandle
+            ? "bg-white scale-150 animate-pulse box-shadow: 0 0 8px rgba(255,255,255,0.8)"
+            : "bg-black"
+        }`}
         data-handle-type="input"
         data-node-id={node.id}
         title="Connect input"
       />
       
-      {/* Output handle (right side) - for connection sources */}
+      {/* Output handle (right side) - solid black dot at center */}
       <div 
-        className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 w-4 h-4 bg-green-500 rounded-full hover:bg-green-400 transition-colors cursor-crosshair shadow-lg"
+        className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-4 h-4 bg-black rounded-full hover:bg-gray-300 transition-colors cursor-crosshair shadow-lg border border-gray-600"
         data-handle-type="output"
         data-node-id={node.id}
         title="Create connection"

@@ -58,43 +58,64 @@ export function NodeLibrary({ onDragStart }: NodeLibraryProps) {
                       ? "Exit Conditions"
                       : stage === "profit"
                         ? "Profit Taking"
-                        : "Logic (Connections)"}
+                        : stage === "operators"
+                          ? "Operators"
+                          : "Logic (Connections)"}
               </span>
             </button>
 
             {expandedStage === stage && (
-              <div className="ml-4 mt-2 space-y-2">
-                {nodes.map((nodeType) => (
-                  <div
-                    key={nodeType}
-                    draggable
-                    onDragStart={(e: React.DragEvent<HTMLDivElement>) => onDragStart(e, nodeType as NodeType, stage)}
-                    className="p-3 bg-gray-800/40 hover:bg-gray-700/50 rounded-lg border border-gray-700/50 cursor-grab active:cursor-grabbing transition-colors"
-                  >
-                    <div className="text-sm font-medium text-gray-100 capitalize">
-                      {nodeType === "and"
-                        ? "AND"
-                        : nodeType === "or"
-                          ? "OR"
-                          : nodeType === "add"
-                            ? "Add"
-                            : nodeType === "subtract"
-                              ? "Subtract"
-                              : nodeType === "multiply"
-                                ? "Multiply"
-                                : nodeType === "divide"
-                                  ? "Divide"
-                                  : nodeType === "market"
-                                    ? "Market Type"
-                                    : nodeType === "profit"
-                                      ? "Take Profit"
-                                      : nodeType}
+              <div className={`ml-4 mt-2 ${stage === "logic" ? "flex justify-center gap-4" : "space-y-2"}`}>
+                {nodes.map((nodeType) => {
+                  const isLogic = stage === "logic";
+                  return isLogic ? (
+                    <div
+                      key={nodeType}
+                      draggable
+                      onDragStart={(e: React.DragEvent<HTMLDivElement>) => onDragStart(e, nodeType as NodeType, stage)}
+                      className="cursor-grab active:cursor-grabbing transition-all"
+                      title={nodeType === "and" ? "AND Logic" : "OR Logic"}
+                    >
+                      <div
+                        className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-white border-2 border-gray-500 hover:scale-110 transition-transform hover:border-gray-300"
+                        style={{
+                          background:
+                            nodeType === "and"
+                              ? "linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)"
+                              : "linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)",
+                        }}
+                      >
+                        {nodeType === "and" ? "&" : "|"}
+                      </div>
                     </div>
-                    <div className="text-xs text-gray-500 mt-1">
-                      {nodeDescriptions[nodeType as NodeType]}
+                  ) : (
+                    <div
+                      key={nodeType}
+                      draggable
+                      onDragStart={(e: React.DragEvent<HTMLDivElement>) => onDragStart(e, nodeType as NodeType, stage)}
+                      className="p-3 bg-gray-800/40 hover:bg-gray-700/50 rounded-lg border border-gray-700/50 cursor-grab active:cursor-grabbing transition-colors"
+                    >
+                      <div className="text-sm font-medium text-gray-100 capitalize">
+                        {nodeType === "add"
+                          ? "Add"
+                          : nodeType === "subtract"
+                            ? "Subtract"
+                            : nodeType === "multiply"
+                              ? "Multiply"
+                              : nodeType === "divide"
+                                ? "Divide"
+                                : nodeType === "market"
+                                  ? "Market Type"
+                                  : nodeType === "profit"
+                                    ? "Take Profit"
+                                    : nodeType}
+                      </div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {nodeDescriptions[nodeType as NodeType]}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
