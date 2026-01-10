@@ -820,7 +820,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
               >
                 <span className={`text-[8px] sm:text-[10px] md:text-xs lg:text-[15px] font-light tracking-wide transition-all whitespace-nowrap ${currentPage === "insiderlens" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
                   }`}>
-                  INSIDER
+                  INSIDERLENS
                 </span>
                 <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "insiderlens" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
                   }`}>
@@ -835,7 +835,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                   setSelectedWalletAddress(null);
                   setSelectedMarketId(null);
                 }}
-                className="relative group py-2 sm:py-3 lg:py-5 px-1 sm:px-2 hidden sm:block"
+                className="relative group py-2 sm:py-3 lg:py-5 px-1 sm:px-2"
               >
                 <span className={`text-[8px] sm:text-[10px] md:text-xs lg:text-[15px] font-light tracking-wide transition-all whitespace-nowrap ${currentPage === "wallets" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
                   }`}>
@@ -854,7 +854,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                   setSelectedWalletAddress(null);
                   setSelectedMarketId(null);
                 }}
-                className="relative group py-2 sm:py-3 lg:py-5 px-1 sm:px-2 hidden md:block"
+                className="relative group py-2 sm:py-3 lg:py-5 px-1 sm:px-2"
               >
                 <span className={`text-[8px] sm:text-[10px] md:text-xs lg:text-[15px] font-light tracking-wide transition-all whitespace-nowrap ${currentPage === "tradeflow" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
                   }`}>
@@ -873,7 +873,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                   setSelectedWalletAddress(null);
                   setSelectedMarketId(null);
                 }}
-                className="relative group py-2 sm:py-3 lg:py-5 px-1 sm:px-2 hidden md:block"
+                className="relative group py-2 sm:py-3 lg:py-5 px-1 sm:px-2"
               >
                 <span className={`text-[8px] sm:text-[10px] md:text-xs lg:text-[15px] font-light tracking-wide transition-all whitespace-nowrap ${currentPage === "portfolio" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
                   }`}>
