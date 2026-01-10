@@ -761,68 +761,112 @@ export function MarketDetail({
               })()}
 
               {/* FALLBACK: Legacy multi-outcome display (uses eventData if outcomesList not available) */}
-              {isMultiOutcome && eventData?.markets && !outcomesList?.isMultiOutcome && (
-                <div className="mt-6">
-                  <div className="text-xs text-gray-500 uppercase tracking-wide mb-3">Outcomes</div>
-                  <div className="space-y-2">
-                    {eventData.markets.map((outcome) => {
-                      const isSelected = selectedOutcome?.id === outcome.id;
-                      const probability = outcome.yesPrice * 100;
-                      const yesCentsDisplay = formatCents(outcome.yesPriceCents);
-                      const noCentsDisplay = formatCents(outcome.noPriceCents);
-                      return (
-                        <div
-                          key={outcome.id}
-                          onClick={() => {
-                            setSelectedOutcome(outcome);
-                            setTradeSide("YES");
-                            setShareQuantity(0);
-                            setTradeAmount("");
-                          }}
-                          className={`flex items-center justify-between p-4 rounded-lg cursor-pointer transition-all ${isSelected
-                            ? "bg-gradient-to-r from-[#4a6fa5]/20 to-[#4a6fa5]/10 border border-[#4a6fa5]/50"
-                            : "bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-800/30 hover:border-gray-700/50"
-                            }`}
-                        >
-                          <div className="flex-1">
-                            <div className={`text-sm font-normal ${isSelected ? "text-gray-100" : "text-gray-300"}`}>
-                              {outcome.outcome || outcome.question}
-                            </div>
-                            <div className="text-xs text-gray-500 mt-0.5">{outcome.volume} Vol.</div>
-                          </div>
-                          <div className="text-right flex items-center gap-4">
-                            <div className="text-xl font-light text-[#4a6fa5]">
-                              {probability < 0.1 ? "<0.1" : probability > 99.9 ? ">99.9" : probability.toFixed(1)}%
-                            </div>
-                            <div className="flex gap-2">
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedOutcome(outcome);
-                                  setTradeSide("YES");
-                                }}
-                                className="px-3 py-1.5 text-xs font-medium bg-green-900/30 hover:bg-green-900/50 border border-green-500/30 rounded text-green-400 transition-all"
-                              >
-                                Buy Yes {yesCentsDisplay}¢
-                              </button>
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setSelectedOutcome(outcome);
-                                  setTradeSide("NO");
-                                }}
-                                className="px-3 py-1.5 text-xs font-medium bg-red-900/30 hover:bg-red-900/50 border border-red-500/30 rounded text-red-400 transition-all"
-                              >
-                                Buy No {noCentsDisplay}¢
-                              </button>
-                            </div>
-                          </div>
+              {isMultiOutcome && eventData?.markets && !outcomesList?.isMultiOutcome && (() => {
+                const allMarkets = eventData.markets;
+                const totalOutcomes = allMarkets.length;
+                const totalPages = Math.ceil(totalOutcomes / OUTCOMES_PER_PAGE);
+                const startIndex = outcomePageIndex * OUTCOMES_PER_PAGE;
+                const endIndex = Math.min(startIndex + OUTCOMES_PER_PAGE, totalOutcomes);
+                const visibleMarkets = allMarkets.slice(startIndex, endIndex);
+                const canGoPrev = outcomePageIndex > 0;
+                const canGoNext = outcomePageIndex < totalPages - 1;
+
+                return (
+                  <div className="mt-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <div className="flex items-center gap-2 text-xs text-gray-500 uppercase tracking-wide">
+                        <span>Outcomes</span>
+                        <span className="text-gray-600">({startIndex + 1}-{endIndex} of {totalOutcomes})</span>
+                      </div>
+                      {/* Pagination Controls */}
+                      {totalPages > 1 && (
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => setOutcomePageIndex(prev => Math.max(0, prev - 1))}
+                            disabled={!canGoPrev}
+                            className={`p-1.5 rounded-lg transition-all ${canGoPrev
+                              ? "bg-gray-800/50 hover:bg-gray-700/50 text-gray-300"
+                              : "bg-gray-900/30 text-gray-600 cursor-not-allowed"
+                              }`}
+                          >
+                            <ChevronLeft className="w-4 h-4" />
+                          </button>
+                          <span className="px-2 text-xs text-gray-500">
+                            {outcomePageIndex + 1}/{totalPages}
+                          </span>
+                          <button
+                            onClick={() => setOutcomePageIndex(prev => Math.min(totalPages - 1, prev + 1))}
+                            disabled={!canGoNext}
+                            className={`p-1.5 rounded-lg transition-all ${canGoNext
+                              ? "bg-gray-800/50 hover:bg-gray-700/50 text-gray-300"
+                              : "bg-gray-900/30 text-gray-600 cursor-not-allowed"
+                              }`}
+                          >
+                            <ChevronRight className="w-4 h-4" />
+                          </button>
                         </div>
-                      );
-                    })}
+                      )}
+                    </div>
+                    <div className="space-y-2">
+                      {visibleMarkets.map((outcome) => {
+                        const isSelected = selectedOutcome?.id === outcome.id;
+                        const probability = outcome.yesPrice * 100;
+                        const yesCentsDisplay = formatCents(outcome.yesPriceCents);
+                        const noCentsDisplay = formatCents(outcome.noPriceCents);
+                        return (
+                          <div
+                            key={outcome.id}
+                            onClick={() => {
+                              setSelectedOutcome(outcome);
+                              setTradeSide("YES");
+                              setShareQuantity(0);
+                              setTradeAmount("");
+                            }}
+                            className={`flex items-center justify-between p-4 rounded-lg cursor-pointer transition-all ${isSelected
+                              ? "bg-gradient-to-r from-[#4a6fa5]/20 to-[#4a6fa5]/10 border border-[#4a6fa5]/50"
+                              : "bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-800/30 hover:border-gray-700/50"
+                              }`}
+                          >
+                            <div className="flex-1">
+                              <div className={`text-sm font-normal ${isSelected ? "text-gray-100" : "text-gray-300"}`}>
+                                {outcome.outcome || outcome.question}
+                              </div>
+                              <div className="text-xs text-gray-500 mt-0.5">{outcome.volume} Vol.</div>
+                            </div>
+                            <div className="text-right flex items-center gap-4">
+                              <div className="text-xl font-light text-[#4a6fa5]">
+                                {probability < 0.1 ? "<0.1" : probability > 99.9 ? ">99.9" : probability.toFixed(1)}%
+                              </div>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedOutcome(outcome);
+                                    setTradeSide("YES");
+                                  }}
+                                  className="px-3 py-1.5 text-xs font-medium bg-green-900/30 hover:bg-green-900/50 border border-green-500/30 rounded text-green-400 transition-all"
+                                >
+                                  Buy Yes {yesCentsDisplay}¢
+                                </button>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedOutcome(outcome);
+                                    setTradeSide("NO");
+                                  }}
+                                  className="px-3 py-1.5 text-xs font-medium bg-red-900/30 hover:bg-red-900/50 border border-red-500/30 rounded text-red-400 transition-all"
+                                >
+                                  Buy No {noCentsDisplay}¢
+                                </button>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               {/* Simple Yes/No Prices for Binary Markets */}
               {!isMultiOutcome && (
