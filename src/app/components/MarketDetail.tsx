@@ -23,6 +23,14 @@ import {
   getMarketShellFromCache,
   type MarketShell,
 } from "../services/polymarketApi";
+import {
+  fetchOutcomesList,
+  fetchOutcomeDetail,
+  prefetchOutcomeDetail,
+  type OutcomeListItem,
+  type OutcomesList,
+  type OutcomeDetail,
+} from "../services/marketDataClient";
 import { useAuth } from "../context/AuthContext";
 import { MarketDetailSkeleton } from "./SkeletonLoaders";
 
@@ -193,6 +201,12 @@ export function MarketDetail({
   const [phase2Loading, setPhase2Loading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  // LAZY LOADING: Multi-outcome states
+  const [outcomesList, setOutcomesList] = useState<OutcomesList | null>(null);
+  const [outcomesListLoading, setOutcomesListLoading] = useState(false);
+  const [selectedOutcomeDetail, setSelectedOutcomeDetail] = useState<OutcomeDetail | null>(null);
+  const [outcomeDetailLoading, setOutcomeDetailLoading] = useState(false);
+
   // Track if we've started fetching to prevent duplicate calls
   const fetchStarted = useRef(false);
   const currentMarketId = useRef(market.id);
@@ -217,6 +231,12 @@ export function MarketDetail({
       setTopHolders([]);
       setTopTraders([]);
       setError(null);
+
+      // Reset lazy loading states
+      setOutcomesList(null);
+      setOutcomesListLoading(false);
+      setSelectedOutcomeDetail(null);
+      setOutcomeDetailLoading(false);
     }
   }, [market.id]);
 
@@ -269,6 +289,107 @@ export function MarketDetail({
     const phase1Time = performance.now() - startTime;
     console.log(`[MarketDetail] PHASE 1 COMPLETE in ${phase1Time.toFixed(0)}ms`);
   }, [market.id]);
+
+  // FAST OUTCOMES LIST: Fetch lightweight list immediately (no CLOB calls)
+  // This runs in parallel with Phase 2 but completes MUCH faster
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadOutcomesList = async () => {
+      setOutcomesListLoading(true);
+      console.log(`[MarketDetail] Fetching lightweight outcomes list for ${market.id}`);
+      const startTime = performance.now();
+
+      try {
+        const { outcomes, fromCache } = await fetchOutcomesList(market.id);
+
+        if (cancelled) return;
+
+        if (outcomes && outcomes.isMultiOutcome) {
+          console.log(`[MarketDetail] Got outcomes list: ${outcomes.outcomes.length} outcomes (${fromCache ? 'cached' : 'fresh'}) in ${(performance.now() - startTime).toFixed(0)}ms`);
+          setOutcomesList(outcomes);
+
+          // Auto-select the target outcome if available
+          if (outcomes.targetIndex !== undefined && outcomes.outcomes[outcomes.targetIndex]) {
+            const target = outcomes.outcomes[outcomes.targetIndex];
+            // Only set basic selection - don't fetch detail yet
+            setSelectedOutcome({
+              id: target.id,
+              question: target.question,
+              outcome: target.outcome,
+              yesPrice: target.probability / 100,
+              noPrice: 1 - (target.probability / 100),
+              yesPriceCents: target.probability,
+              noPriceCents: 100 - target.probability,
+              volume: target.volume,
+              volumeNum: target.volumeNum,
+            });
+          }
+        } else {
+          console.log(`[MarketDetail] Not a multi-outcome market or no outcomes found`);
+        }
+      } catch (err) {
+        console.error('[MarketDetail] Failed to load outcomes list:', err);
+      } finally {
+        if (!cancelled) setOutcomesListLoading(false);
+      }
+    };
+
+    loadOutcomesList();
+
+    return () => { cancelled = true; };
+  }, [market.id]);
+
+  // LAZY LOAD: Fetch full detail when an outcome is CLICKED
+  const handleOutcomeClick = async (outcomeItem: OutcomeListItem) => {
+    console.log(`[MarketDetail] User clicked outcome: ${outcomeItem.id}`);
+
+    // Immediately update selection with basic data (fast feedback)
+    setSelectedOutcome({
+      id: outcomeItem.id,
+      question: outcomeItem.question,
+      outcome: outcomeItem.outcome,
+      yesPrice: outcomeItem.probability / 100,
+      noPrice: 1 - (outcomeItem.probability / 100),
+      yesPriceCents: outcomeItem.probability,
+      noPriceCents: 100 - outcomeItem.probability,
+      volume: outcomeItem.volume,
+      volumeNum: outcomeItem.volumeNum,
+    });
+
+    // Now lazy-load the FULL detail (with CLOB prices)
+    setOutcomeDetailLoading(true);
+    try {
+      const { detail, fromCache } = await fetchOutcomeDetail(outcomeItem.id);
+
+      if (detail) {
+        console.log(`[MarketDetail] Loaded outcome detail (${fromCache ? 'cached' : 'fresh'}):`, detail);
+        setSelectedOutcomeDetail(detail);
+
+        // Update the selected outcome with accurate CLOB prices
+        setSelectedOutcome({
+          id: detail.id,
+          question: detail.question,
+          outcome: detail.name,
+          yesPrice: detail.yesPrice,
+          noPrice: detail.noPrice,
+          yesPriceCents: detail.yesPriceCents,
+          noPriceCents: detail.noPriceCents,
+          volume: detail.volume,
+          volumeNum: detail.volumeNum,
+        });
+      }
+    } catch (err) {
+      console.error('[MarketDetail] Failed to load outcome detail:', err);
+    } finally {
+      setOutcomeDetailLoading(false);
+    }
+  };
+
+  // PREFETCH on hover for even faster perceived performance
+  const handleOutcomeHover = (outcomeItem: OutcomeListItem) => {
+    prefetchOutcomeDetail(outcomeItem.id);
+  };
 
   // PHASE 2: Background fetch for fresh data - runs async, non-blocking
   useEffect(() => {
@@ -545,8 +666,93 @@ export function MarketDetail({
                 </div>
               </div>
 
-              {/* Multi-Outcome Markets Display (like Polymarket's Fed decision layout) */}
-              {isMultiOutcome && eventData?.markets && (
+              {/* Multi-Outcome Markets Display - LAZY LOADING VERSION */}
+              {/* Show outcomes from lightweight list (fast), load details on click */}
+              {outcomesList?.isMultiOutcome && outcomesList.outcomes.length > 1 && (
+                <div className="mt-6">
+                  <div className="flex items-center gap-2 text-xs text-gray-500 uppercase tracking-wide mb-3">
+                    <span>Outcomes</span>
+                    {outcomesListLoading && (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    )}
+                  </div>
+                  <div className="space-y-2">
+                    {outcomesList.outcomes.map((outcomeItem) => {
+                      const isSelected = selectedOutcome?.id === outcomeItem.id;
+                      const probability = outcomeItem.probability;
+                      // Use detailed prices if available (after click), otherwise use basic probability
+                      const yesCentsDisplay = isSelected && selectedOutcomeDetail?.yesPriceCents
+                        ? formatCents(selectedOutcomeDetail.yesPriceCents)
+                        : formatCents(probability);
+                      const noCentsDisplay = isSelected && selectedOutcomeDetail?.noPriceCents
+                        ? formatCents(selectedOutcomeDetail.noPriceCents)
+                        : formatCents(100 - probability);
+
+                      return (
+                        <div
+                          key={outcomeItem.id}
+                          onClick={() => {
+                            handleOutcomeClick(outcomeItem);
+                            setTradeSide("YES");
+                            setShareQuantity(0);
+                            setTradeAmount("");
+                          }}
+                          onMouseEnter={() => handleOutcomeHover(outcomeItem)}
+                          className={`flex items-center justify-between p-4 rounded-lg cursor-pointer transition-all ${isSelected
+                            ? "bg-gradient-to-r from-[#4a6fa5]/20 to-[#4a6fa5]/10 border border-[#4a6fa5]/50"
+                            : "bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-800/30 hover:border-gray-700/50"
+                            }`}
+                        >
+                          <div className="flex-1">
+                            <div className={`text-sm font-normal ${isSelected ? "text-gray-100" : "text-gray-300"}`}>
+                              {outcomeItem.outcome || outcomeItem.question}
+                            </div>
+                            <div className="text-xs text-gray-500 mt-0.5">
+                              {outcomeItem.volume} Vol.
+                              {isSelected && outcomeDetailLoading && (
+                                <span className="ml-2 inline-flex items-center gap-1 text-gray-600">
+                                  <Loader2 className="w-3 h-3 animate-spin" />
+                                  <span>Loading prices...</span>
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="text-right flex items-center gap-4">
+                            <div className="text-xl font-light text-[#4a6fa5]">
+                              {probability < 0.1 ? "<0.1" : probability > 99.9 ? ">99.9" : probability.toFixed(1)}%
+                            </div>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOutcomeClick(outcomeItem);
+                                  setTradeSide("YES");
+                                }}
+                                className="px-3 py-1.5 text-xs font-medium bg-green-900/30 hover:bg-green-900/50 border border-green-500/30 rounded text-green-400 transition-all"
+                              >
+                                Buy Yes {yesCentsDisplay}¢
+                              </button>
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleOutcomeClick(outcomeItem);
+                                  setTradeSide("NO");
+                                }}
+                                className="px-3 py-1.5 text-xs font-medium bg-red-900/30 hover:bg-red-900/50 border border-red-500/30 rounded text-red-400 transition-all"
+                              >
+                                Buy No {noCentsDisplay}¢
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* FALLBACK: Legacy multi-outcome display (uses eventData if outcomesList not available) */}
+              {isMultiOutcome && eventData?.markets && !outcomesList?.isMultiOutcome && (
                 <div className="mt-6">
                   <div className="text-xs text-gray-500 uppercase tracking-wide mb-3">Outcomes</div>
                   <div className="space-y-2">
