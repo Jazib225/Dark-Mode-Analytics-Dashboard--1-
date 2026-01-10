@@ -444,18 +444,18 @@ export function MarketDetail({
         <span className="text-sm font-light">Back to Markets</span>
       </button>
 
-      {/* Loading State - High-fidelity Skeleton */}
-      {isLoading && <MarketDetailSkeleton />}
+      {/* Loading State - Show skeleton only when we have NO data at all */}
+      {!marketData && !error && <MarketDetailSkeleton />}
 
       {/* Error State */}
-      {error && !isLoading && (
+      {error && !marketData && (
         <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4 mb-6">
           <p className="text-red-400">{error}</p>
         </div>
       )}
 
-      {/* Main Split Layout */}
-      {!isLoading && (
+      {/* Main Split Layout - Show as soon as we have ANY data (cached or fresh) */}
+      {marketData && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* LEFT SIDE - Market Info & Chart */}
           <div className="space-y-6">

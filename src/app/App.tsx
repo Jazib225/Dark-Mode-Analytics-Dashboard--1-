@@ -753,10 +753,10 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
   };
 
   return (
-    <div className="dark min-h-screen bg-[#0a0a0a] text-gray-100 font-['Inter'] overflow-x-hidden">
-      {/* Fixed Header - Outside scaling context */}
-      <header className="fixed-header border-b border-gray-800/50 bg-gradient-to-b from-[#0d0d0d] to-[#0a0a0a]">
-        <nav className="flex items-center h-16 px-4 sm:px-6 lg:px-8">
+    <div className="dark min-h-screen bg-[#0a0a0a] text-gray-100 font-['Inter'] overflow-x-hidden app-container">
+      {/* Sticky Header - Uses CSS variable for height */}
+      <header className="site-header border-b border-gray-800/50 bg-gradient-to-b from-[#0d0d0d] to-[#0a0a0a]">
+        <nav className="header-nav flex items-center h-full px-3 sm:px-4 lg:px-6">
           <div className="flex items-center gap-4 lg:gap-8 xl:gap-12 flex-shrink-0">
             <button
               onClick={() => {
@@ -1048,95 +1048,93 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
         }}
       />
 
-      {/* Main Content - Inside scaling wrapper */}
-      <div className="content-scaler">
-        <main className="main-content-area p-3 sm:p-4 md:p-6 lg:p-8">
-          {selectedWalletAddress ? (
-            <WalletProfile walletAddress={selectedWalletAddress} onClose={() => {
-              // Go back properly instead of just closing
-              goBack();
-            }} />
-          ) : (
-            <>
-              {currentPage === "discover" && (
-                <Discover
-                  toggleBookmark={toggleBookmark}
-                  isBookmarked={isBookmarked}
-                  onWalletClick={openWalletProfile}
-                  onMarketClick={(market) => {
-                    // Push current state to history before navigating
+      {/* Main Content - NO scaling wrapper, uses proper CSS layout */}
+      <main className="main-content p-3 sm:p-4 md:p-5 lg:p-6">
+        {selectedWalletAddress ? (
+          <WalletProfile walletAddress={selectedWalletAddress} onClose={() => {
+            // Go back properly instead of just closing
+            goBack();
+          }} />
+        ) : (
+          <>
+            {currentPage === "discover" && (
+              <Discover
+                toggleBookmark={toggleBookmark}
+                isBookmarked={isBookmarked}
+                onWalletClick={openWalletProfile}
+                onMarketClick={(market) => {
+                  // Push current state to history before navigating
+                  pushToHistory();
+                  setSelectedMarketId(market.id);
+                  setSelectedMarketData({
+                    id: market.id,
+                    name: market.name || market.title || "Unknown",
+                    probability: Number(market.probability) || 50,
+                    volume: market.volume || "$0",
+                  });
+                  setCurrentPage("markets");
+                }}
+                onNavigate={(page) => {
+                  pushToHistory();
+                  setCurrentPage(page as Page);
+                  setSelectedWalletAddress(null);
+                  setSelectedMarketId(null);
+                }}
+              />
+            )}
+            {currentPage === "markets" && (
+              <Markets
+                toggleBookmark={toggleBookmark}
+                isBookmarked={isBookmarked}
+                onWalletClick={openWalletProfile}
+                onBack={goBack}
+                onMarketSelect={(market) => {
+                  // Save to App state so it gets persisted to localStorage
+                  if (market) {
+                    // Push current state to history before selecting market
                     pushToHistory();
                     setSelectedMarketId(market.id);
-                    setSelectedMarketData({
-                      id: market.id,
-                      name: market.name || market.title || "Unknown",
-                      probability: Number(market.probability) || 50,
-                      volume: market.volume || "$0",
-                    });
-                    setCurrentPage("markets");
-                  }}
-                  onNavigate={(page) => {
-                    pushToHistory();
-                    setCurrentPage(page as Page);
-                    setSelectedWalletAddress(null);
+                    setSelectedMarketData(market);
+                  } else {
+                    // Clear selection (back button pressed)
                     setSelectedMarketId(null);
-                  }}
-                />
-              )}
-              {currentPage === "markets" && (
-                <Markets
-                  toggleBookmark={toggleBookmark}
-                  isBookmarked={isBookmarked}
-                  onWalletClick={openWalletProfile}
-                  onBack={goBack}
-                  onMarketSelect={(market) => {
-                    // Save to App state so it gets persisted to localStorage
-                    if (market) {
-                      // Push current state to history before selecting market
-                      pushToHistory();
-                      setSelectedMarketId(market.id);
-                      setSelectedMarketData(market);
-                    } else {
-                      // Clear selection (back button pressed)
-                      setSelectedMarketId(null);
-                      setSelectedMarketData(null);
-                    }
-                  }}
-                  initialMarketId={selectedMarketId}
-                  initialMarketData={selectedMarketData}
-                />
-              )}
-              {currentPage === "wallets" && <WalletsList onWalletClick={openWalletProfile} onMarketClick={(marketId) => {
-                pushToHistory();
-                navigateToMarket(marketId);
-              }} />}
-              {currentPage === "insiderlens" && <InsiderLens onWalletClick={openWalletProfile} />}
-              {currentPage === "tradeflow" && <TradeFlow />}
-              {currentPage === "portfolio" && <Portfolio />}
-              {currentPage === "search" && (
-                <SearchResults
-                  initialQuery={searchResultsQuery}
-                  onBack={goBack}
-                  onMarketSelect={(market) => {
-                    pushToHistory();
-                    addToSearchHistory(market);
-                    setSelectedMarketId(market.id);
-                    setSelectedMarketData({
-                      id: market.id,
-                      name: market.name || market.title || "Unknown",
-                      probability: Number(market.probability) || 50,
-                      volume: market.volume || "$0",
-                    });
-                    setCurrentPage("markets");
-                  }}
-                  toggleBookmark={toggleBookmark}
-                  isBookmarked={isBookmarked}
-                />
-              )}
-            </>
-          )}
-        </main>
-      </div>
+                    setSelectedMarketData(null);
+                  }
+                }}
+                initialMarketId={selectedMarketId}
+                initialMarketData={selectedMarketData}
+              />
+            )}
+            {currentPage === "wallets" && <WalletsList onWalletClick={openWalletProfile} onMarketClick={(marketId) => {
+              pushToHistory();
+              navigateToMarket(marketId);
+            }} />}
+            {currentPage === "insiderlens" && <InsiderLens onWalletClick={openWalletProfile} />}
+            {currentPage === "tradeflow" && <TradeFlow />}
+            {currentPage === "portfolio" && <Portfolio />}
+            {currentPage === "search" && (
+              <SearchResults
+                initialQuery={searchResultsQuery}
+                onBack={goBack}
+                onMarketSelect={(market) => {
+                  pushToHistory();
+                  addToSearchHistory(market);
+                  setSelectedMarketId(market.id);
+                  setSelectedMarketData({
+                    id: market.id,
+                    name: market.name || market.title || "Unknown",
+                    probability: Number(market.probability) || 50,
+                    volume: market.volume || "$0",
+                  });
+                  setCurrentPage("markets");
+                }}
+                toggleBookmark={toggleBookmark}
+                isBookmarked={isBookmarked}
+              />
+            )}
+          </>
+        )}
+      </main>
     </div>
   );
 }

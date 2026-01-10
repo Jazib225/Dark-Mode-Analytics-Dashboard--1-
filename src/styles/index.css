@@ -2,13 +2,107 @@
 @import './tailwind.css';
 @import './theme.css';
 
-/* Custom Scrollbar Styles - Dark Theme to match Top Traders/Holders */
+/* =============================================================================
+   CSS CUSTOM PROPERTIES (Design Tokens)
+   
+   These variables enable proper layout without transform: scale() hacks.
+   Adjust density through font-size, spacing, and max-width instead.
+   ============================================================================= */
+:root {
+  /* Header Configuration */
+  --header-height: 56px;
+  --bookmarks-bar-height: 44px;
+  --total-header-offset: calc(var(--header-height) + var(--bookmarks-bar-height));
+
+  /* Spacing Scale - Compact for density */
+  --space-1: 0.125rem;
+  --space-2: 0.25rem;
+  --space-3: 0.375rem;
+  --space-4: 0.5rem;
+  --space-5: 0.75rem;
+  --space-6: 1rem;
+  --space-7: 1.25rem;
+  --space-8: 1.5rem;
+
+  /* Container widths */
+  --max-content-width: 1600px;
+
+  /* Base font size - KEY for density without scaling */
+  --base-font-size: 14px;
+}
+
+/* Laptop screens (1366px - 1440px) - PRIMARY TARGET */
+@media screen and (min-width: 1024px) and (max-width: 1536px) {
+  :root {
+    --header-height: 52px;
+    --bookmarks-bar-height: 40px;
+    --base-font-size: 13px;
+    --max-content-width: 1400px;
+  }
+}
+
+/* Large desktops (1536px+) */
+@media screen and (min-width: 1536px) {
+  :root {
+    --header-height: 56px;
+    --bookmarks-bar-height: 44px;
+    --base-font-size: 14px;
+    --max-content-width: 1600px;
+  }
+}
+
+/* Tablets (768px - 1024px) */
+@media screen and (max-width: 1024px) {
+  :root {
+    --header-height: 48px;
+    --bookmarks-bar-height: 38px;
+    --base-font-size: 13px;
+  }
+}
+
+/* Mobile (< 768px) */
+@media screen and (max-width: 768px) {
+  :root {
+    --header-height: 48px;
+    --bookmarks-bar-height: 36px;
+    --base-font-size: 13px;
+  }
+}
+
+/* Small mobile (< 640px) */
+@media screen and (max-width: 640px) {
+  :root {
+    --header-height: 44px;
+    --bookmarks-bar-height: 32px;
+    --base-font-size: 12px;
+  }
+}
+
+/* =============================================================================
+   GLOBAL BASE STYLES
+   ============================================================================= */
+html {
+  font-size: var(--base-font-size);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+}
+
+html,
+body {
+  overflow-x: hidden;
+  max-width: 100vw;
+  min-height: 100vh;
+}
+
+/* =============================================================================
+   SCROLLBAR STYLES - Dark Theme
+   ============================================================================= */
 * {
   scrollbar-width: thin;
   scrollbar-color: rgba(55, 55, 55, 0.5) transparent;
 }
 
-/* WebKit browsers (Chrome, Safari, Edge) */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -31,124 +125,208 @@
   background: transparent;
 }
 
-/* Prevent horizontal overflow on all containers */
-html,
-body {
-  overflow-x: hidden;
-  max-width: 100vw;
-}
-
 /* =============================================================================
-   SPLIT-VIEW LAYOUT ARCHITECTURE
+   LAYOUT ARCHITECTURE (NO TRANSFORM SCALING!)
    
-   This implements the 80% scaling without breaking fixed header positioning.
-   The header stays outside the scaling context while content is scaled.
-   
-   Key CSS Rules:
-   1. Header has position: fixed and stays at viewport root (not scaled)
-   2. Content wrapper has transform: scale(0.8) for density
-   3. Width: 125% compensates for the scaling (100% / 0.8 = 125%)
-   4. z-index management ensures header stays on top
+   RULES:
+   1. Header is STICKY with known height via CSS variable
+   2. Content has proper padding-top using CSS variable
+   3. Density achieved via font-size, NOT transform: scale()
+   4. Proper z-index layering
    ============================================================================= */
 
-/* Fixed header at viewport root - NOT scaled */
-.fixed-header {
-  position: fixed;
+/* App container - flex column layout */
+.app-container {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  position: relative;
+}
+
+/* Sticky Header - uses CSS variable for height */
+.site-header {
+  position: sticky;
   top: 0;
   left: 0;
   right: 0;
-  z-index: 100;
-  /* Ensure header creates its own stacking context above scaled content */
+  height: var(--header-height);
+  min-height: var(--header-height);
+  z-index: 50;
+  background: linear-gradient(to bottom, #0d0d0d, #0a0a0a);
+  border-bottom: 1px solid rgba(55, 65, 81, 0.3);
+  flex-shrink: 0;
 }
 
-/* Content scaler wrapper - applies 80% zoom effect */
-.content-scaler {
-  transform: scale(0.8);
-  width: 125%;
-  /* 100% / 0.8 = 125% to fill the width gap */
-  transform-origin: top left;
-  /* Adjust margins to prevent top gap from scaling */
-  margin-top: -2%;
+/* Header navigation container */
+.header-nav {
+  display: flex;
+  align-items: center;
+  height: 100%;
+  padding: 0 var(--space-5);
+  max-width: var(--max-content-width);
+  margin: 0 auto;
+  gap: var(--space-4);
 }
 
-/* Main content area with proper header offset */
-.main-content-area {
-  /* Add padding-top equal to header height to prevent overlap */
-  padding-top: 80px;
-  /* 64px header + 16px extra spacing, scaled */
-  min-height: 100vh;
+@media screen and (min-width: 640px) {
+  .header-nav {
+    padding: 0 var(--space-6);
+    gap: var(--space-5);
+  }
 }
 
-/* Alternative: No scaling mode for accessibility/debugging */
-.content-scaler.no-scale {
-  transform: none;
+@media screen and (min-width: 1024px) {
+  .header-nav {
+    padding: 0 var(--space-7);
+    gap: var(--space-6);
+  }
+}
+
+/* Main content - NO scaling, proper padding-top */
+.main-content {
+  flex: 1;
   width: 100%;
-  margin-top: 0;
+  max-width: var(--max-content-width);
+  margin: 0 auto;
+  padding: var(--space-5);
+  /* NO transform: scale() - uses proper CSS values */
 }
 
-/* Responsive scaling - reduce scale factor on smaller screens */
-@media screen and (max-width: 1280px) {
-  .content-scaler {
-    transform: scale(0.85);
-    width: 117.6%;
-    /* 100% / 0.85 */
-    margin-top: -1.5%;
-  }
-}
-
-@media screen and (max-width: 1024px) {
-  .content-scaler {
-    transform: scale(0.9);
-    width: 111.1%;
-    /* 100% / 0.9 */
-    margin-top: -1%;
+@media screen and (min-width: 640px) {
+  .main-content {
+    padding: var(--space-6);
   }
 }
 
-@media screen and (max-width: 768px) {
-
-  /* On mobile/tablet, disable scaling for better touch targets */
-  .content-scaler {
-    transform: none;
-    width: 100%;
-    margin-top: 0;
-  }
-
-  .main-content-area {
-    padding-top: 70px;
-    /* Slightly smaller on mobile */
+@media screen and (min-width: 1024px) {
+  .main-content {
+    padding: var(--space-7);
   }
 }
 
-/* Responsive font scaling for different screen sizes */
-@media screen and (max-width: 1280px) {
-  html {
-    font-size: 15px;
+/* =============================================================================
+   HEADER LAYOUT HELPERS
+   ============================================================================= */
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-shrink: 0;
+}
+
+.header-center {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  flex: 1;
+  overflow-x: auto;
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.header-center::-webkit-scrollbar {
+  display: none;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+@media screen and (min-width: 1024px) {
+  .header-left {
+    gap: var(--space-6);
+  }
+
+  .header-center {
+    gap: var(--space-5);
+  }
+
+  .header-right {
+    gap: var(--space-5);
   }
 }
 
-@media screen and (max-width: 1024px) {
-  html {
-    font-size: 14px;
+/* =============================================================================
+   NAVIGATION LINK STYLES
+   ============================================================================= */
+.nav-link {
+  position: relative;
+  padding: var(--space-4) var(--space-3);
+  font-size: 0.75rem;
+  font-weight: 300;
+  letter-spacing: 0.025em;
+  color: rgba(156, 163, 175, 1);
+  transition: color 0.2s ease;
+  white-space: nowrap;
+}
+
+.nav-link:hover {
+  color: rgba(229, 231, 235, 1);
+}
+
+.nav-link.active {
+  color: rgba(243, 244, 246, 1);
+}
+
+@media screen and (min-width: 640px) {
+  .nav-link {
+    padding: var(--space-5) var(--space-4);
+    font-size: 0.8125rem;
   }
 }
 
-@media screen and (max-width: 768px) {
-  html {
-    font-size: 13px;
+@media screen and (min-width: 1024px) {
+  .nav-link {
+    padding: var(--space-6) var(--space-5);
+    font-size: 0.875rem;
   }
 }
 
-@media screen and (max-width: 640px) {
-  html {
-    font-size: 12px;
+/* =============================================================================
+   COMPACT COMPONENT STYLES
+   ============================================================================= */
+
+/* Cards - Reduced padding for density */
+.card-compact {
+  padding: var(--space-4);
+  border-radius: 0.5rem;
+}
+
+@media screen and (min-width: 1024px) {
+  .card-compact {
+    padding: var(--space-5);
   }
+}
+
+/* Tables - Denser rows */
+.table-row-compact {
+  padding: var(--space-2) var(--space-3);
+}
+
+@media screen and (min-width: 1024px) {
+  .table-row-compact {
+    padding: var(--space-3) var(--space-4);
+  }
+}
+
+/* Buttons - Compact sizing */
+.btn-compact {
+  padding: var(--space-2) var(--space-4);
+  font-size: 0.8125rem;
+}
+
+.btn-compact-sm {
+  padding: var(--space-1) var(--space-3);
+  font-size: 0.75rem;
 }
 
 /* =============================================================================
    SKELETON ANIMATION
    ============================================================================= */
-
 @keyframes skeleton-pulse {
 
   0%,
@@ -163,4 +341,60 @@ body {
 
 .skeleton-pulse {
   animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+.skeleton {
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+  background: linear-gradient(90deg,
+      rgba(55, 65, 81, 0.3) 0%,
+      rgba(75, 85, 99, 0.3) 50%,
+      rgba(55, 65, 81, 0.3) 100%);
+  background-size: 200% 100%;
+  border-radius: 0.25rem;
+}
+
+/* =============================================================================
+   UTILITY CLASSES
+   ============================================================================= */
+
+/* Container with max width */
+.container-app {
+  max-width: var(--max-content-width);
+  margin: 0 auto;
+  width: 100%;
+}
+
+/* Text density utilities */
+.text-dense {
+  line-height: 1.3;
+}
+
+.text-compact {
+  line-height: 1.2;
+}
+
+/* Spacing utilities using CSS variables */
+.gap-dense {
+  gap: var(--space-2);
+}
+
+.gap-compact {
+  gap: var(--space-3);
+}
+
+/* =============================================================================
+   DEPRECATED CLASSES (for backwards compatibility, do nothing)
+   These were the old scaling approach - now removed
+   ============================================================================= */
+.fixed-header {
+  /* Deprecated - use .site-header instead */
+}
+
+.content-scaler {
+  /* Deprecated - NO LONGER SCALES! */
+  /* Was: transform: scale(0.8) - REMOVED */
+}
+
+.main-content-area {
+  /* Deprecated - use .main-content instead */
 }
