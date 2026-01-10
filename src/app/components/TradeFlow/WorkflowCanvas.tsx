@@ -12,6 +12,7 @@ interface WorkflowCanvasProps {
   onNodeMove: (nodeId: string, position: { x: number; y: number }) => void;
   onNodeDrop: (nodeType: string, stage: NodeStage, position: { x: number; y: number }) => void;
   onEdgeCreate: (sourceId: string, targetId: string) => void;
+  onSetPendingHandles: (sourceHandle: string, targetHandle: string) => void;
   onEdgeLogicAdd: (edgeId: string, logic: "and" | "or") => void;
   onCanvasClick: () => void;
 }
@@ -102,6 +103,7 @@ export function WorkflowCanvas({
   onNodeMove,
   onNodeDrop,
   onEdgeCreate,
+  onSetPendingHandles,
   onEdgeLogicAdd,
   onCanvasClick,
 }: WorkflowCanvasProps) {
@@ -110,6 +112,7 @@ export function WorkflowCanvas({
   const [draggingNode, setDraggingNode] = useState<string | null>(null);
   const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
   const [connectionStart, setConnectionStart] = useState<string | null>(null);
+  const [sourceHandleId, setSourceHandleId] = useState<string>("right"); // track which handle is being dragged from
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [draggingLogicNode, setDraggingLogicNode] = useState<boolean>(false);
   const [highlightedHandles, setHighlightedHandles] = useState<Set<string>>(new Set());
@@ -159,21 +162,9 @@ export function WorkflowCanvas({
       ctx.strokeStyle = "#333333";
       ctx.lineWidth = 2;
       ctx.strokeRect(col.startX, 0, col.width, canvas.height);
-      
-      // Draw column header inside column (sticky at top with background tint)
-      // Header background box
-      ctx.fillStyle = def.bgColor.replace("0.15", "0.4"); // Darker tint for header
-      ctx.fillRect(col.startX, 0, col.width, 50);
-      
-      // Header text
-      ctx.fillStyle = "#e5e7eb";
-      ctx.font = "bold 14px sans-serif";
-      ctx.textAlign = "left";
-      ctx.textBaseline = "middle";
-      ctx.fillText(def.label, col.startX + 12, 25);
     });
 
-    // Draw grid
+    // Draw grid BEFORE headers so headers appear on top
     ctx.strokeStyle = "#1a1a1a";
     ctx.lineWidth = 1;
     const gridSize = 20;
@@ -189,6 +180,28 @@ export function WorkflowCanvas({
       ctx.lineTo(canvas.width, y);
       ctx.stroke();
     }
+
+    // Draw column headers LAST so they appear above grid
+    stages.forEach((stage) => {
+      const col = getColumnBounds(stage, canvas.width);
+      const def = columnDefinitions[stage];
+      
+      // Header background box with darker tint - semi-opaque
+      const headerHeight = 50;
+      ctx.fillStyle = def.bgColor.replace("0.15", "0.5"); // More opaque for readability
+      ctx.fillRect(col.startX, 0, col.width, headerHeight);
+      
+      // Semi-opaque dark overlay for text contrast
+      ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
+      ctx.fillRect(col.startX, 0, col.width, headerHeight);
+      
+      // Header text - bold and bright
+      ctx.fillStyle = "#ffffff";
+      ctx.font = "bold 16px sans-serif";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(def.label, col.startX + 12, 25);
+    });
 
     // Draw edges
     edges.forEach((edge) => {
@@ -271,7 +284,7 @@ export function WorkflowCanvas({
     if (connectionStart) {
       const startNode = nodes.find((n) => n.id === connectionStart);
       if (startNode) {
-        const fromPos = getHandlePosition(startNode.position, "right"); // Default to right handle
+        const fromPos = getHandlePosition(startNode.position, sourceHandleId); // Use the actual source handle
         ctx.strokeStyle = "#ffffff";
         ctx.lineWidth = 2.5;
         ctx.lineCap = "round";
@@ -353,11 +366,13 @@ export function WorkflowCanvas({
     // Check if clicked on a handle
     const target = e.target as HTMLElement;
     const handleType = target.getAttribute("data-handle-type");
+    const handleId = target.getAttribute("data-handle-id");
     const nodeId = target.getAttribute("data-node-id");
     
-    if (handleType === "output" && nodeId) {
-      // Start connection from output handle
+    if (handleType === "output" && nodeId && handleId) {
+      // Start connection from output handle - record which handle is being dragged from
       setConnectionStart(nodeId);
+      setSourceHandleId(handleId);
       return;
     }
     
@@ -395,15 +410,20 @@ export function WorkflowCanvas({
       // Check if released on an input handle
       const target = e.target as HTMLElement;
       const handleType = target.getAttribute("data-handle-type");
+      const targetHandleId = target.getAttribute("data-handle-id");
       const targetNodeId = target.getAttribute("data-node-id");
       
-      if (handleType === "input" && targetNodeId && targetNodeId !== connectionStart) {
+      if (handleType === "input" && targetNodeId && targetNodeId !== connectionStart && targetHandleId) {
+        // Create edge with handle IDs
+        onSetPendingHandles(sourceHandleId, targetHandleId);
         onEdgeCreate(connectionStart, targetNodeId);
         setConnectionStart(null);
+        setSourceHandleId("right"); // Reset to default
         return;
       }
 
       setConnectionStart(null);
+      setSourceHandleId("right"); // Reset to default
     }
   };
 
