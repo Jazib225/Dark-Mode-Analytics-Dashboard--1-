@@ -203,7 +203,7 @@ export function MarketDetail({
       console.log(`[MarketDetail] Market changed from ${currentMarketId.current} to ${market.id}`);
       currentMarketId.current = market.id;
       fetchStarted.current = false;
-      
+
       // Reset to new market's shell data
       const newShell = getMarketShellFromCache(market.id);
       setMarketShell(newShell);
