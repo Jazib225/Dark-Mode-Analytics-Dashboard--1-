@@ -3,11 +3,11 @@ import { Bookmark, Loader2 } from "lucide-react";
 import { BookmarkedMarket } from "../App";
 import { MarketDetail } from "./MarketDetail";
 import { getTrendingMarkets } from "../services/polymarketApi";
-import { 
-  fetchMarketList, 
-  prefetchMarketDetail, 
+import {
+  fetchMarketList,
+  prefetchMarketDetail,
   prefetchOtherTimeframes,
-  type MarketCardDTO 
+  type MarketCardDTO
 } from "../services/marketDataClient";
 
 // Format cents with proper precision like Polymarket (e.g., 0.4¢, 99.6¢)
@@ -114,21 +114,21 @@ function convertApiMarketToDisplay(market: any, timeframe: TimeFilter = "24h"): 
   } else if (timeframe === "1m") {
     volumeUsd = market.volume1mo || market.volumeUsd;
   }
-  
+
   // Use pre-calculated cents from API if available, otherwise calculate from lastPriceUsd
   let yesPriceCents = market.yesPriceCents;
   let noPriceCents = market.noPriceCents;
-  
+
   // Fallback calculation if API didn't provide cents
   if (yesPriceCents === undefined || yesPriceCents === null) {
     const yesPrice = market.lastPriceUsd ? parseFloat(String(market.lastPriceUsd)) : 0.5;
     yesPriceCents = yesPrice * 100;
     noPriceCents = 100 - yesPriceCents;
   }
-  
+
   // Calculate probability for display
   const probability = yesPriceCents;
-  
+
   return {
     id: market.id,
     name: market.title || market.name,
@@ -153,12 +153,12 @@ function convertV2MarketToDisplay(market: MarketCardDTO, timeframe: TimeFilter =
   } else if (timeframe === "1m") {
     volumeNum = market.volume1mo || 0;
   }
-  
+
   // V2 API returns probability already as 0-100
   const probability = market.probability || 50;
   const yesPriceCents = probability;
   const noPriceCents = 100 - probability;
-  
+
   return {
     id: market.id,
     name: market.question,
@@ -197,7 +197,7 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
       setSelectedMarketId(initialMarketId);
     }
   }, [initialMarketId]);
-  
+
   // Initialize with cached data if available for instant load
   const [allMarkets, setAllMarkets] = useState<DisplayMarket[]>(() => {
     const cached = loadCachedMarkets("24h");
@@ -214,7 +214,7 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
   const [isRefreshing, setIsRefreshing] = useState(false); // Background refresh indicator
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Handle clicking on a market from the table
   const handleTableMarketClick = (market: DisplayMarket) => {
     setSelectedMarketId(market.id);
@@ -234,13 +234,13 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
     const fetchMarkets = async () => {
       // Check for cached data first (local cache)
       const cached = loadCachedMarkets(timeFilter);
-      
+
       if (cached && cached.length > 0) {
         // Use cached data immediately (no loading state)
         setAllMarkets(cached);
         setLoading(false);
         setDisplayedCount(INITIAL_LOAD);
-        
+
         // Refresh in background
         setIsRefreshing(true);
         // Preload cached images immediately
@@ -250,30 +250,30 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
         setLoading(true);
         setDisplayedCount(INITIAL_LOAD);
       }
-      
+
       setError(null);
-      
+
       try {
         // Use optimized V2 endpoint with server-side caching + client deduplication
         const { markets: data } = await fetchMarketList(timeFilter);
-        
+
         if (!Array.isArray(data)) {
           throw new Error("Invalid data format");
         }
-        
+
         // V2 API returns MarketCardDTO - map to display format
         const displayMarkets = data
           .filter((m: MarketCardDTO) => m && m.question)
           .map((m: MarketCardDTO) => convertV2MarketToDisplay(m, timeFilter));
-        
+
         setAllMarkets(displayMarkets);
-        
+
         // Save to localStorage cache
         saveCachedMarkets(displayMarkets, timeFilter);
-        
+
         // Preload images for fast display
         preloadImages(displayMarkets);
-        
+
       } catch (err) {
         // Fallback to legacy API if V2 fails
         console.warn("V2 API failed, falling back to legacy:", err);
@@ -312,7 +312,7 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
     const prefetchTimeout = setTimeout(() => {
       prefetchOtherTimeframes(timeFilter);
     }, 1500);
-    
+
     return () => clearTimeout(prefetchTimeout);
   }, [timeFilter]);
 
@@ -333,7 +333,7 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
   if (selectedMarketId) {
     // Use initialMarketData if it matches, otherwise find from allMarkets
     let selectedMarket: DisplayMarket | undefined;
-    
+
     if (initialMarketData && initialMarketData.id === selectedMarketId) {
       selectedMarket = {
         id: initialMarketData.id,
@@ -344,7 +344,7 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
     } else {
       selectedMarket = allMarkets.find((m) => m.id === selectedMarketId);
     }
-    
+
     // If we have a market ID but no data yet, show loading or use minimal data
     if (!selectedMarket && selectedMarketId) {
       // Try to create minimal market from just the ID - MarketDetail will fetch the rest
@@ -355,7 +355,7 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
         volume: "$0",
       };
     }
-    
+
     if (selectedMarket) {
       return (
         <MarketDetail
@@ -411,174 +411,171 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
           <div className="flex items-center gap-2">
             <button
               onClick={() => setTimeFilter("24h")}
-              className={`px-4 py-1.5 text-[14px] font-light tracking-wide rounded transition-all ${
-                timeFilter === "24h"
+              className={`px-4 py-1.5 text-[14px] font-light tracking-wide rounded transition-all ${timeFilter === "24h"
                   ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
                   : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
-              }`}
+                }`}
             >
               24H
             </button>
             <button
               onClick={() => setTimeFilter("7d")}
-              className={`px-4 py-1.5 text-[14px] font-light tracking-wide rounded transition-all ${
-                timeFilter === "7d"
+              className={`px-4 py-1.5 text-[14px] font-light tracking-wide rounded transition-all ${timeFilter === "7d"
                   ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
                   : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
-              }`}
+                }`}
             >
               7D
             </button>
             <button
               onClick={() => setTimeFilter("1m")}
-              className={`px-4 py-1.5 text-[14px] font-light tracking-wide rounded transition-all ${
-                timeFilter === "1m"
+              className={`px-4 py-1.5 text-[14px] font-light tracking-wide rounded transition-all ${timeFilter === "1m"
                   ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
                   : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
-              }`}
+                }`}
             >
               1M
             </button>
           </div>
         </div>
         <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl overflow-hidden shadow-xl shadow-black/20">
-          <table className="w-full text-[14px]">
-            <thead>
-              <tr className="border-b border-gray-800/50 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
-                <th className="text-left py-4 px-5 text-gray-400 font-light tracking-wide uppercase">
-                  Market
-                </th>
-                <th className="text-center py-4 px-5 text-gray-400 font-light tracking-wide uppercase">
-                  % Chance
-                </th>
-                <th className="text-center py-4 px-5 text-gray-400 font-light tracking-wide uppercase">
-                  Buy Yes / No
-                </th>
-                <th className="text-right py-4 px-5 text-gray-400 font-light tracking-wide uppercase">
-                  {timeFilter === "24h" ? "24h" : timeFilter === "7d" ? "7d" : "1M"} Volume
-                </th>
-                <th className="w-10"></th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                // Skeleton loading rows - shows instantly, feels faster
-                [...Array(8)].map((_, i) => (
-                  <tr key={i} className="border-b border-gray-800/30 animate-pulse">
-                    <td className="py-3.5 px-5">
-                      <div className="flex items-center gap-3">
-                        <div className="w-8 h-8 bg-gray-800/50 rounded-lg flex-shrink-0"></div>
-                        <div className="h-5 bg-gray-800/50 rounded w-3/4"></div>
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-5 text-center">
-                      <div className="h-5 bg-gray-800/50 rounded w-12 mx-auto"></div>
-                    </td>
-                    <td className="py-3.5 px-3 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <div className="h-6 bg-gray-800/50 rounded w-16"></div>
-                        <div className="h-6 bg-gray-800/50 rounded w-16"></div>
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-5 text-right">
-                      <div className="h-5 bg-gray-800/50 rounded w-16 ml-auto"></div>
-                    </td>
-                    <td className="py-3.5 px-5 text-right">
-                      <div className="h-5 bg-gray-800/50 rounded w-4 ml-auto"></div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[14px] min-w-[600px]">
+              <thead>
+                <tr className="border-b border-gray-800/50 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
+                  <th className="text-left py-3 sm:py-4 px-3 sm:px-5 text-gray-400 font-light tracking-wide uppercase text-xs sm:text-sm">
+                    Market
+                  </th>
+                  <th className="text-center py-3 sm:py-4 px-3 sm:px-5 text-gray-400 font-light tracking-wide uppercase text-xs sm:text-sm">
+                    % Chance
+                  </th>
+                  <th className="text-center py-3 sm:py-4 px-3 sm:px-5 text-gray-400 font-light tracking-wide uppercase text-xs sm:text-sm">
+                    Buy Yes / No
+                  </th>
+                  <th className="text-right py-3 sm:py-4 px-3 sm:px-5 text-gray-400 font-light tracking-wide uppercase text-xs sm:text-sm">
+                    {timeFilter === "24h" ? "24h" : timeFilter === "7d" ? "7d" : "1M"} Vol
+                  </th>
+                  <th className="w-10"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {loading ? (
+                  // Skeleton loading rows - shows instantly, feels faster
+                  [...Array(8)].map((_, i) => (
+                    <tr key={i} className="border-b border-gray-800/30 animate-pulse">
+                      <td className="py-3.5 px-5">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 bg-gray-800/50 rounded-lg flex-shrink-0"></div>
+                          <div className="h-5 bg-gray-800/50 rounded w-3/4"></div>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-5 text-center">
+                        <div className="h-5 bg-gray-800/50 rounded w-12 mx-auto"></div>
+                      </td>
+                      <td className="py-3.5 px-3 text-center">
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="h-6 bg-gray-800/50 rounded w-16"></div>
+                          <div className="h-6 bg-gray-800/50 rounded w-16"></div>
+                        </div>
+                      </td>
+                      <td className="py-3.5 px-5 text-right">
+                        <div className="h-5 bg-gray-800/50 rounded w-16 ml-auto"></div>
+                      </td>
+                      <td className="py-3.5 px-5 text-right">
+                        <div className="h-5 bg-gray-800/50 rounded w-4 ml-auto"></div>
+                      </td>
+                    </tr>
+                  ))
+                ) : error ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-red-400 text-[15px]">
+                      Error: {error}
                     </td>
                   </tr>
-                ))
-              ) : error ? (
-                <tr>
-                  <td colSpan={5} className="py-8 text-center text-red-400 text-[15px]">
-                    Error: {error}
-                  </td>
-                </tr>
-              ) : allMarkets.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="py-8 text-center text-gray-400 text-[15px]">
-                    No active markets found
-                  </td>
-                </tr>
-              ) : (
-                displayedMarkets.map((market, index) => {
-                  const yesCents = market.yesPriceCents ?? Number(market.probability);
-                  const noCents = market.noPriceCents ?? (100 - yesCents);
-                  const probabilityDisplay = yesCents < 1 ? "<1" : formatCents(yesCents);
-                  
-                  return (
-                  <tr
-                    key={market.id}
-                    onClick={() => handleTableMarketClick(market)}
-                    onMouseEnter={() => prefetchMarketDetail(market.id)}
-                    className={`border-b border-gray-800/30 hover:bg-gradient-to-r hover:from-[#111111] hover:to-transparent transition-all duration-150 cursor-pointer ${
-                      index === displayedMarkets.length - 1 ? "border-b-0" : ""
-                    }`}
-                  >
-                    <td className="py-3.5 px-5 text-gray-200 max-w-[400px] font-light">
-                      <div className="flex items-center gap-3">
-                        {market.image ? (
-                          <img 
-                            src={market.image} 
-                            alt="" 
-                            className="w-8 h-8 rounded-lg object-cover flex-shrink-0"
-                            loading="eager"
-                            decoding="async"
-                            onError={(e) => {
-                              // Hide broken images
-                              (e.target as HTMLImageElement).style.display = 'none';
-                            }}
-                          />
-                        ) : (
-                          <div className="w-8 h-8 rounded-lg bg-gray-800/50 flex-shrink-0" />
-                        )}
-                        <span className="truncate">{market.name || market.title}</span>
-                      </div>
+                ) : allMarkets.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="py-8 text-center text-gray-400 text-[15px]">
+                      No active markets found
                     </td>
-                    <td className="py-3.5 px-5 text-center">
-                      <span className="text-xl font-light text-[#4a6fa5]">{probabilityDisplay}%</span>
-                    </td>
-                    <td className="py-3.5 px-3 text-center">
-                      <div className="flex items-center justify-center gap-2">
-                        <span className="px-3 py-1.5 text-xs font-medium bg-green-900/30 border border-green-500/30 rounded text-green-400">
-                          Yes {formatCents(yesCents)}¢
-                        </span>
-                        <span className="px-3 py-1.5 text-xs font-medium bg-red-900/30 border border-red-500/30 rounded text-red-400">
-                          No {formatCents(noCents)}¢
-                        </span>
-                      </div>
-                    </td>
-                    <td className="py-3.5 px-5 text-right text-green-500 font-light">
-                      {market.volume}
-                    </td>
-                    <td className="py-3.5 px-5 text-right">
-                      <button
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          toggleBookmark({
-                            id: market.id,
-                            name: market.name || market.title || "Unknown",
-                            probability: Number(market.probability) || 0,
-                            image: market.image || null,
-                          });
-                        }}
-                        className="text-gray-500 hover:text-[#4a6fa5] transition-all duration-200"
-                      >
-                        <Bookmark
-                          className={`w-4 h-4 ${
-                            isBookmarked(market.id) ? "fill-current text-[#4a6fa5]" : ""
+                  </tr>
+                ) : (
+                  displayedMarkets.map((market, index) => {
+                    const yesCents = market.yesPriceCents ?? Number(market.probability);
+                    const noCents = market.noPriceCents ?? (100 - yesCents);
+                    const probabilityDisplay = yesCents < 1 ? "<1" : formatCents(yesCents);
+
+                    return (
+                      <tr
+                        key={market.id}
+                        onClick={() => handleTableMarketClick(market)}
+                        onMouseEnter={() => prefetchMarketDetail(market.id)}
+                        className={`border-b border-gray-800/30 hover:bg-gradient-to-r hover:from-[#111111] hover:to-transparent transition-all duration-150 cursor-pointer ${index === displayedMarkets.length - 1 ? "border-b-0" : ""
                           }`}
-                        />
-                      </button>
-                    </td>
-                  </tr>
-                  )
-                })
-              )}
-            </tbody>
-          </table>
+                      >
+                        <td className="py-2.5 sm:py-3.5 px-3 sm:px-5 text-gray-200 max-w-[200px] sm:max-w-[400px] font-light">
+                          <div className="flex items-center gap-2 sm:gap-3">
+                            {market.image ? (
+                              <img
+                                src={market.image}
+                                alt=""
+                                className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg object-cover flex-shrink-0"
+                                loading="eager"
+                                decoding="async"
+                                onError={(e) => {
+                                  // Hide broken images
+                                  (e.target as HTMLImageElement).style.display = 'none';
+                                }}
+                              />
+                            ) : (
+                              <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-gray-800/50 flex-shrink-0" />
+                            )}
+                            <span className="truncate text-xs sm:text-sm">{market.name || market.title}</span>
+                          </div>
+                        </td>
+                        <td className="py-2.5 sm:py-3.5 px-3 sm:px-5 text-center">
+                          <span className="text-base sm:text-xl font-light text-[#4a6fa5]">{probabilityDisplay}%</span>
+                        </td>
+                        <td className="py-2.5 sm:py-3.5 px-2 sm:px-3 text-center">
+                          <div className="flex items-center justify-center gap-1 sm:gap-2">
+                            <span className="px-1.5 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium bg-green-900/30 border border-green-500/30 rounded text-green-400">
+                              Yes {formatCents(yesCents)}¢
+                            </span>
+                            <span className="px-1.5 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium bg-red-900/30 border border-red-500/30 rounded text-red-400">
+                              No {formatCents(noCents)}¢
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-2.5 sm:py-3.5 px-3 sm:px-5 text-right text-green-500 font-light text-xs sm:text-sm">
+                          {market.volume}
+                        </td>
+                        <td className="py-2.5 sm:py-3.5 px-3 sm:px-5 text-right">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              toggleBookmark({
+                                id: market.id,
+                                name: market.name || market.title || "Unknown",
+                                probability: Number(market.probability) || 0,
+                                image: market.image || null,
+                              });
+                            }}
+                            className="text-gray-500 hover:text-[#4a6fa5] transition-all duration-200"
+                          >
+                            <Bookmark
+                              className={`w-4 h-4 ${isBookmarked(market.id) ? "fill-current text-[#4a6fa5]" : ""
+                                }`}
+                            />
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })
+                )}
+              </tbody>
+            </table>
+          </div>
         </div>
-        
+
         {/* Load More Button */}
         {!loading && hasMoreMarkets && (
           <div className="flex justify-center mt-6">
@@ -603,7 +600,7 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
             </button>
           </div>
         )}
-        
+
         {/* All loaded indicator */}
         {!loading && !hasMoreMarkets && allMarkets.length > INITIAL_LOAD && (
           <div className="text-center mt-4 text-gray-500 text-[14px]">

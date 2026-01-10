@@ -1,17 +1,17 @@
 import { ArrowLeft, Bookmark, TrendingUp, TrendingDown, DollarSign, Users, Activity, Minus, Plus, Loader2, BarChart3, Trophy, Wallet } from "lucide-react";
 import { XAxis, YAxis, Tooltip, ResponsiveContainer, Area, AreaChart } from "recharts";
 import { useState, useEffect, useMemo } from "react";
-import { 
-  getMarketDetails, 
-  getMarketPriceHistory, 
-  getMarketTrades, 
-  getEventWithMarkets, 
-  getClobPrices, 
-  getOrderBook, 
-  getMarketTradersCount, 
-  getMarketTopHolders, 
-  getMarketTopTraders, 
-  getCachedMarketDetail, 
+import {
+  getMarketDetails,
+  getMarketPriceHistory,
+  getMarketTrades,
+  getEventWithMarkets,
+  getClobPrices,
+  getOrderBook,
+  getMarketTradersCount,
+  getMarketTopHolders,
+  getMarketTopTraders,
+  getCachedMarketDetail,
   getMarketFromCache,
   getCachedPriceHistory,
   getCachedTrades,
@@ -167,7 +167,7 @@ export function MarketDetail({
   const [tradeSide, setTradeSide] = useState<"YES" | "NO">("YES");
   const [shareQuantity, setShareQuantity] = useState(0);
   const [selectedOutcome, setSelectedOutcome] = useState<OutcomeMarket | null>(null);
-  
+
   // Real data states
   const [marketData, setMarketData] = useState<MarketData | null>(null);
   const [eventData, setEventData] = useState<EventData | null>(null);
@@ -185,7 +185,7 @@ export function MarketDetail({
   useEffect(() => {
     console.log(`[MarketDetail] Loading market: ${market.id}`);
     const startTime = performance.now();
-    
+
     // 1. Check for cached market detail (full data)
     const cachedDetail = getCachedMarketDetail(market.id);
     if (cachedDetail) {
@@ -220,21 +220,21 @@ export function MarketDetail({
         } as any);
       }
     }
-    
+
     // 2. Check for cached price history
     const cachedHistory = getCachedPriceHistory(market.id, "1d");
     if (cachedHistory && cachedHistory.length > 0) {
       console.log(`[MarketDetail] Found cached price history`);
       setPriceHistory(cachedHistory);
     }
-    
+
     // 3. Check for cached trades
     const cachedTrades = getCachedTrades(market.id, 10);
     if (cachedTrades && cachedTrades.length > 0) {
       console.log(`[MarketDetail] Found cached trades`);
       setRecentTrades(cachedTrades);
     }
-    
+
     // 4. Check for cached event data
     const cachedEvent = getCachedEventData(market.id);
     if (cachedEvent) {
@@ -244,35 +244,35 @@ export function MarketDetail({
         setSelectedOutcome(cachedEvent.targetMarket);
       }
     }
-    
+
     // Get condition ID for additional cached data
     const conditionId = cachedDetail?.conditionId || market.id;
-    
+
     // 5. Check for cached traders count
     const cachedCount = getCachedTradersCount(conditionId);
     if (cachedCount !== null) {
       console.log(`[MarketDetail] Found cached traders count`);
       setTradersCount(cachedCount);
     }
-    
+
     // 6. Check for cached top holders
     const cachedHolders = getCachedTopHolders(conditionId);
     if (cachedHolders && cachedHolders.length > 0) {
       console.log(`[MarketDetail] Found cached top holders`);
       setTopHolders(cachedHolders);
     }
-    
+
     // 7. Check for cached top traders
     const cachedTraders = getCachedTopTraders(conditionId);
     if (cachedTraders && cachedTraders.length > 0) {
       console.log(`[MarketDetail] Found cached top traders`);
       setTopTraders(cachedTraders);
     }
-    
+
     // 8. Check for cached order book (need token ID)
-    const tokenId = cachedDetail?.clobTokenIds?.[0] || 
-      (cachedDetail?.clobTokenIds && typeof cachedDetail.clobTokenIds === 'string' 
-        ? JSON.parse(cachedDetail.clobTokenIds)[0] 
+    const tokenId = cachedDetail?.clobTokenIds?.[0] ||
+      (cachedDetail?.clobTokenIds && typeof cachedDetail.clobTokenIds === 'string'
+        ? JSON.parse(cachedDetail.clobTokenIds)[0]
         : null);
     if (tokenId) {
       const cachedBook = getCachedOrderBook(tokenId);
@@ -281,20 +281,20 @@ export function MarketDetail({
         setOrderBook(cachedBook);
       }
     }
-    
+
     const cacheTime = performance.now() - startTime;
     console.log(`[MarketDetail] Cache load completed in ${cacheTime.toFixed(0)}ms`);
-    
+
     // Now fetch fresh data in background (non-blocking)
     fetchFreshData();
   }, [market.id]);
-  
+
   // Background fetch for fresh data
   const fetchFreshData = async () => {
     try {
       console.log(`[MarketDetail] Starting background fetch for fresh data`);
       const startTime = performance.now();
-      
+
       // Fire ALL requests in parallel
       const [details, event, history, trades] = await Promise.all([
         getMarketDetails(market.id),
@@ -302,16 +302,16 @@ export function MarketDetail({
         getMarketPriceHistory(market.id, "1d"),
         getMarketTrades(market.id, 10),
       ]);
-      
+
       // Update with fresh details
       if (details) {
         setMarketData(details);
-        
+
         // Now fetch data that depends on details
-        const tokenId = details.clobTokenIds?.[0] || 
+        const tokenId = details.clobTokenIds?.[0] ||
           (typeof details.clobTokenIds === 'string' ? JSON.parse(details.clobTokenIds)[0] : null);
         const conditionId = details.conditionId || market.id;
-        
+
         // Fire all dependent requests in parallel
         const [bookData, tradersNum, holders, tradersList] = await Promise.all([
           tokenId ? getOrderBook(tokenId) : Promise.resolve({ bids: [], asks: [], spread: 0 }),
@@ -319,24 +319,24 @@ export function MarketDetail({
           getMarketTopHolders(conditionId, 20),
           getMarketTopTraders(conditionId, 20),
         ]);
-        
+
         if (bookData && (bookData.bids?.length > 0 || bookData.asks?.length > 0)) {
           setOrderBook(bookData);
         }
-        
+
         if (tradersNum > 0) {
           setTradersCount(tradersNum);
         }
-        
+
         if (holders.length > 0) {
           setTopHolders(holders);
         }
-        
+
         if (tradersList.length > 0) {
           setTopTraders(tradersList);
         }
       }
-      
+
       // Update event data
       if (event) {
         setEventData(event);
@@ -344,7 +344,7 @@ export function MarketDetail({
           setSelectedOutcome(event.targetMarket);
         }
       }
-      
+
       // Update price history
       if (history && history.length > 0) {
         setPriceHistory(history);
@@ -365,12 +365,12 @@ export function MarketDetail({
         }
         setPriceHistory(placeholderHistory);
       }
-      
+
       // Update trades
       if (trades && trades.length > 0) {
         setRecentTrades(trades);
       }
-      
+
       const totalTime = performance.now() - startTime;
       console.log(`[MarketDetail] Background fetch completed in ${totalTime.toFixed(0)}ms`);
     } catch (err) {
@@ -387,7 +387,7 @@ export function MarketDetail({
     const num = parseFloat(String(val));
     return isNaN(num) ? fallback : num;
   };
-  
+
   // Get yes/no prices with proper fallbacks
   // For multi-outcome markets, use the selected outcome's prices
   const activeOutcome = selectedOutcome || (eventData?.targetMarket);
@@ -402,7 +402,7 @@ export function MarketDetail({
   const currentLiquidity = marketData?.liquidity ?? "$0";
   // Use tradersCount from API if available, otherwise fall back to marketData.uniqueTraders
   const uniqueTraders = tradersCount > 0 ? tradersCount : (marketData?.uniqueTraders ?? 0);
-  
+
   // Check if this is a multi-outcome market
   const isMultiOutcome = eventData?.isMultiOutcome && eventData.markets.length > 1;
 
@@ -428,8 +428,8 @@ export function MarketDetail({
 
   const potentialPayout = shareQuantity * 1;
   const potentialProfit = potentialPayout - (parseFloat(tradeAmount) || 0);
-  const returnPercent = tradeAmount && parseFloat(tradeAmount) > 0 
-    ? ((potentialProfit / parseFloat(tradeAmount)) * 100).toFixed(1) 
+  const returnPercent = tradeAmount && parseFloat(tradeAmount) > 0
+    ? ((potentialProfit / parseFloat(tradeAmount)) * 100).toFixed(1)
     : "0";
 
   return (
@@ -468,9 +468,9 @@ export function MarketDetail({
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-start gap-4 flex-1 pr-4">
                   {marketData?.image ? (
-                    <img 
-                      src={marketData.image} 
-                      alt="" 
+                    <img
+                      src={marketData.image}
+                      alt=""
                       className="w-14 h-14 rounded-xl object-cover flex-shrink-0"
                       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                     />
@@ -540,11 +540,10 @@ export function MarketDetail({
                             setShareQuantity(0);
                             setTradeAmount("");
                           }}
-                          className={`flex items-center justify-between p-4 rounded-lg cursor-pointer transition-all ${
-                            isSelected
+                          className={`flex items-center justify-between p-4 rounded-lg cursor-pointer transition-all ${isSelected
                               ? "bg-gradient-to-r from-[#4a6fa5]/20 to-[#4a6fa5]/10 border border-[#4a6fa5]/50"
                               : "bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-800/30 hover:border-gray-700/50"
-                          }`}
+                            }`}
                         >
                           <div className="flex-1">
                             <div className={`text-sm font-normal ${isSelected ? "text-gray-100" : "text-gray-300"}`}>
@@ -624,8 +623,8 @@ export function MarketDetail({
                 <AreaChart data={priceHistory}>
                   <defs>
                     <linearGradient id="colorProbability" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#4a6fa5" stopOpacity={0.3}/>
-                      <stop offset="95%" stopColor="#4a6fa5" stopOpacity={0}/>
+                      <stop offset="5%" stopColor="#4a6fa5" stopOpacity={0.3} />
+                      <stop offset="95%" stopColor="#4a6fa5" stopOpacity={0} />
                     </linearGradient>
                   </defs>
                   <XAxis dataKey="time" stroke="#3a3a3a" tick={{ fill: "#666", fontSize: 10 }} axisLine={false} tickLine={false} />
@@ -649,11 +648,10 @@ export function MarketDetail({
                   <button
                     key={tab.id}
                     onClick={() => setActiveActivityTab(tab.id)}
-                    className={`relative flex items-center gap-2 px-4 py-3 text-xs font-light tracking-wide transition-all ${
-                      activeActivityTab === tab.id
+                    className={`relative flex items-center gap-2 px-4 py-3 text-xs font-light tracking-wide transition-all ${activeActivityTab === tab.id
                         ? "text-white"
                         : "text-gray-500 hover:text-gray-300"
-                    }`}
+                      }`}
                   >
                     <tab.icon className="w-3.5 h-3.5" />
                     <span className="uppercase">{tab.label}</span>
@@ -676,14 +674,14 @@ export function MarketDetail({
               <div className="min-h-[300px]">
                 {/* Recent Trades Tab */}
                 {activeActivityTab === "trades" && (
-                  <div className="max-h-[350px] overflow-y-auto">
-                    <table className="w-full text-xs">
+                  <div className="max-h-[350px] overflow-y-auto overflow-x-auto">
+                    <table className="w-full text-xs min-w-[400px]">
                       <thead className="sticky top-0 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
                         <tr className="border-b border-gray-800/50">
-                          <th className="text-left py-3 px-4 text-gray-500 font-light">Time</th>
-                          <th className="text-left py-3 px-4 text-gray-500 font-light">Wallet</th>
-                          <th className="text-left py-3 px-4 text-gray-500 font-light">Side</th>
-                          <th className="text-right py-3 px-4 text-gray-500 font-light">Size</th>
+                          <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-light text-[10px] sm:text-xs">Time</th>
+                          <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-light text-[10px] sm:text-xs">Wallet</th>
+                          <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-light text-[10px] sm:text-xs">Side</th>
+                          <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-light text-[10px] sm:text-xs">Size</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -707,14 +705,14 @@ export function MarketDetail({
 
                 {/* Top Holders Tab */}
                 {activeActivityTab === "holders" && (
-                  <div className="max-h-[350px] overflow-y-auto">
-                    <table className="w-full text-xs">
+                  <div className="max-h-[350px] overflow-y-auto overflow-x-auto">
+                    <table className="w-full text-xs min-w-[400px]">
                       <thead className="sticky top-0 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
                         <tr className="border-b border-gray-800/50">
-                          <th className="text-left py-3 px-4 text-gray-500 font-light">#</th>
-                          <th className="text-left py-3 px-4 text-gray-500 font-light">Holder</th>
-                          <th className="text-left py-3 px-4 text-gray-500 font-light">Position</th>
-                          <th className="text-right py-3 px-4 text-gray-500 font-light">Amount</th>
+                          <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-light text-[10px] sm:text-xs">#</th>
+                          <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-light text-[10px] sm:text-xs">Holder</th>
+                          <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-light text-[10px] sm:text-xs">Position</th>
+                          <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-light text-[10px] sm:text-xs">Amount</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -722,7 +720,7 @@ export function MarketDetail({
                           <tr key={holder.wallet || index} className="border-b border-gray-800/30 hover:bg-gray-800/20 transition-colors">
                             <td className="py-2.5 px-4 text-gray-600 font-light">{index + 1}</td>
                             <td className="py-2.5 px-4">
-                              <div 
+                              <div
                                 className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
                                 onClick={() => onWalletClick?.(holder.wallet)}
                               >
@@ -737,11 +735,10 @@ export function MarketDetail({
                               </div>
                             </td>
                             <td className="py-2.5 px-4">
-                              <span className={`text-xs font-medium px-2 py-0.5 rounded ${
-                                holder.side === "YES" 
-                                  ? "bg-green-500/20 text-green-400" 
+                              <span className={`text-xs font-medium px-2 py-0.5 rounded ${holder.side === "YES"
+                                  ? "bg-green-500/20 text-green-400"
                                   : "bg-red-500/20 text-red-400"
-                              }`}>
+                                }`}>
                                 {holder.side}
                               </span>
                             </td>
@@ -762,14 +759,14 @@ export function MarketDetail({
 
                 {/* Top Traders Tab */}
                 {activeActivityTab === "traders" && (
-                  <div className="max-h-[350px] overflow-y-auto">
-                    <table className="w-full text-xs">
+                  <div className="max-h-[350px] overflow-y-auto overflow-x-auto">
+                    <table className="w-full text-xs min-w-[400px]">
                       <thead className="sticky top-0 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
                         <tr className="border-b border-gray-800/50">
-                          <th className="text-left py-3 px-4 text-gray-500 font-light">#</th>
-                          <th className="text-left py-3 px-4 text-gray-500 font-light">Trader</th>
-                          <th className="text-right py-3 px-4 text-gray-500 font-light">Volume</th>
-                          <th className="text-right py-3 px-4 text-gray-500 font-light">Trades</th>
+                          <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-light text-[10px] sm:text-xs">#</th>
+                          <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-light text-[10px] sm:text-xs">Trader</th>
+                          <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-light text-[10px] sm:text-xs">Volume</th>
+                          <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-light text-[10px] sm:text-xs">Trades</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -777,11 +774,10 @@ export function MarketDetail({
                           <tr key={trader.wallet || index} className="border-b border-gray-800/30 hover:bg-gray-800/20 transition-colors">
                             <td className="py-2.5 px-4 text-gray-600 font-light">
                               {index < 3 ? (
-                                <span className={`text-sm ${
-                                  index === 0 ? "text-yellow-500" : 
-                                  index === 1 ? "text-gray-400" : 
-                                  "text-amber-700"
-                                }`}>
+                                <span className={`text-sm ${index === 0 ? "text-yellow-500" :
+                                    index === 1 ? "text-gray-400" :
+                                      "text-amber-700"
+                                  }`}>
                                   {index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉"}
                                 </span>
                               ) : (
@@ -789,7 +785,7 @@ export function MarketDetail({
                               )}
                             </td>
                             <td className="py-2.5 px-4">
-                              <div 
+                              <div
                                 className="flex items-center gap-2 cursor-pointer hover:opacity-80 transition-opacity"
                                 onClick={() => onWalletClick?.(trader.wallet)}
                               >
@@ -834,11 +830,11 @@ export function MarketDetail({
                       </div>
                       <div className="max-h-[280px] overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                         {orderBook.bids.map((bid, index) => (
-                          <div 
-                            key={`bid-${index}`} 
+                          <div
+                            key={`bid-${index}`}
                             className="flex justify-between px-4 py-1.5 text-xs hover:bg-green-900/10 transition-colors relative"
                           >
-                            <div 
+                            <div
                               className="absolute inset-y-0 right-0 bg-green-500/10"
                               style={{ width: `${Math.min(100, (bid.size / Math.max(...orderBook.bids.map(b => b.size), 1)) * 100)}%` }}
                             />
@@ -861,11 +857,11 @@ export function MarketDetail({
                       </div>
                       <div className="max-h-[280px] overflow-y-auto scrollbar-hide" style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}>
                         {orderBook.asks.map((ask, index) => (
-                          <div 
-                            key={`ask-${index}`} 
+                          <div
+                            key={`ask-${index}`}
                             className="flex justify-between px-4 py-1.5 text-xs hover:bg-red-900/10 transition-colors relative"
                           >
-                            <div 
+                            <div
                               className="absolute inset-y-0 left-0 bg-red-500/10"
                               style={{ width: `${Math.min(100, (ask.size / Math.max(...orderBook.asks.map(a => a.size), 1)) * 100)}%` }}
                             />
@@ -907,11 +903,10 @@ export function MarketDetail({
                   <div className="grid grid-cols-2 gap-3">
                     <button
                       onClick={() => { setTradeSide("YES"); setShareQuantity(0); setTradeAmount(""); }}
-                      className={`relative py-4 px-4 text-sm font-normal tracking-wide rounded-lg transition-all ${
-                        tradeSide === "YES"
+                      className={`relative py-4 px-4 text-sm font-normal tracking-wide rounded-lg transition-all ${tradeSide === "YES"
                           ? "bg-gradient-to-br from-green-900/40 to-green-900/20 border-2 border-green-500/50 text-green-400 shadow-lg shadow-green-900/20"
                           : "bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-800/30 text-gray-500 hover:border-gray-700/50 hover:text-gray-400"
-                      }`}
+                        }`}
                     >
                       <div className="text-lg font-medium">YES</div>
                       <div className={`text-xs mt-1 ${tradeSide === "YES" ? "text-green-500/70" : "text-gray-600"}`}>{formatCents(yesPriceCents)}¢ per share</div>
@@ -919,11 +914,10 @@ export function MarketDetail({
                     </button>
                     <button
                       onClick={() => { setTradeSide("NO"); setShareQuantity(0); setTradeAmount(""); }}
-                      className={`relative py-4 px-4 text-sm font-normal tracking-wide rounded-lg transition-all ${
-                        tradeSide === "NO"
+                      className={`relative py-4 px-4 text-sm font-normal tracking-wide rounded-lg transition-all ${tradeSide === "NO"
                           ? "bg-gradient-to-br from-red-900/40 to-red-900/20 border-2 border-red-500/50 text-red-400 shadow-lg shadow-red-900/20"
                           : "bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-800/30 text-gray-500 hover:border-gray-700/50 hover:text-gray-400"
-                      }`}
+                        }`}
                     >
                       <div className="text-lg font-medium">NO</div>
                       <div className={`text-xs mt-1 ${tradeSide === "NO" ? "text-red-500/70" : "text-gray-600"}`}>{formatCents(noPriceCents)}¢ per share</div>
@@ -978,15 +972,14 @@ export function MarketDetail({
                 </div>
 
                 {/* Buy Button */}
-                <button 
+                <button
                   disabled={shareQuantity === 0}
-                  className={`w-full py-4 text-sm font-medium tracking-wide rounded-lg transition-all ${
-                    shareQuantity > 0
+                  className={`w-full py-4 text-sm font-medium tracking-wide rounded-lg transition-all ${shareQuantity > 0
                       ? tradeSide === "YES"
                         ? "bg-gradient-to-br from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white shadow-lg shadow-green-900/30"
                         : "bg-gradient-to-br from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white shadow-lg shadow-red-900/30"
                       : "bg-gradient-to-br from-gray-800 to-gray-900 text-gray-600 cursor-not-allowed"
-                  }`}
+                    }`}
                 >
                   {shareQuantity > 0 ? `Buy ${shareQuantity} ${tradeSide} Shares for $${tradeAmount}` : "Enter amount to buy shares"}
                 </button>

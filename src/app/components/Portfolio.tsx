@@ -175,25 +175,22 @@ export function Portfolio() {
         <div className="flex items-center gap-4 mb-3">
           <button
             onClick={() => setActiveTab("positions")}
-            className={`text-sm uppercase tracking-wider transition-colors ${
-              activeTab === "positions" ? "text-gray-100" : "text-gray-500 hover:text-gray-300"
-            }`}
+            className={`text-sm uppercase tracking-wider transition-colors ${activeTab === "positions" ? "text-gray-100" : "text-gray-500 hover:text-gray-300"
+              }`}
           >
             Open Positions
           </button>
           <button
             onClick={() => setActiveTab("pnlHistory")}
-            className={`text-sm uppercase tracking-wider transition-colors ${
-              activeTab === "pnlHistory" ? "text-gray-100" : "text-gray-500 hover:text-gray-300"
-            }`}
+            className={`text-sm uppercase tracking-wider transition-colors ${activeTab === "pnlHistory" ? "text-gray-100" : "text-gray-500 hover:text-gray-300"
+              }`}
           >
             PnL History
           </button>
           <button
             onClick={() => setActiveTab("topTrades")}
-            className={`text-sm uppercase tracking-wider transition-colors ${
-              activeTab === "topTrades" ? "text-gray-100" : "text-gray-500 hover:text-gray-300"
-            }`}
+            className={`text-sm uppercase tracking-wider transition-colors ${activeTab === "topTrades" ? "text-gray-100" : "text-gray-500 hover:text-gray-300"
+              }`}
           >
             Top Trades
           </button>
@@ -201,16 +198,16 @@ export function Portfolio() {
 
         {/* Open Positions Tab */}
         {activeTab === "positions" && (
-          <div className="bg-[#0d0d0d] border border-gray-800">
-            <table className="w-full text-xs">
+          <div className="bg-[#0d0d0d] border border-gray-800 overflow-x-auto">
+            <table className="w-full text-xs min-w-[500px]">
               <thead>
                 <tr className="border-b border-gray-800">
-                  <th className="text-left py-3 px-4 text-gray-500 font-normal">Market</th>
-                  <th className="text-left py-3 px-4 text-gray-500 font-normal">Side</th>
-                  <th className="text-right py-3 px-4 text-gray-500 font-normal">Size</th>
-                  <th className="text-right py-3 px-4 text-gray-500 font-normal">Avg Price</th>
-                  <th className="text-right py-3 px-4 text-gray-500 font-normal">Current Price</th>
-                  <th className="text-right py-3 px-4 text-gray-500 font-normal">PnL</th>
+                  <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-normal text-[10px] sm:text-xs">Market</th>
+                  <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-normal text-[10px] sm:text-xs">Side</th>
+                  <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-normal text-[10px] sm:text-xs">Size</th>
+                  <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-normal text-[10px] sm:text-xs">Avg</th>
+                  <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-normal text-[10px] sm:text-xs">Current</th>
+                  <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-normal text-[10px] sm:text-xs">PnL</th>
                 </tr>
               </thead>
               <tbody>
@@ -230,9 +227,8 @@ export function Portfolio() {
                     <td className="py-2.5 px-4 text-right text-gray-400">{position.avgPrice}</td>
                     <td className="py-2.5 px-4 text-right text-gray-400">{position.currentPrice}</td>
                     <td
-                      className={`py-2.5 px-4 text-right ${
-                        position.pnl.startsWith("+") ? "text-green-500" : "text-red-500"
-                      }`}
+                      className={`py-2.5 px-4 text-right ${position.pnl.startsWith("+") ? "text-green-500" : "text-red-500"
+                        }`}
                     >
                       {position.pnl}
                     </td>
@@ -245,16 +241,16 @@ export function Portfolio() {
 
         {/* PnL History Tab */}
         {activeTab === "pnlHistory" && (
-          <div className="bg-[#0d0d0d] border border-gray-800">
-            <table className="w-full text-xs">
+          <div className="bg-[#0d0d0d] border border-gray-800 overflow-x-auto">
+            <table className="w-full text-xs min-w-[500px]">
               <thead>
                 <tr className="border-b border-gray-800">
-                  <th className="text-left py-3 px-4 text-gray-500 font-normal">Date</th>
-                  <th className="text-left py-3 px-4 text-gray-500 font-normal">Market</th>
-                  <th className="text-left py-3 px-4 text-gray-500 font-normal">Side</th>
-                  <th className="text-right py-3 px-4 text-gray-500 font-normal">Entry Price</th>
-                  <th className="text-right py-3 px-4 text-gray-500 font-normal">Exit Price</th>
-                  <th className="text-right py-3 px-4 text-gray-500 font-normal">PnL</th>
+                  <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-normal text-[10px] sm:text-xs">Date</th>
+                  <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-normal text-[10px] sm:text-xs">Market</th>
+                  <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-normal text-[10px] sm:text-xs">Side</th>
+                  <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-normal text-[10px] sm:text-xs">Entry</th>
+                  <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-normal text-[10px] sm:text-xs">Exit</th>
+                  <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-normal text-[10px] sm:text-xs">PnL</th>
                 </tr>
               </thead>
               <tbody>
@@ -272,9 +268,8 @@ export function Portfolio() {
                     <td className="py-2.5 px-4 text-right text-gray-400">{trade.entryPrice}</td>
                     <td className="py-2.5 px-4 text-right text-gray-400">{trade.exitPrice}</td>
                     <td
-                      className={`py-2.5 px-4 text-right ${
-                        trade.pnl.startsWith("+") ? "text-green-500" : "text-red-500"
-                      }`}
+                      className={`py-2.5 px-4 text-right ${trade.pnl.startsWith("+") ? "text-green-500" : "text-red-500"
+                        }`}
                     >
                       {trade.pnl}
                     </td>
@@ -287,17 +282,17 @@ export function Portfolio() {
 
         {/* Top Trades Tab */}
         {activeTab === "topTrades" && (
-          <div className="bg-[#0d0d0d] border border-gray-800">
-            <table className="w-full text-xs">
+          <div className="bg-[#0d0d0d] border border-gray-800 overflow-x-auto">
+            <table className="w-full text-xs min-w-[550px]">
               <thead>
                 <tr className="border-b border-gray-800">
-                  <th className="text-left py-3 px-4 text-gray-500 font-normal">Date</th>
-                  <th className="text-left py-3 px-4 text-gray-500 font-normal">Market</th>
-                  <th className="text-left py-3 px-4 text-gray-500 font-normal">Side</th>
-                  <th className="text-right py-3 px-4 text-gray-500 font-normal">Entry</th>
-                  <th className="text-right py-3 px-4 text-gray-500 font-normal">Exit</th>
-                  <th className="text-right py-3 px-4 text-gray-500 font-normal">PnL</th>
-                  <th className="text-right py-3 px-4 text-gray-500 font-normal">ROI</th>
+                  <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-normal text-[10px] sm:text-xs">Date</th>
+                  <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-normal text-[10px] sm:text-xs">Market</th>
+                  <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-normal text-[10px] sm:text-xs">Side</th>
+                  <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-normal text-[10px] sm:text-xs">Entry</th>
+                  <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-normal text-[10px] sm:text-xs">Exit</th>
+                  <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-normal text-[10px] sm:text-xs">PnL</th>
+                  <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-normal text-[10px] sm:text-xs">ROI</th>
                 </tr>
               </thead>
               <tbody>
@@ -354,18 +349,18 @@ export function Portfolio() {
       {/* Copy Trade Settings */}
       <div>
         <h3 className="text-sm text-gray-500 mb-3 uppercase tracking-wider">Copy Trade Settings</h3>
-        <div className="bg-[#0d0d0d] border border-gray-800">
-          <table className="w-full text-xs">
+        <div className="bg-[#0d0d0d] border border-gray-800 overflow-x-auto">
+          <table className="w-full text-xs min-w-[700px]">
             <thead>
               <tr className="border-b border-gray-800">
-                <th className="text-left py-3 px-4 text-gray-500 font-normal">Wallet</th>
-                <th className="text-right py-3 px-4 text-gray-500 font-normal">Copy Amount</th>
-                <th className="text-right py-3 px-4 text-gray-500 font-normal">Slippage</th>
-                <th className="text-right py-3 px-4 text-gray-500 font-normal">Gas Fee</th>
-                <th className="text-right py-3 px-4 text-gray-500 font-normal">Min Liq.</th>
-                <th className="text-right py-3 px-4 text-gray-500 font-normal">Max Liq.</th>
-                <th className="text-right py-3 px-4 text-gray-500 font-normal">Min Odds</th>
-                <th className="text-right py-3 px-4 text-gray-500 font-normal">Max Odds</th>
+                <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-normal text-[10px] sm:text-xs">Wallet</th>
+                <th className="text-right py-2.5 sm:py-3 px-2 sm:px-4 text-gray-500 font-normal text-[10px] sm:text-xs">Amount</th>
+                <th className="text-right py-2.5 sm:py-3 px-2 sm:px-4 text-gray-500 font-normal text-[10px] sm:text-xs">Slip</th>
+                <th className="text-right py-2.5 sm:py-3 px-2 sm:px-4 text-gray-500 font-normal text-[10px] sm:text-xs">Gas</th>
+                <th className="text-right py-2.5 sm:py-3 px-2 sm:px-4 text-gray-500 font-normal text-[10px] sm:text-xs">MinL</th>
+                <th className="text-right py-2.5 sm:py-3 px-2 sm:px-4 text-gray-500 font-normal text-[10px] sm:text-xs">MaxL</th>
+                <th className="text-right py-2.5 sm:py-3 px-2 sm:px-4 text-gray-500 font-normal text-[10px] sm:text-xs">MinO</th>
+                <th className="text-right py-2.5 sm:py-3 px-2 sm:px-4 text-gray-500 font-normal text-[10px] sm:text-xs">MaxO</th>
                 <th className="w-8"></th>
               </tr>
             </thead>

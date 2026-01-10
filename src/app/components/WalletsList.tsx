@@ -204,118 +204,118 @@ export function WalletsList({ onWalletClick, onMarketClick }: WalletsListProps) 
 
           {/* Tracked Wallets List */}
           <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl overflow-hidden shadow-xl shadow-black/20">
-            <table className="w-full text-[13px]">
-              <thead>
-                <tr className="border-b border-gray-800/50 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
-                  <th className="text-left py-3 px-4 text-gray-500 font-light tracking-wide uppercase">Wallet</th>
-                  <th className="text-left py-3 px-4 text-gray-500 font-light tracking-wide uppercase">Label</th>
-                  <th className="text-right py-3 px-4 text-gray-500 font-light tracking-wide uppercase">PnL</th>
-                  <th className="text-right py-3 px-4 text-gray-500 font-light tracking-wide uppercase">Win%</th>
-                  <th className="text-center py-3 px-4 text-gray-500 font-light tracking-wide uppercase w-24">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                {trackedWallets.map((wallet, index) => (
-                  <tr
-                    key={wallet.address}
-                    className={`border-b border-gray-800/30 hover:bg-gradient-to-r hover:from-[#111111] hover:to-transparent transition-all duration-150 ${
-                      index === trackedWallets.length - 1 ? "border-b-0" : ""
-                    }`}
-                  >
-                    {editingWallet === wallet.address ? (
-                      <>
-                        <td className="py-2 px-4">
-                          <input
-                            type="text"
-                            value={editAddress}
-                            onChange={(e) => setEditAddress(e.target.value)}
-                            className="w-full bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-700/50 rounded px-2 py-1 text-[12px] text-gray-300 font-mono focus:outline-none focus:border-gray-600/50"
-                          />
-                        </td>
-                        <td className="py-2 px-4">
-                          <input
-                            type="text"
-                            value={editLabel}
-                            onChange={(e) => setEditLabel(e.target.value)}
-                            className="w-full bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-700/50 rounded px-2 py-1 text-[12px] text-gray-300 focus:outline-none focus:border-gray-600/50"
-                            placeholder="Label..."
-                          />
-                        </td>
-                        <td className="py-3 px-4 text-right text-gray-400 font-light">{wallet.totalPnL}</td>
-                        <td className="py-3 px-4 text-right text-gray-300 font-light">{wallet.winRate}</td>
-                        <td className="py-3 px-4">
-                          <div className="flex items-center justify-center gap-2">
-                            <button
-                              onClick={saveEdit}
-                              className="text-green-500 hover:text-green-400 transition-colors"
-                              title="Save"
-                            >
-                              <Check className="w-3.5 h-3.5" />
-                            </button>
-                            <button
-                              onClick={cancelEdit}
-                              className="text-gray-500 hover:text-gray-400 transition-colors"
-                              title="Cancel"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </div>
-                        </td>
-                      </>
-                    ) : (
-                      <>
-                        <td
-                          className="py-3 px-4 text-gray-300 font-mono font-light cursor-pointer hover:text-[#4a6fa5] transition-colors text-[11px]"
-                          onClick={() => onWalletClick(wallet.address)}
-                        >
-                          {wallet.address}
-                        </td>
-                        <td className="py-3 px-4 text-gray-400 font-light truncate max-w-[100px]">{wallet.label || "—"}</td>
-                        <td
-                          className={`py-3 px-4 text-right font-light ${
-                            wallet.totalPnL.startsWith("+") ? "text-green-500" : "text-gray-400"
-                          }`}
-                        >
-                          {wallet.totalPnL}
-                        </td>
-                        <td className="py-3 px-4 text-right text-gray-300 font-light">{wallet.winRate}</td>
-                        <td className="py-3 px-4">
-                          <div className="flex items-center justify-center gap-2">
-                            <button
-                              onClick={() => toggleNotifications(wallet.address)}
-                              className="text-gray-600 hover:text-gray-400 transition-colors"
-                              title={wallet.notificationsEnabled ? "Disable notifications" : "Enable notifications"}
-                            >
-                              {wallet.notificationsEnabled ? (
-                                <Bell className="w-3 h-3 text-[#4a6fa5]" />
-                              ) : (
-                                <BellOff className="w-3 h-3" />
-                              )}
-                            </button>
-                            <button
-                              onClick={() => startEditing(wallet)}
-                              className="text-gray-600 hover:text-gray-400 transition-colors"
-                              title="Edit wallet"
-                            >
-                              <Pencil className="w-3 h-3" />
-                            </button>
-                            <button
-                              onClick={() => deleteWallet(wallet.address)}
-                              className="text-gray-600 hover:text-red-400 transition-colors"
-                              title="Delete wallet"
-                            >
-                              <Trash2 className="w-3 h-3" />
-                            </button>
-                          </div>
-                        </td>
-                      </>
-                    )}
+            <div className="overflow-x-auto">
+              <table className="w-full text-[13px] min-w-[500px]">
+                <thead>
+                  <tr className="border-b border-gray-800/50 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
+                    <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-light tracking-wide uppercase text-[11px] sm:text-xs">Wallet</th>
+                    <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-light tracking-wide uppercase text-[11px] sm:text-xs">Label</th>
+                    <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-light tracking-wide uppercase text-[11px] sm:text-xs">PnL</th>
+                    <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-light tracking-wide uppercase text-[11px] sm:text-xs">Win%</th>
+                    <th className="text-center py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-light tracking-wide uppercase w-20 sm:w-24 text-[11px] sm:text-xs">
+                      Actions
+                    </th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {trackedWallets.map((wallet, index) => (
+                    <tr
+                      key={wallet.address}
+                      className={`border-b border-gray-800/30 hover:bg-gradient-to-r hover:from-[#111111] hover:to-transparent transition-all duration-150 ${index === trackedWallets.length - 1 ? "border-b-0" : ""
+                        }`}
+                    >
+                      {editingWallet === wallet.address ? (
+                        <>
+                          <td className="py-2 px-4">
+                            <input
+                              type="text"
+                              value={editAddress}
+                              onChange={(e) => setEditAddress(e.target.value)}
+                              className="w-full bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-700/50 rounded px-2 py-1 text-[12px] text-gray-300 font-mono focus:outline-none focus:border-gray-600/50"
+                            />
+                          </td>
+                          <td className="py-2 px-4">
+                            <input
+                              type="text"
+                              value={editLabel}
+                              onChange={(e) => setEditLabel(e.target.value)}
+                              className="w-full bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-700/50 rounded px-2 py-1 text-[12px] text-gray-300 focus:outline-none focus:border-gray-600/50"
+                              placeholder="Label..."
+                            />
+                          </td>
+                          <td className="py-3 px-4 text-right text-gray-400 font-light">{wallet.totalPnL}</td>
+                          <td className="py-3 px-4 text-right text-gray-300 font-light">{wallet.winRate}</td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                onClick={saveEdit}
+                                className="text-green-500 hover:text-green-400 transition-colors"
+                                title="Save"
+                              >
+                                <Check className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                onClick={cancelEdit}
+                                className="text-gray-500 hover:text-gray-400 transition-colors"
+                                title="Cancel"
+                              >
+                                <X className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </>
+                      ) : (
+                        <>
+                          <td
+                            className="py-3 px-4 text-gray-300 font-mono font-light cursor-pointer hover:text-[#4a6fa5] transition-colors text-[11px]"
+                            onClick={() => onWalletClick(wallet.address)}
+                          >
+                            {wallet.address}
+                          </td>
+                          <td className="py-3 px-4 text-gray-400 font-light truncate max-w-[100px]">{wallet.label || "—"}</td>
+                          <td
+                            className={`py-3 px-4 text-right font-light ${wallet.totalPnL.startsWith("+") ? "text-green-500" : "text-gray-400"
+                              }`}
+                          >
+                            {wallet.totalPnL}
+                          </td>
+                          <td className="py-3 px-4 text-right text-gray-300 font-light">{wallet.winRate}</td>
+                          <td className="py-3 px-4">
+                            <div className="flex items-center justify-center gap-2">
+                              <button
+                                onClick={() => toggleNotifications(wallet.address)}
+                                className="text-gray-600 hover:text-gray-400 transition-colors"
+                                title={wallet.notificationsEnabled ? "Disable notifications" : "Enable notifications"}
+                              >
+                                {wallet.notificationsEnabled ? (
+                                  <Bell className="w-3 h-3 text-[#4a6fa5]" />
+                                ) : (
+                                  <BellOff className="w-3 h-3" />
+                                )}
+                              </button>
+                              <button
+                                onClick={() => startEditing(wallet)}
+                                className="text-gray-600 hover:text-gray-400 transition-colors"
+                                title="Edit wallet"
+                              >
+                                <Pencil className="w-3 h-3" />
+                              </button>
+                              <button
+                                onClick={() => deleteWallet(wallet.address)}
+                                className="text-gray-600 hover:text-red-400 transition-colors"
+                                title="Delete wallet"
+                              >
+                                <Trash2 className="w-3 h-3" />
+                              </button>
+                            </div>
+                          </td>
+                        </>
+                      )}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
 
@@ -330,73 +330,72 @@ export function WalletsList({ onWalletClick, onMarketClick }: WalletsListProps) 
           </div>
 
           <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl overflow-hidden shadow-xl shadow-black/20">
-            <table className="w-full text-[13px]">
-              <thead>
-                <tr className="border-b border-gray-800/50 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
-                  <th className="text-left py-3 px-4 text-gray-500 font-light tracking-wide uppercase">Time</th>
-                  <th className="text-left py-3 px-4 text-gray-500 font-light tracking-wide uppercase">Wallet</th>
-                  <th className="text-left py-3 px-4 text-gray-500 font-light tracking-wide uppercase">Market</th>
-                  <th className="text-left py-3 px-4 text-gray-500 font-light tracking-wide uppercase">Action</th>
-                  <th className="text-left py-3 px-4 text-gray-500 font-light tracking-wide uppercase">Contract</th>
-                  <th className="text-right py-3 px-4 text-gray-500 font-light tracking-wide uppercase">Size</th>
-                  <th className="text-right py-3 px-4 text-gray-500 font-light tracking-wide uppercase">% of Pos</th>
-                </tr>
-              </thead>
-              <tbody>
-                {feedItems.map((item, index) => (
-                  <tr
-                    key={item.id}
-                    className={`border-b border-gray-800/30 hover:bg-gradient-to-r hover:from-[#111111] hover:to-transparent transition-all duration-150 ${
-                      index === feedItems.length - 1 ? "border-b-0" : ""
-                    } ${index === 0 ? "animate-fade-in" : ""}`}
-                  >
-                    <td className="py-3 px-4 text-gray-500 font-mono font-light">
-                      {item.timestamp}
-                    </td>
-                    <td
-                      className="py-3 px-4 text-gray-400 font-light cursor-pointer hover:text-[#4a6fa5] transition-colors"
-                      onClick={() => onWalletClick(item.wallet)}
-                    >
-                      {item.walletLabel || item.wallet}
-                    </td>
-                    <td className="py-3 px-4 max-w-[180px] truncate font-light">
-                      {onMarketClick && item.marketId ? (
-                        <button
-                          onClick={() => onMarketClick(item.marketId!)}
-                          className="text-gray-300 hover:text-[#4a6fa5] transition-colors text-left truncate w-full"
-                        >
-                          {item.market}
-                        </button>
-                      ) : (
-                        <span className="text-gray-300">{item.market}</span>
-                      )}
-                    </td>
-                    <td className="py-3 px-4">
-                      <span
-                        className={`font-normal ${
-                          item.action === "buy" ? "text-green-500" : "text-red-500"
-                        }`}
-                      >
-                        {item.action.toUpperCase()}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4">
-                      <span
-                        className={`font-normal px-2 py-0.5 rounded ${
-                          item.contractType === "Yes" 
-                            ? "bg-green-500/10 text-green-400" 
-                            : "bg-red-500/10 text-red-400"
-                        }`}
-                      >
-                        {item.contractType}
-                      </span>
-                    </td>
-                    <td className="py-3 px-4 text-right text-gray-300 font-light">{item.size}</td>
-                    <td className="py-3 px-4 text-right text-gray-400 font-light">{item.positionPercent}%</td>
+            <div className="overflow-x-auto">
+              <table className="w-full text-[13px] min-w-[600px]">
+                <thead>
+                  <tr className="border-b border-gray-800/50 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
+                    <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-light tracking-wide uppercase text-[11px] sm:text-xs">Time</th>
+                    <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-light tracking-wide uppercase text-[11px] sm:text-xs">Wallet</th>
+                    <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-light tracking-wide uppercase text-[11px] sm:text-xs">Market</th>
+                    <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-light tracking-wide uppercase text-[11px] sm:text-xs">Action</th>
+                    <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-light tracking-wide uppercase text-[11px] sm:text-xs">Type</th>
+                    <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-light tracking-wide uppercase text-[11px] sm:text-xs">Size</th>
+                    <th className="text-right py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-light tracking-wide uppercase text-[11px] sm:text-xs">Pos%</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {feedItems.map((item, index) => (
+                    <tr
+                      key={item.id}
+                      className={`border-b border-gray-800/30 hover:bg-gradient-to-r hover:from-[#111111] hover:to-transparent transition-all duration-150 ${index === feedItems.length - 1 ? "border-b-0" : ""
+                        } ${index === 0 ? "animate-fade-in" : ""}`}
+                    >
+                      <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-mono font-light text-xs sm:text-sm">
+                        {item.timestamp}
+                      </td>
+                      <td
+                        className="py-2.5 sm:py-3 px-3 sm:px-4 text-gray-400 font-light cursor-pointer hover:text-[#4a6fa5] transition-colors text-xs sm:text-sm"
+                        onClick={() => onWalletClick(item.wallet)}
+                      >
+                        {item.walletLabel || item.wallet}
+                      </td>
+                      <td className="py-2.5 sm:py-3 px-3 sm:px-4 max-w-[120px] sm:max-w-[180px] truncate font-light text-xs sm:text-sm">
+                        {onMarketClick && item.marketId ? (
+                          <button
+                            onClick={() => onMarketClick(item.marketId!)}
+                            className="text-gray-300 hover:text-[#4a6fa5] transition-colors text-left truncate w-full"
+                          >
+                            {item.market}
+                          </button>
+                        ) : (
+                          <span className="text-gray-300">{item.market}</span>
+                        )}
+                      </td>
+                      <td className="py-2.5 sm:py-3 px-3 sm:px-4">
+                        <span
+                          className={`font-normal text-xs sm:text-sm ${item.action === "buy" ? "text-green-500" : "text-red-500"
+                            }`}
+                        >
+                          {item.action.toUpperCase()}
+                        </span>
+                      </td>
+                      <td className="py-2.5 sm:py-3 px-3 sm:px-4">
+                        <span
+                          className={`font-normal px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-xs ${item.contractType === "Yes"
+                              ? "bg-green-500/10 text-green-400"
+                              : "bg-red-500/10 text-red-400"
+                            }`}
+                        >
+                          {item.contractType}
+                        </span>
+                      </td>
+                      <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-right text-gray-300 font-light text-xs sm:text-sm">{item.size}</td>
+                      <td className="py-2.5 sm:py-3 px-3 sm:px-4 text-right text-gray-400 font-light text-xs sm:text-sm">{item.positionPercent}%</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           </div>
         </div>
       </div>

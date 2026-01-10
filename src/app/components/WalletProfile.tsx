@@ -182,27 +182,27 @@ export function WalletProfile({ walletAddress, onClose }: WalletProfileProps) {
         <h3 className="text-lg font-light tracking-tight text-gray-300 mb-4 uppercase">
           Trade History
         </h3>
-        <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl overflow-hidden shadow-xl shadow-black/20">
-          <table className="w-full text-xs">
+        <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl overflow-hidden shadow-xl shadow-black/20 overflow-x-auto">
+          <table className="w-full text-xs min-w-[550px]">
             <thead>
               <tr className="border-b border-gray-800/50 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
-                <th className="text-left py-4 px-5 text-gray-500 font-light tracking-wide uppercase">
-                  Timestamp
+                <th className="text-left py-3 sm:py-4 px-3 sm:px-5 text-gray-500 font-light tracking-wide uppercase text-[10px] sm:text-xs">
+                  Time
                 </th>
-                <th className="text-left py-4 px-5 text-gray-500 font-light tracking-wide uppercase">
+                <th className="text-left py-3 sm:py-4 px-3 sm:px-5 text-gray-500 font-light tracking-wide uppercase text-[10px] sm:text-xs">
                   Market
                 </th>
-                <th className="text-left py-4 px-5 text-gray-500 font-light tracking-wide uppercase">
+                <th className="text-left py-3 sm:py-4 px-3 sm:px-5 text-gray-500 font-light tracking-wide uppercase text-[10px] sm:text-xs">
                   Side
                 </th>
-                <th className="text-right py-4 px-5 text-gray-500 font-light tracking-wide uppercase">
+                <th className="text-right py-3 sm:py-4 px-3 sm:px-5 text-gray-500 font-light tracking-wide uppercase text-[10px] sm:text-xs">
                   Size
                 </th>
-                <th className="text-right py-4 px-5 text-gray-500 font-light tracking-wide uppercase">
+                <th className="text-right py-3 sm:py-4 px-3 sm:px-5 text-gray-500 font-light tracking-wide uppercase text-[10px] sm:text-xs">
                   Price
                 </th>
-                <th className="text-left py-4 px-5 text-gray-500 font-light tracking-wide uppercase">
-                  Outcome
+                <th className="text-left py-3 sm:py-4 px-3 sm:px-5 text-gray-500 font-light tracking-wide uppercase text-[10px] sm:text-xs">
+                  Result
                 </th>
               </tr>
             </thead>
@@ -210,32 +210,30 @@ export function WalletProfile({ walletAddress, onClose }: WalletProfileProps) {
               {tradeHistory.map((trade, index) => (
                 <tr
                   key={index}
-                  className={`border-b border-gray-800/30 hover:bg-gradient-to-r hover:from-[#111111] hover:to-transparent transition-all duration-150 ${
-                    index === tradeHistory.length - 1 ? "border-b-0" : ""
-                  }`}
+                  className={`border-b border-gray-800/30 hover:bg-gradient-to-r hover:from-[#111111] hover:to-transparent transition-all duration-150 ${index === tradeHistory.length - 1 ? "border-b-0" : ""
+                    }`}
                 >
-                  <td className="py-3.5 px-5 text-gray-500 font-mono font-light">
+                  <td className="py-2.5 sm:py-3.5 px-3 sm:px-5 text-gray-500 font-mono font-light text-[10px] sm:text-xs">
                     {trade.timestamp}
                   </td>
-                  <td className="py-3.5 px-5 text-gray-300 max-w-[400px] truncate font-light">
+                  <td className="py-2.5 sm:py-3.5 px-3 sm:px-5 text-gray-300 max-w-[150px] sm:max-w-[400px] truncate font-light text-[10px] sm:text-xs">
                     {trade.market}
                   </td>
-                  <td className="py-3.5 px-5">
+                  <td className="py-2.5 sm:py-3.5 px-3 sm:px-5">
                     <span
-                      className={`font-normal ${
-                        trade.side === "YES" ? "text-green-500" : "text-red-500"
-                      }`}
+                      className={`font-normal text-[10px] sm:text-xs ${trade.side === "YES" ? "text-green-500" : "text-red-500"
+                        }`}
                     >
                       {trade.side}
                     </span>
                   </td>
-                  <td className="py-3.5 px-5 text-right text-gray-300 font-light">
+                  <td className="py-2.5 sm:py-3.5 px-3 sm:px-5 text-right text-gray-300 font-light text-[10px] sm:text-xs">
                     {trade.size}
                   </td>
-                  <td className="py-3.5 px-5 text-right text-gray-400 font-light">
+                  <td className="py-2.5 sm:py-3.5 px-3 sm:px-5 text-right text-gray-400 font-light text-[10px] sm:text-xs">
                     {trade.price}
                   </td>
-                  <td className="py-3.5 px-5 text-gray-400 font-light">{trade.outcome}</td>
+                  <td className="py-2.5 sm:py-3.5 px-3 sm:px-5 text-gray-400 font-light text-[10px] sm:text-xs">{trade.outcome}</td>
                 </tr>
               ))}
             </tbody>

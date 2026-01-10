@@ -145,7 +145,7 @@ function UserAuthSection({ onLoginClick }: { onLoginClick: () => void }) {
     if (user.authMethod !== "wallet") {
       return formatBalance(user.balance / 100, false); // Email/Google users - stored in cents
     }
-    
+
     const cryptoSymbol = getCryptoSymbol();
     if (showInUsd && solPrice && cryptoSymbol === "SOL") {
       const usdValue = getUsdValue();
@@ -156,38 +156,38 @@ function UserAuthSection({ onLoginClick }: { onLoginClick: () => void }) {
 
   return (
     <>
-      {/* Balance Display with Toggle */}
-      <div className="flex items-center gap-2">
-        <div className="text-[15px] font-light text-gray-300">
+      {/* Balance Display with Toggle - hidden on very small screens */}
+      <div className="hidden md:flex items-center gap-2">
+        <div className="text-xs lg:text-[15px] font-light text-gray-300">
           <span className="text-gray-500">Balance:</span>{" "}
           <span className="text-gray-100 font-normal">{getBalanceDisplay()}</span>
         </div>
         {user.authMethod === "wallet" && getCryptoSymbol() === "SOL" && (
           <button
             onClick={() => setShowInUsd(!showInUsd)}
-            className="px-2 py-0.5 text-[10px] font-medium rounded bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors border border-gray-700"
+            className="px-1.5 lg:px-2 py-0.5 text-[9px] lg:text-[10px] font-medium rounded bg-gray-800 hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors border border-gray-700"
             title={showInUsd ? "Show in SOL" : "Show in USD"}
           >
             {showInUsd ? "SOL" : "USD"}
           </button>
         )}
       </div>
-      
+
       {/* User Menu */}
       <div className="relative">
         <button
           onClick={() => setShowUserMenu(!showUserMenu)}
-          className="flex items-center gap-2 px-3 py-1.5 bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 rounded-lg hover:border-gray-600/50 transition-colors"
+          className="flex items-center gap-1.5 lg:gap-2 px-2 lg:px-3 py-1 lg:py-1.5 bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 rounded-lg hover:border-gray-600/50 transition-colors"
         >
-          <div className="w-6 h-6 rounded-full bg-gradient-to-br from-[#4a6fa5] to-[#3a5f95] flex items-center justify-center">
-            <User className="w-4 h-4 text-white" />
+          <div className="w-5 h-5 lg:w-6 lg:h-6 rounded-full bg-gradient-to-br from-[#4a6fa5] to-[#3a5f95] flex items-center justify-center">
+            <User className="w-3 h-3 lg:w-4 lg:h-4 text-white" />
           </div>
-          <span className="text-[14px] text-gray-300 font-light max-w-[100px] truncate">
+          <span className="text-xs lg:text-[14px] text-gray-300 font-light max-w-[60px] lg:max-w-[100px] truncate hidden sm:block">
             {user.displayName}
           </span>
-          <ChevronDown className={`w-4 h-4 text-gray-500 transition-transform ${showUserMenu ? "rotate-180" : ""}`} />
+          <ChevronDown className={`w-3 h-3 lg:w-4 lg:h-4 text-gray-500 transition-transform ${showUserMenu ? "rotate-180" : ""}`} />
         </button>
-        
+
         {showUserMenu && (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
@@ -217,7 +217,7 @@ function UserAuthSection({ onLoginClick }: { onLoginClick: () => void }) {
                   </div>
                   {user.authMethod === "wallet" && getCryptoSymbol() === "SOL" && solPrice && (
                     <div className="text-xs text-gray-500 mt-1">
-                      {showInUsd 
+                      {showInUsd
                         ? `≈ ${formatBalance(user.balance, true)} SOL`
                         : `≈ ${formatBalance(user.balance * solPrice, false)}`
                       }
@@ -225,7 +225,7 @@ function UserAuthSection({ onLoginClick }: { onLoginClick: () => void }) {
                   )}
                 </div>
               </div>
-              
+
               {user.authMethod === "wallet" && (
                 <button
                   onClick={() => {
@@ -238,7 +238,7 @@ function UserAuthSection({ onLoginClick }: { onLoginClick: () => void }) {
                   Refresh Balance
                 </button>
               )}
-              
+
               <button
                 onClick={() => {
                   logout();
@@ -264,7 +264,7 @@ interface AppContentProps {
 
 function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
   const { login } = useAuth();
-  
+
   // Navigation history state - tracks where user came from for proper back navigation
   interface NavigationState {
     page: Page;
@@ -272,9 +272,9 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
     marketData: SelectedMarketData | null;
     walletAddress: string | null;
   }
-  
+
   const [navigationHistory, setNavigationHistory] = useState<NavigationState[]>([]);
-  
+
   // Load saved page from localStorage, default to "discover"
   const [currentPage, setCurrentPage] = useState<Page>(() => {
     try {
@@ -287,7 +287,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
     }
     return "discover";
   });
-  
+
   const [selectedWalletAddress, setSelectedWalletAddress] = useState<string | null>(() => {
     try {
       return localStorage.getItem("paragon_selected_wallet");
@@ -295,7 +295,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
       return null;
     }
   });
-  
+
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(() => {
     try {
       return localStorage.getItem("paragon_selected_market_id");
@@ -303,7 +303,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
       return null;
     }
   });
-  
+
   const [selectedMarketData, setSelectedMarketData] = useState<SelectedMarketData | null>(() => {
     try {
       const saved = localStorage.getItem("paragon_selected_market_data");
@@ -315,7 +315,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
     }
     return null;
   });
-  
+
   const [bookmarkedMarkets, setBookmarkedMarkets] = useState<BookmarkedMarket[]>([]);
 
   // Push current state to navigation history before navigating
@@ -342,17 +342,17 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
         setSelectedMarketData(null);
         return prev;
       }
-      
+
       const newHistory = [...prev];
       const previousState = newHistory.pop();
-      
+
       if (previousState) {
         setCurrentPage(previousState.page);
         setSelectedMarketId(previousState.marketId);
         setSelectedMarketData(previousState.marketData);
         setSelectedWalletAddress(previousState.walletAddress);
       }
-      
+
       return newHistory;
     });
   }, []);
@@ -410,7 +410,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
     const handlePopState = () => {
       goBack();
     };
-    
+
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, [goBack]);
@@ -424,7 +424,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
   const [allMarketsCache, setAllMarketsCache] = useState<DisplayMarket[]>([]);
   const [isLoadingAllMarkets, setIsLoadingAllMarkets] = useState(false);
   const [searchResultsQuery, setSearchResultsQuery] = useState("");
-  
+
   const searchRef = useRef<HTMLDivElement>(null);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -454,7 +454,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
             return;
           }
         }
-        
+
         // Fetch fresh data from API
         await fetchAndCacheMarkets();
       } catch (e) {
@@ -463,7 +463,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
         setIsLoadingAllMarkets(false);
       }
     };
-    
+
     const fetchAndCacheMarkets = async () => {
       const markets = await getAllActiveMarkets();
       if (markets && markets.length > 0) {
@@ -475,7 +475,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
         console.log(`Fetched ${markets.length} markets from API for search`);
       }
     };
-    
+
     const refreshMarketsInBackground = async () => {
       try {
         const markets = await getAllActiveMarkets();
@@ -491,7 +491,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
         // Silent fail for background refresh
       }
     };
-    
+
     loadAllMarkets();
   }, []);
 
@@ -533,7 +533,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
       setIsSearching(false);
       return;
     }
-    
+
     // PRIORITY 1: Use instant search from global cache (sub-millisecond)
     const instantResults = instantSearch(query, 50);
     if (instantResults.length > 0) {
@@ -552,11 +552,11 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
       setIsSearching(false);
       return;
     }
-    
+
     // Fallback: search through local cache
     const lowerQuery = query.toLowerCase().trim();
     const queryWords = lowerQuery.split(/\s+/).filter(w => w.length > 1);
-    
+
     const localResults = allMarketsCache
       .filter(market => {
         const name = (market.name || market.title || "").toLowerCase();
@@ -575,12 +575,12 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
       })
       .sort((a: any, b: any) => b._score - a._score)
       .slice(0, 30);
-    
+
     // Show local results immediately
     if (localResults.length > 0) {
       setSearchResults(localResults);
     }
-    
+
     // API fallback for comprehensive results
     try {
       const apiResults = await searchMarkets(query, 50);
@@ -598,12 +598,12 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
             image: m.image || null,
             _score: 50, // Base score for API results
           }));
-        
+
         // Merge and sort by score
         const combinedResults = [...localResults, ...newApiResults]
           .sort((a: any, b: any) => (b._score || 0) - (a._score || 0))
           .slice(0, 30);
-        
+
         setSearchResults(combinedResults);
         console.log(`Combined search: ${localResults.length} local + ${newApiResults.length} API = ${combinedResults.length} results`);
       } else if (localResults.length === 0) {
@@ -621,7 +621,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
     if (searchDebounceRef.current) {
       clearTimeout(searchDebounceRef.current);
     }
-    
+
     if (searchQuery.trim()) {
       setIsSearching(true);
       searchDebounceRef.current = setTimeout(() => {
@@ -631,7 +631,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
       setSearchResults([]);
       setIsSearching(false);
     }
-    
+
     return () => {
       if (searchDebounceRef.current) {
         clearTimeout(searchDebounceRef.current);
@@ -648,7 +648,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
       volume: market.volume || "$0",
       timestamp: Date.now(),
     };
-    
+
     setSearchHistory(prev => {
       const filtered = prev.filter(item => item.id !== market.id);
       const newHistory = [historyItem, ...filtered].slice(0, 5);
@@ -752,23 +752,23 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
   };
 
   return (
-    <div className="dark min-h-screen bg-[#0a0a0a] text-gray-100 font-['Inter']">
+    <div className="dark min-h-screen bg-[#0a0a0a] text-gray-100 font-['Inter'] overflow-x-hidden">
       {/* Top Navigation */}
       <header className="border-b border-gray-800/50 bg-gradient-to-b from-[#0d0d0d] to-[#0a0a0a]">
-        <nav className="flex items-center h-16 px-8">
-          <div className="flex items-center gap-12">
+        <nav className="flex items-center h-16 px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center gap-4 lg:gap-8 xl:gap-12 flex-shrink-0">
             <button
               onClick={() => {
                 setCurrentPage("discover");
                 setSelectedWalletAddress(null);
                 setSelectedMarketId(null);
               }}
-              className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+              className="flex items-center gap-2 lg:gap-3 hover:opacity-80 transition-opacity flex-shrink-0"
             >
-              <img src={paragonLogo} alt="Paragon" className="h-10 w-10 object-contain" />
-              <div className="text-[22px] font-light tracking-tight text-gray-100">PARAGON</div>
+              <img src={paragonLogo} alt="Paragon" className="h-8 w-8 lg:h-10 lg:w-10 object-contain" />
+              <div className="text-lg lg:text-[22px] font-light tracking-tight text-gray-100 hidden sm:block">PARAGON</div>
             </button>
-            <div className="flex items-center gap-8">
+            <div className="flex items-center gap-2 sm:gap-4 lg:gap-6 xl:gap-8">
               <button
                 onClick={() => {
                   setCurrentPage("discover");
@@ -777,19 +777,16 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                 }}
                 className="relative group py-5"
               >
-                <span className={`text-[16px] font-light tracking-wide transition-all ${
-                  currentPage === "discover" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
-                }`}>
+                <span className={`text-xs sm:text-sm lg:text-[16px] font-light tracking-wide transition-all ${currentPage === "discover" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
+                  }`}>
                   DISCOVER
                 </span>
                 {/* Active/Hover indicator with animated stretching bar and triangle */}
-                <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${
-                  currentPage === "discover" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
-                }`}>
+                <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "discover" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
+                  }`}>
                   <div className="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-white" />
-                  <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${
-                    currentPage === "discover" ? "w-full" : "w-0 group-hover:w-full"
-                  }`} style={{ marginTop: "-1px" }} />
+                  <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "discover" ? "w-full" : "w-0 group-hover:w-full"
+                    }`} style={{ marginTop: "-1px" }} />
                 </div>
               </button>
               <button
@@ -800,18 +797,15 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                 }}
                 className="relative group py-5"
               >
-                <span className={`text-[16px] font-light tracking-wide transition-all ${
-                  currentPage === "markets" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
-                }`}>
+                <span className={`text-xs sm:text-sm lg:text-[16px] font-light tracking-wide transition-all ${currentPage === "markets" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
+                  }`}>
                   MARKETS
                 </span>
-                <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${
-                  currentPage === "markets" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
-                }`}>
+                <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "markets" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
+                  }`}>
                   <div className="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-white" />
-                  <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${
-                    currentPage === "markets" ? "w-full" : "w-0 group-hover:w-full"
-                  }`} style={{ marginTop: "-1px" }} />
+                  <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "markets" ? "w-full" : "w-0 group-hover:w-full"
+                    }`} style={{ marginTop: "-1px" }} />
                 </div>
               </button>
               <button
@@ -822,18 +816,15 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                 }}
                 className="relative group py-5"
               >
-                <span className={`text-[16px] font-light tracking-wide transition-all ${
-                  currentPage === "insiderlens" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
-                }`}>
-                  INSIDERLENS
+                <span className={`text-xs sm:text-sm lg:text-[16px] font-light tracking-wide transition-all ${currentPage === "insiderlens" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
+                  }`}>
+                  INSIDER
                 </span>
-                <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${
-                  currentPage === "insiderlens" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
-                }`}>
+                <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "insiderlens" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
+                  }`}>
                   <div className="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-white" />
-                  <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${
-                    currentPage === "insiderlens" ? "w-full" : "w-0 group-hover:w-full"
-                  }`} style={{ marginTop: "-1px" }} />
+                  <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "insiderlens" ? "w-full" : "w-0 group-hover:w-full"
+                    }`} style={{ marginTop: "-1px" }} />
                 </div>
               </button>
               <button
@@ -844,18 +835,15 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                 }}
                 className="relative group py-5"
               >
-                <span className={`text-[16px] font-light tracking-wide transition-all ${
-                  currentPage === "wallets" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
-                }`}>
+                <span className={`text-xs sm:text-sm lg:text-[16px] font-light tracking-wide transition-all ${currentPage === "wallets" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
+                  }`}>
                   WALLETS
                 </span>
-                <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${
-                  currentPage === "wallets" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
-                }`}>
+                <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "wallets" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
+                  }`}>
                   <div className="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-white" />
-                  <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${
-                    currentPage === "wallets" ? "w-full" : "w-0 group-hover:w-full"
-                  }`} style={{ marginTop: "-1px" }} />
+                  <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "wallets" ? "w-full" : "w-0 group-hover:w-full"
+                    }`} style={{ marginTop: "-1px" }} />
                 </div>
               </button>
               <button
@@ -866,18 +854,15 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                 }}
                 className="relative group py-5"
               >
-                <span className={`text-[16px] font-light tracking-wide transition-all ${
-                  currentPage === "tradeflow" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
-                }`}>
-                  TRADEFLOW
+                <span className={`text-xs sm:text-sm lg:text-[16px] font-light tracking-wide transition-all ${currentPage === "tradeflow" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
+                  }`}>
+                  TRADE
                 </span>
-                <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${
-                  currentPage === "tradeflow" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
-                }`}>
+                <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "tradeflow" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
+                  }`}>
                   <div className="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-white" />
-                  <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${
-                    currentPage === "tradeflow" ? "w-full" : "w-0 group-hover:w-full"
-                  }`} style={{ marginTop: "-1px" }} />
+                  <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "tradeflow" ? "w-full" : "w-0 group-hover:w-full"
+                    }`} style={{ marginTop: "-1px" }} />
                 </div>
               </button>
               <button
@@ -888,26 +873,23 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                 }}
                 className="relative group py-5"
               >
-                <span className={`text-[16px] font-light tracking-wide transition-all ${
-                  currentPage === "portfolio" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
-                }`}>
-                  PORTFOLIO
+                <span className={`text-xs sm:text-sm lg:text-[16px] font-light tracking-wide transition-all ${currentPage === "portfolio" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
+                  }`}>
+                  FOLIO
                 </span>
-                <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${
-                  currentPage === "portfolio" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
-                }`}>
+                <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "portfolio" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
+                  }`}>
                   <div className="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-white" />
-                  <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${
-                    currentPage === "portfolio" ? "w-full" : "w-0 group-hover:w-full"
-                  }`} style={{ marginTop: "-1px" }} />
+                  <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "portfolio" ? "w-full" : "w-0 group-hover:w-full"
+                    }`} style={{ marginTop: "-1px" }} />
                 </div>
               </button>
             </div>
           </div>
-          <div className="ml-auto flex items-center gap-6">
+          <div className="ml-auto flex items-center gap-2 sm:gap-3 lg:gap-6 flex-shrink-0">
             {/* Search Bar */}
             <div ref={searchRef} className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500 z-10" />
+              <Search className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-500 z-10" />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -915,12 +897,11 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 onFocus={() => setIsSearchFocused(true)}
                 onKeyDown={handleSearchKeyDown}
-                placeholder="Search markets..."
-                className={`w-[400px] bg-[#0d0d0d] border border-gray-800/50 pl-10 pr-10 py-2 text-[14px] text-gray-200 placeholder-gray-500 focus:outline-none focus:border-gray-600/50 transition-all ${
-                  isSearchFocused && (searchHistory.length > 0 || searchQuery.trim() || isSearching) 
-                    ? "rounded-t-lg rounded-b-none border-b-transparent" 
+                placeholder="Search..."
+                className={`w-[120px] sm:w-[200px] md:w-[280px] lg:w-[350px] xl:w-[400px] bg-[#0d0d0d] border border-gray-800/50 pl-7 sm:pl-10 pr-7 sm:pr-10 py-1.5 sm:py-2 text-xs sm:text-[14px] text-gray-200 placeholder-gray-500 focus:outline-none focus:border-gray-600/50 transition-all ${isSearchFocused && (searchHistory.length > 0 || searchQuery.trim() || isSearching)
+                    ? "rounded-t-lg rounded-b-none border-b-transparent"
                     : "rounded-lg"
-                }`}
+                  }`}
               />
               {searchQuery && (
                 <button
@@ -929,15 +910,15 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                     setSearchResults([]);
                     searchInputRef.current?.focus();
                   }}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors z-10"
+                  className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors z-10"
                 >
-                  <X className="w-4 h-4" />
+                  <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
                 </button>
               )}
-              
+
               {/* Search Dropdown */}
               {isSearchFocused && (searchHistory.length > 0 || searchQuery.trim() || isSearching) && (
-                <div className="absolute top-full left-0 right-0 bg-[#0d0d0d] border border-gray-800/50 border-t-0 rounded-b-lg shadow-xl shadow-black/30 z-50 max-h-[400px] overflow-y-auto">
+                <div className="absolute top-full left-0 right-0 bg-[#0d0d0d] border border-gray-800/50 border-t-0 rounded-b-lg shadow-xl shadow-black/30 z-50 max-h-[300px] sm:max-h-[400px] overflow-y-auto">
                   {/* History */}
                   {!searchQuery.trim() && searchHistory.length > 0 && (
                     <div>
@@ -974,7 +955,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                       ))}
                     </div>
                   )}
-                  
+
                   {/* Loading */}
                   {searchQuery.trim() && isSearching && (
                     <div className="px-4 py-6 text-center">
@@ -982,7 +963,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                       <p className="text-[14px] text-gray-400">Searching markets...</p>
                     </div>
                   )}
-                  
+
                   {/* Results */}
                   {searchQuery.trim() && !isSearching && searchResults.length > 0 && (
                     <div>
@@ -1019,16 +1000,15 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                             className="text-gray-500 hover:text-[#4a6fa5] transition-all"
                           >
                             <Bookmark
-                              className={`w-3.5 h-3.5 ${
-                                isBookmarked(market.id) ? "fill-current text-[#4a6fa5]" : ""
-                              }`}
+                              className={`w-3.5 h-3.5 ${isBookmarked(market.id) ? "fill-current text-[#4a6fa5]" : ""
+                                }`}
                             />
                           </button>
                         </div>
                       ))}
                     </div>
                   )}
-                  
+
                   {/* No results */}
                   {searchQuery.trim() && !isSearching && searchResults.length === 0 && (
                     <div className="px-4 py-8 text-center">
@@ -1040,19 +1020,19 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                 </div>
               )}
             </div>
-            
+
             {/* X (Twitter) Logo - moved between search and balance */}
             <a
               href="https://x.com/ParagonAnalyst"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-white hover:text-gray-300 transition-colors"
+              className="text-white hover:text-gray-300 transition-colors hidden sm:block"
             >
-              <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
+              <svg className="w-4 h-4 lg:w-5 lg:h-5" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
               </svg>
             </a>
-            
+
             <UserAuthSection onLoginClick={() => setShowLoginPage(true)} />
           </div>
         </nav>
@@ -1068,7 +1048,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
       />
 
       {/* Main Content */}
-      <main className="p-8">
+      <main className="p-3 sm:p-4 md:p-6 lg:p-8">
         {selectedWalletAddress ? (
           <WalletProfile walletAddress={selectedWalletAddress} onClose={() => {
             // Go back properly instead of just closing
@@ -1077,8 +1057,8 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
         ) : (
           <>
             {currentPage === "discover" && (
-              <Discover 
-                toggleBookmark={toggleBookmark} 
+              <Discover
+                toggleBookmark={toggleBookmark}
                 isBookmarked={isBookmarked}
                 onWalletClick={openWalletProfile}
                 onMarketClick={(market) => {
@@ -1102,8 +1082,8 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
               />
             )}
             {currentPage === "markets" && (
-              <Markets 
-                toggleBookmark={toggleBookmark} 
+              <Markets
+                toggleBookmark={toggleBookmark}
                 isBookmarked={isBookmarked}
                 onWalletClick={openWalletProfile}
                 onBack={goBack}
