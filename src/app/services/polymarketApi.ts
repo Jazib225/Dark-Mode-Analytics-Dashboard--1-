@@ -1394,7 +1394,7 @@ function getFidelityForInterval(interval: ClobInterval): number {
  */
 function formatTimeForInterval(timestamp: number, interval: ClobInterval): string {
   const date = new Date(timestamp * 1000); // CLOB uses Unix seconds
-  
+
   switch (interval) {
     case '1h':
     case '6h':
@@ -1430,7 +1430,7 @@ export async function getClobPriceHistory(
 
   const cacheKey = `${tokenId}_${interval}`;
   const cacheDuration = PRICE_HISTORY_CACHE_DURATIONS[interval] || 60000;
-  
+
   // Check cache first
   const cached = clobPriceHistoryCache.get(cacheKey);
   if (cached && Date.now() - cached.timestamp < cacheDuration) {
@@ -1455,7 +1455,7 @@ export async function getClobPriceHistory(
     }
 
     const data: ClobHistoryResponse = await response.json();
-    
+
     if (!data.history || !Array.isArray(data.history) || data.history.length === 0) {
       console.warn(`[PriceHistory] No history data returned for ${tokenId}`);
       return cached?.data || [];
@@ -1475,7 +1475,7 @@ export async function getClobPriceHistory(
 
     // Cache the result
     clobPriceHistoryCache.set(cacheKey, { data: result, timestamp: Date.now() });
-    
+
     console.log(`[PriceHistory] Got ${result.length} points for ${tokenId} (${interval})`);
     return result;
   } catch (error) {
@@ -1518,7 +1518,7 @@ export async function getMarketPriceHistory(
       'all': 'max',
       'max': 'max'
     };
-    
+
     const clobInterval = intervalMap[interval] || '1d';
 
     // First, check if we already have the market data cached with clobTokenIds
