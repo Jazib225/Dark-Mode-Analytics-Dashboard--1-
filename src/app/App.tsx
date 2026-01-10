@@ -119,7 +119,7 @@ function UserAuthSection({ onLoginClick }: { onLoginClick: () => void }) {
     return (
       <button
         onClick={onLoginClick}
-        className="px-4 py-2 bg-[#4a6fa5] text-white text-sm font-medium rounded-lg hover:bg-[#5a7fb5] transition-colors"
+        className="px-2 py-1 sm:px-3 sm:py-1.5 lg:px-4 lg:py-2 bg-[#4a6fa5] text-white text-[10px] sm:text-xs lg:text-sm font-medium rounded-lg hover:bg-[#5a7fb5] transition-colors whitespace-nowrap flex-shrink-0"
       >
         Login
       </button>
@@ -157,8 +157,8 @@ function UserAuthSection({ onLoginClick }: { onLoginClick: () => void }) {
 
   return (
     <>
-      {/* Balance Display with Toggle - hidden on very small screens */}
-      <div className="hidden md:flex items-center gap-2">
+      {/* Balance Display with Toggle - hidden on mobile */}
+      <div className="hidden lg:flex items-center gap-2">
         <div className="text-xs lg:text-[15px] font-light text-gray-300">
           <span className="text-gray-500">Balance:</span>{" "}
           <span className="text-gray-100 font-normal">{getBalanceDisplay()}</span>
@@ -174,19 +174,19 @@ function UserAuthSection({ onLoginClick }: { onLoginClick: () => void }) {
         )}
       </div>
 
-      {/* User Menu */}
+      {/* User Menu - compact on mobile */}
       <div className="relative">
         <button
           onClick={() => setShowUserMenu(!showUserMenu)}
-          className="flex items-center gap-1.5 lg:gap-2 px-2 lg:px-3 py-1 lg:py-1.5 bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 rounded-lg hover:border-gray-600/50 transition-colors"
+          className="flex items-center gap-1 sm:gap-1.5 lg:gap-2 px-1.5 sm:px-2 lg:px-3 py-0.5 sm:py-1 lg:py-1.5 bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 rounded-lg hover:border-gray-600/50 transition-colors"
         >
-          <div className="w-5 h-5 lg:w-6 lg:h-6 rounded-full bg-gradient-to-br from-[#4a6fa5] to-[#3a5f95] flex items-center justify-center">
-            <User className="w-3 h-3 lg:w-4 lg:h-4 text-white" />
+          <div className="w-4 h-4 sm:w-5 sm:h-5 lg:w-6 lg:h-6 rounded-full bg-gradient-to-br from-[#4a6fa5] to-[#3a5f95] flex items-center justify-center">
+            <User className="w-2.5 h-2.5 sm:w-3 sm:h-3 lg:w-4 lg:h-4 text-white" />
           </div>
-          <span className="text-xs lg:text-[14px] text-gray-300 font-light max-w-[60px] lg:max-w-[100px] truncate hidden sm:block">
+          <span className="text-[10px] sm:text-xs lg:text-[14px] text-gray-300 font-light max-w-[40px] sm:max-w-[60px] lg:max-w-[100px] truncate hidden sm:block">
             {user.displayName}
           </span>
-          <ChevronDown className={`w-3 h-3 lg:w-4 lg:h-4 text-gray-500 transition-transform ${showUserMenu ? "rotate-180" : ""}`} />
+          <ChevronDown className={`w-2.5 h-2.5 sm:w-3 sm:h-3 lg:w-4 lg:h-4 text-gray-500 transition-transform ${showUserMenu ? "rotate-180" : ""}`} />
         </button>
 
         {showUserMenu && (
@@ -756,18 +756,18 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
     <div className="dark min-h-screen bg-[#0a0a0a] text-gray-100 font-['Inter'] overflow-x-hidden app-container">
       {/* Sticky Header - Uses CSS variable for height */}
       <header className="site-header border-b border-gray-800/50 bg-gradient-to-b from-[#0d0d0d] to-[#0a0a0a]">
-        <nav className="header-nav flex items-center h-full px-3 sm:px-4 lg:px-6">
-          <div className="flex items-center gap-2 sm:gap-4 lg:gap-6 xl:gap-8 flex-shrink-0">
+        <nav className="header-nav flex items-center h-full px-2 sm:px-3 lg:px-6">
+          <div className="flex items-center gap-1 sm:gap-2 lg:gap-6 xl:gap-8 flex-shrink-0">
             <button
               onClick={() => {
                 setCurrentPage("discover");
                 setSelectedWalletAddress(null);
                 setSelectedMarketId(null);
               }}
-              className="flex items-center gap-1.5 sm:gap-2 lg:gap-3 hover:opacity-80 transition-opacity flex-shrink-0"
+              className="flex items-center gap-1 sm:gap-2 hover:opacity-80 transition-opacity flex-shrink-0"
             >
-              <img src={paragonLogo} alt="Paragon" className="h-6 w-6 sm:h-8 sm:w-8 lg:h-9 lg:w-9 object-contain" />
-              <div className="text-sm sm:text-base lg:text-lg xl:text-[20px] font-light tracking-tight text-gray-100 hidden sm:block">PARAGON</div>
+              <img src={paragonLogo} alt="Paragon" className="h-5 w-5 sm:h-7 sm:w-7 lg:h-9 lg:w-9 object-contain" />
+              <div className="text-xs sm:text-sm lg:text-lg xl:text-[20px] font-light tracking-tight text-gray-100 hidden sm:block">PARAGON</div>
             </button>
             {/* Navigation items with responsive sizing */}
             <div className="nav-items flex items-center">
@@ -777,17 +777,17 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                   setSelectedWalletAddress(null);
                   setSelectedMarketId(null);
                 }}
-                className="relative group py-3 sm:py-4 lg:py-5 px-1 sm:px-2"
+                className="relative group py-2 sm:py-3 lg:py-5 px-1 sm:px-2"
               >
-                <span className={`text-[10px] sm:text-xs md:text-sm lg:text-[15px] font-light tracking-wide transition-all whitespace-nowrap ${currentPage === "discover" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
+                <span className={`text-[8px] sm:text-[10px] md:text-xs lg:text-[15px] font-light tracking-wide transition-all whitespace-nowrap ${currentPage === "discover" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
                   }`}>
                   DISCOVER
                 </span>
                 {/* Active/Hover indicator with animated stretching bar and triangle */}
                 <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "discover" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
                   }`}>
-                  <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[4px] border-b-white sm:border-l-[5px] sm:border-r-[5px] sm:border-b-[5px]" />
-                  <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "discover" ? "w-full" : "w-0 group-hover:w-full"
+                  <div className="w-0 h-0 border-l-[3px] border-l-transparent border-r-[3px] border-r-transparent border-b-[3px] border-b-white sm:border-l-[4px] sm:border-r-[4px] sm:border-b-[4px]" />
+                  <div className={`h-[1px] sm:h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "discover" ? "w-full" : "w-0 group-hover:w-full"
                     }`} style={{ marginTop: "-1px" }} />
                 </div>
               </button>
@@ -797,16 +797,16 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                   setSelectedWalletAddress(null);
                   setSelectedMarketId(null);
                 }}
-                className="relative group py-3 sm:py-4 lg:py-5 px-1 sm:px-2"
+                className="relative group py-2 sm:py-3 lg:py-5 px-1 sm:px-2"
               >
-                <span className={`text-[10px] sm:text-xs md:text-sm lg:text-[15px] font-light tracking-wide transition-all whitespace-nowrap ${currentPage === "markets" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
+                <span className={`text-[8px] sm:text-[10px] md:text-xs lg:text-[15px] font-light tracking-wide transition-all whitespace-nowrap ${currentPage === "markets" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
                   }`}>
                   MARKETS
                 </span>
                 <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "markets" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
                   }`}>
-                  <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[4px] border-b-white sm:border-l-[5px] sm:border-r-[5px] sm:border-b-[5px]" />
-                  <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "markets" ? "w-full" : "w-0 group-hover:w-full"
+                  <div className="w-0 h-0 border-l-[3px] border-l-transparent border-r-[3px] border-r-transparent border-b-[3px] border-b-white sm:border-l-[4px] sm:border-r-[4px] sm:border-b-[4px]" />
+                  <div className={`h-[1px] sm:h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "markets" ? "w-full" : "w-0 group-hover:w-full"
                     }`} style={{ marginTop: "-1px" }} />
                 </div>
               </button>
@@ -816,16 +816,16 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                   setSelectedWalletAddress(null);
                   setSelectedMarketId(null);
                 }}
-                className="relative group py-3 sm:py-4 lg:py-5 px-1 sm:px-2"
+                className="relative group py-2 sm:py-3 lg:py-5 px-1 sm:px-2"
               >
-                <span className={`text-[10px] sm:text-xs md:text-sm lg:text-[15px] font-light tracking-wide transition-all whitespace-nowrap ${currentPage === "insiderlens" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
+                <span className={`text-[8px] sm:text-[10px] md:text-xs lg:text-[15px] font-light tracking-wide transition-all whitespace-nowrap ${currentPage === "insiderlens" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
                   }`}>
-                  INSIDERLENS
+                  INSIDER
                 </span>
                 <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "insiderlens" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
                   }`}>
-                  <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[4px] border-b-white sm:border-l-[5px] sm:border-r-[5px] sm:border-b-[5px]" />
-                  <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "insiderlens" ? "w-full" : "w-0 group-hover:w-full"
+                  <div className="w-0 h-0 border-l-[3px] border-l-transparent border-r-[3px] border-r-transparent border-b-[3px] border-b-white sm:border-l-[4px] sm:border-r-[4px] sm:border-b-[4px]" />
+                  <div className={`h-[1px] sm:h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "insiderlens" ? "w-full" : "w-0 group-hover:w-full"
                     }`} style={{ marginTop: "-1px" }} />
                 </div>
               </button>
@@ -835,16 +835,16 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                   setSelectedWalletAddress(null);
                   setSelectedMarketId(null);
                 }}
-                className="relative group py-3 sm:py-4 lg:py-5 px-1 sm:px-2"
+                className="relative group py-2 sm:py-3 lg:py-5 px-1 sm:px-2 hidden sm:block"
               >
-                <span className={`text-[10px] sm:text-xs md:text-sm lg:text-[15px] font-light tracking-wide transition-all whitespace-nowrap ${currentPage === "wallets" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
+                <span className={`text-[8px] sm:text-[10px] md:text-xs lg:text-[15px] font-light tracking-wide transition-all whitespace-nowrap ${currentPage === "wallets" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
                   }`}>
                   WALLETS
                 </span>
                 <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "wallets" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
                   }`}>
-                  <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[4px] border-b-white sm:border-l-[5px] sm:border-r-[5px] sm:border-b-[5px]" />
-                  <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "wallets" ? "w-full" : "w-0 group-hover:w-full"
+                  <div className="w-0 h-0 border-l-[3px] border-l-transparent border-r-[3px] border-r-transparent border-b-[3px] border-b-white sm:border-l-[4px] sm:border-r-[4px] sm:border-b-[4px]" />
+                  <div className={`h-[1px] sm:h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "wallets" ? "w-full" : "w-0 group-hover:w-full"
                     }`} style={{ marginTop: "-1px" }} />
                 </div>
               </button>
@@ -854,16 +854,16 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                   setSelectedWalletAddress(null);
                   setSelectedMarketId(null);
                 }}
-                className="relative group py-3 sm:py-4 lg:py-5 px-1 sm:px-2"
+                className="relative group py-2 sm:py-3 lg:py-5 px-1 sm:px-2 hidden md:block"
               >
-                <span className={`text-[10px] sm:text-xs md:text-sm lg:text-[15px] font-light tracking-wide transition-all whitespace-nowrap ${currentPage === "tradeflow" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
+                <span className={`text-[8px] sm:text-[10px] md:text-xs lg:text-[15px] font-light tracking-wide transition-all whitespace-nowrap ${currentPage === "tradeflow" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
                   }`}>
                   TRADEFLOW
                 </span>
                 <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "tradeflow" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
                   }`}>
-                  <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[4px] border-b-white sm:border-l-[5px] sm:border-r-[5px] sm:border-b-[5px]" />
-                  <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "tradeflow" ? "w-full" : "w-0 group-hover:w-full"
+                  <div className="w-0 h-0 border-l-[3px] border-l-transparent border-r-[3px] border-r-transparent border-b-[3px] border-b-white sm:border-l-[4px] sm:border-r-[4px] sm:border-b-[4px]" />
+                  <div className={`h-[1px] sm:h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "tradeflow" ? "w-full" : "w-0 group-hover:w-full"
                     }`} style={{ marginTop: "-1px" }} />
                 </div>
               </button>
@@ -873,25 +873,25 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                   setSelectedWalletAddress(null);
                   setSelectedMarketId(null);
                 }}
-                className="relative group py-3 sm:py-4 lg:py-5 px-1 sm:px-2"
+                className="relative group py-2 sm:py-3 lg:py-5 px-1 sm:px-2 hidden md:block"
               >
-                <span className={`text-[10px] sm:text-xs md:text-sm lg:text-[15px] font-light tracking-wide transition-all whitespace-nowrap ${currentPage === "portfolio" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
+                <span className={`text-[8px] sm:text-[10px] md:text-xs lg:text-[15px] font-light tracking-wide transition-all whitespace-nowrap ${currentPage === "portfolio" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
                   }`}>
                   PORTFOLIO
                 </span>
                 <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "portfolio" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
                   }`}>
-                  <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[4px] border-b-white sm:border-l-[5px] sm:border-r-[5px] sm:border-b-[5px]" />
-                  <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "portfolio" ? "w-full" : "w-0 group-hover:w-full"
+                  <div className="w-0 h-0 border-l-[3px] border-l-transparent border-r-[3px] border-r-transparent border-b-[3px] border-b-white sm:border-l-[4px] sm:border-r-[4px] sm:border-b-[4px]" />
+                  <div className={`h-[1px] sm:h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "portfolio" ? "w-full" : "w-0 group-hover:w-full"
                     }`} style={{ marginTop: "-1px" }} />
                 </div>
               </button>
             </div>
           </div>
-          <div className="ml-auto flex items-center gap-1 sm:gap-2 lg:gap-4 flex-shrink-0">
-            {/* Search Bar */}
+          <div className="ml-auto flex items-center gap-1 sm:gap-2 lg:gap-3 flex-shrink-0">
+            {/* Search Bar - smaller on mobile */}
             <div ref={searchRef} className="relative">
-              <Search className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-gray-500 z-10" />
+              <Search className="absolute left-1.5 sm:left-2 lg:left-3 top-1/2 -translate-y-1/2 w-3 h-3 sm:w-3.5 sm:h-3.5 text-gray-500 z-10" />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -900,7 +900,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                 onFocus={() => setIsSearchFocused(true)}
                 onKeyDown={handleSearchKeyDown}
                 placeholder="Search..."
-                className={`w-[120px] sm:w-[200px] md:w-[280px] lg:w-[350px] xl:w-[400px] bg-[#0d0d0d] border border-gray-800/50 pl-7 sm:pl-10 pr-7 sm:pr-10 py-1.5 sm:py-2 text-xs sm:text-[14px] text-gray-200 placeholder-gray-500 focus:outline-none focus:border-gray-600/50 transition-all ${isSearchFocused && (searchHistory.length > 0 || searchQuery.trim() || isSearching)
+                className={`w-[80px] sm:w-[140px] md:w-[200px] lg:w-[280px] xl:w-[350px] bg-[#0d0d0d] border border-gray-800/50 pl-6 sm:pl-8 lg:pl-10 pr-6 sm:pr-8 py-1 sm:py-1.5 lg:py-2 text-[10px] sm:text-xs lg:text-[14px] text-gray-200 placeholder-gray-500 focus:outline-none focus:border-gray-600/50 transition-all ${isSearchFocused && (searchHistory.length > 0 || searchQuery.trim() || isSearching)
                   ? "rounded-t-lg rounded-b-none border-b-transparent"
                   : "rounded-lg"
                   }`}
@@ -912,9 +912,9 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                     setSearchResults([]);
                     searchInputRef.current?.focus();
                   }}
-                  className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors z-10"
+                  className="absolute right-1.5 sm:right-2 lg:right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors z-10"
                 >
-                  <X className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                  <X className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
                 </button>
               )}
 
@@ -1023,12 +1023,12 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
               )}
             </div>
 
-            {/* X (Twitter) Logo - moved between search and balance */}
+            {/* X (Twitter) Logo - hidden on small mobile */}
             <a
               href="https://x.com/ParagonAnalyst"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-white hover:text-gray-300 transition-colors hidden sm:block"
+              className="text-white hover:text-gray-300 transition-colors hidden md:block"
             >
               <svg className="w-4 h-4 lg:w-5 lg:h-5" viewBox="0 0 24 24" fill="currentColor">
                 <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />

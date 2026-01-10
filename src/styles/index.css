@@ -72,9 +72,18 @@
 /* Small mobile (< 640px) */
 @media screen and (max-width: 640px) {
   :root {
-    --header-height: 44px;
-    --bookmarks-bar-height: 32px;
+    --header-height: 40px;
+    --bookmarks-bar-height: 28px;
     --base-font-size: 12px;
+  }
+}
+
+/* Extra small mobile (< 480px) */
+@media screen and (max-width: 480px) {
+  :root {
+    --header-height: 36px;
+    --bookmarks-bar-height: 26px;
+    --base-font-size: 11px;
   }
 }
 
@@ -163,10 +172,34 @@ body {
   display: flex;
   align-items: center;
   height: 100%;
-  padding: 0 var(--space-5);
+  padding: 0 var(--space-3);
   max-width: var(--max-content-width);
   margin: 0 auto;
-  gap: var(--space-4);
+  gap: var(--space-2);
+}
+
+/* Nav items container - scrollable on mobile */
+.nav-items {
+  display: flex;
+  align-items: center;
+  overflow-x: auto;
+  overflow-y: hidden;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  flex-shrink: 1;
+  min-width: 0;
+  gap: 0;
+}
+
+.nav-items::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hide some nav items on very small screens */
+@media screen and (max-width: 480px) {
+  .nav-items > button:nth-child(n+5) {
+    display: none;
+  }
 }
 
 @media screen and (min-width: 640px) {
