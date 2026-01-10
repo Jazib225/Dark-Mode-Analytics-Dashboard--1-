@@ -820,7 +820,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
               >
                 <span className={`text-[10px] sm:text-xs md:text-sm lg:text-[15px] font-light tracking-wide transition-all whitespace-nowrap ${currentPage === "insiderlens" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
                   }`}>
-                  INSIDER
+                  INSIDERLENS
                 </span>
                 <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "insiderlens" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
                   }`}>
@@ -858,7 +858,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
               >
                 <span className={`text-[10px] sm:text-xs md:text-sm lg:text-[15px] font-light tracking-wide transition-all whitespace-nowrap ${currentPage === "tradeflow" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
                   }`}>
-                  TRADE
+                  TRADEFLOW
                 </span>
                 <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "tradeflow" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
                   }`}>
@@ -877,7 +877,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
               >
                 <span className={`text-[10px] sm:text-xs md:text-sm lg:text-[15px] font-light tracking-wide transition-all whitespace-nowrap ${currentPage === "portfolio" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
                   }`}>
-                  FOLIO
+                  PORTFOLIO
                 </span>
                 <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "portfolio" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
                   }`}>

@@ -195,6 +195,30 @@ export function MarketDetail({
 
   // Track if we've started fetching to prevent duplicate calls
   const fetchStarted = useRef(false);
+  const currentMarketId = useRef(market.id);
+
+  // Reset state when market changes
+  useEffect(() => {
+    if (currentMarketId.current !== market.id) {
+      console.log(`[MarketDetail] Market changed from ${currentMarketId.current} to ${market.id}`);
+      currentMarketId.current = market.id;
+      fetchStarted.current = false;
+      
+      // Reset to new market's shell data
+      const newShell = getMarketShellFromCache(market.id);
+      setMarketShell(newShell);
+      setPhase1Complete(!!newShell);
+      setMarketData(null);
+      setEventData(null);
+      setPriceHistory([]);
+      setRecentTrades([]);
+      setOrderBook({ bids: [], asks: [], spread: 0 });
+      setTradersCount(0);
+      setTopHolders([]);
+      setTopTraders([]);
+      setError(null);
+    }
+  }, [market.id]);
 
   // PHASE 1: Instant cache load - runs synchronously on mount
   // This should complete in <50ms
@@ -376,18 +400,18 @@ export function MarketDetail({
     return isNaN(num) ? fallback : num;
   };
 
-  // Get yes/no prices with proper fallbacks
+  // Get yes/no prices with proper fallbacks (shell -> marketData -> props)
   // For multi-outcome markets, use the selected outcome's prices
   const activeOutcome = selectedOutcome || (eventData?.targetMarket);
-  const yesPrice = activeOutcome?.yesPrice ?? marketData?.yesPrice ?? safeNumber(market.probability, 50) / 100;
-  const noPrice = activeOutcome?.noPrice ?? marketData?.noPrice ?? (1 - yesPrice);
+  const yesPrice = activeOutcome?.yesPrice ?? marketData?.yesPrice ?? (marketShell?.outcomePrices?.[0]) ?? safeNumber(market.probability, 50) / 100;
+  const noPrice = activeOutcome?.noPrice ?? marketData?.noPrice ?? (marketShell?.outcomePrices?.[1]) ?? (1 - yesPrice);
   const yesPriceCents = activeOutcome?.yesPriceCents ?? Math.round(yesPrice * 100);
   const noPriceCents = activeOutcome?.noPriceCents ?? Math.round(noPrice * 100);
-  const currentProbability = activeOutcome ? activeOutcome.yesPrice * 100 : (marketData?.probability ?? safeNumber(market.probability, 50));
+  const currentProbability = activeOutcome ? activeOutcome.yesPrice * 100 : (marketData?.probability ?? marketShell?.probability ?? safeNumber(market.probability, 50));
   const currentPrice = tradeSide === "YES" ? yesPrice : noPrice;
-  const currentVolume = marketData?.volume ?? market.volume ?? "$0";
-  const currentVolume24h = marketData?.volume24hr ?? "$0";
-  const currentLiquidity = marketData?.liquidity ?? "$0";
+  const currentVolume = marketData?.volume ?? marketShell?.volume ?? market.volume ?? "$0";
+  const currentVolume24h = marketData?.volume24hr ?? marketShell?.volume24hr ?? "$0";
+  const currentLiquidity = marketData?.liquidity ?? marketShell?.liquidity ?? "$0";
   // Use tradersCount from API if available, otherwise fall back to marketData.uniqueTraders
   const uniqueTraders = tradersCount > 0 ? tradersCount : (marketData?.uniqueTraders ?? 0);
 
@@ -460,9 +484,18 @@ export function MarketDetail({
                   ) : (
                     <div className="w-14 h-14 rounded-xl bg-gray-800/50 flex-shrink-0" />
                   )}
-                  <h1 className="text-xl font-light tracking-tight text-gray-100 leading-relaxed">
-                    {marketData?.name || marketShell?.title || market.name}
-                  </h1>
+                  <div className="flex-1">
+                    <h1 className="text-xl font-light tracking-tight text-gray-100 leading-relaxed">
+                      {marketData?.name || marketShell?.title || market.name}
+                    </h1>
+                    {/* Subtle Phase 2 loading indicator */}
+                    {phase2Loading && (
+                      <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span>Loading details...</span>
+                      </div>
+                    )}
+                  </div>
                 </div>
                 <button
                   onClick={toggleBookmark}
@@ -504,7 +537,11 @@ export function MarketDetail({
                     <Users className="w-3 h-3" />
                     <span>Traders</span>
                   </div>
-                  <div className="text-xl font-light text-gray-300">{uniqueTraders > 0 ? uniqueTraders.toLocaleString() : "—"}</div>
+                  <div className="text-xl font-light text-gray-300">
+                    {phase2Loading && uniqueTraders === 0 ? (
+                      <span className="animate-pulse">—</span>
+                    ) : uniqueTraders > 0 ? uniqueTraders.toLocaleString() : "—"}
+                  </div>
                 </div>
               </div>
 
