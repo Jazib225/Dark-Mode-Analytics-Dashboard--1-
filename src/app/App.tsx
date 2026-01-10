@@ -8,6 +8,7 @@ import { Portfolio } from "./components/Portfolio";
 import { BookmarkedMarketsBar } from "./components/BookmarkedMarketsBar";
 import { SearchResults } from "./components/SearchResults";
 import { LoginPage } from "./components/LoginPage";
+import { TradeFlow } from "./components/TradeFlow";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { Search, X, Clock, TrendingUp, Bookmark, Loader2, LogOut, User, ChevronDown } from "lucide-react";
 import paragonLogo from "../assets/paragon-logo.png";
@@ -44,7 +45,7 @@ function formatProbability(prob: number): string {
   return prob.toFixed(1);
 }
 
-type Page = "discover" | "markets" | "wallets" | "insiderlens" | "portfolio" | "search";
+type Page = "discover" | "markets" | "wallets" | "insiderlens" | "portfolio" | "tradeflow" | "search";
 
 export interface BookmarkedMarket {
   id: string;
@@ -859,6 +860,28 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
               </button>
               <button
                 onClick={() => {
+                  setCurrentPage("tradeflow");
+                  setSelectedWalletAddress(null);
+                  setSelectedMarketId(null);
+                }}
+                className="relative group py-5"
+              >
+                <span className={`text-[16px] font-light tracking-wide transition-all ${
+                  currentPage === "tradeflow" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
+                }`}>
+                  TRADEFLOW
+                </span>
+                <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${
+                  currentPage === "tradeflow" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
+                }`}>
+                  <div className="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-white" />
+                  <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${
+                    currentPage === "tradeflow" ? "w-full" : "w-0 group-hover:w-full"
+                  }`} style={{ marginTop: "-1px" }} />
+                </div>
+              </button>
+              <button
+                onClick={() => {
                   setCurrentPage("portfolio");
                   setSelectedWalletAddress(null);
                   setSelectedMarketId(null);
@@ -1106,6 +1129,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
               navigateToMarket(marketId);
             }} />}
             {currentPage === "insiderlens" && <InsiderLens onWalletClick={openWalletProfile} />}
+            {currentPage === "tradeflow" && <TradeFlow />}
             {currentPage === "portfolio" && <Portfolio />}
             {currentPage === "search" && (
               <SearchResults
