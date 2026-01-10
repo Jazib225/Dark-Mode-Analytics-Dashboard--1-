@@ -5,9 +5,10 @@ type NodeType = "market" | "entry" | "exit" | "profit" | "and" | "or" | "add" | 
 
 const stageNodes = {
   market: ["market"],
-  entry: ["entry", "and", "or", "add", "subtract", "multiply", "divide"],
-  exit: ["exit", "and", "or", "add", "subtract", "multiply", "divide"],
+  entry: ["entry", "add", "subtract", "multiply", "divide"],
+  exit: ["exit", "add", "subtract", "multiply", "divide"],
   profit: ["profit"],
+  logic: ["and", "or"],
 };
 
 const nodeDescriptions: Record<NodeType, string> = {
@@ -55,7 +56,9 @@ export function NodeLibrary({ onDragStart }: NodeLibraryProps) {
                     ? "Entry Conditions"
                     : stage === "exit"
                       ? "Exit Conditions"
-                      : "Profit Taking"}
+                      : stage === "profit"
+                        ? "Profit Taking"
+                        : "Logic (Connections)"}
               </span>
             </button>
 
@@ -65,7 +68,7 @@ export function NodeLibrary({ onDragStart }: NodeLibraryProps) {
                   <div
                     key={nodeType}
                     draggable
-                    onDragStart={(e) => onDragStart(e, nodeType as NodeType, stage)}
+                    onDragStart={(e: React.DragEvent<HTMLDivElement>) => onDragStart(e, nodeType as NodeType, stage)}
                     className="p-3 bg-gray-800/40 hover:bg-gray-700/50 rounded-lg border border-gray-700/50 cursor-grab active:cursor-grabbing transition-colors"
                   >
                     <div className="text-sm font-medium text-gray-100 capitalize">

@@ -12,6 +12,7 @@ import {
   moveNode,
   removeNode,
   addEdge,
+  addEdgeLogic,
   selectNode,
 } from "./TradeFlow/storage";
 import { validateWorkflow, canConnect } from "./TradeFlow/validators";
@@ -86,6 +87,12 @@ export function TradeFlow() {
         "Invalid connection: cannot connect these nodes in this direction",
       ]);
     }
+  };
+
+  const handleEdgeLogicAdd = (edgeId: string, logic: "and" | "or") => {
+    setWorkflow(addEdgeLogic(workflow, edgeId, logic));
+    setSuccessMessage(`${logic.toUpperCase()} added to connection!`);
+    setTimeout(() => setSuccessMessage(""), 2000);
   };
 
   const handleCanvasClick = () => {
@@ -240,6 +247,7 @@ export function TradeFlow() {
           onNodeMove={handleNodeMove}
           onNodeDrop={handleNodeDrop}
           onEdgeCreate={handleEdgeCreate}
+          onEdgeLogicAdd={handleEdgeLogicAdd}
           onCanvasClick={handleCanvasClick}
         />
 

@@ -6,7 +6,7 @@ function generateId(): string {
   return `node_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
-const STORAGE_KEY = "paragon_tradeflow_v1";
+const STORAGE_KEY = "paragon_tradeflow_v2";
 
 export function saveWorkflow(schema: WorkflowSchema): void {
   try {
@@ -37,7 +37,7 @@ export function clearWorkflow(): void {
 
 export function createDefaultWorkflow(): WorkflowSchema {
   return {
-    version: "1.0",
+    version: "2.0",
     nodes: [],
     edges: [],
     lastSavedAt: Date.now(),
@@ -153,6 +153,17 @@ export function removeEdge(workflow: WorkflowSchema, edgeId: string): WorkflowSc
   return {
     ...workflow,
     edges: workflow.edges.filter((e) => e.id !== edgeId),
+  };
+}
+
+export function addEdgeLogic(workflow: WorkflowSchema, edgeId: string, logic: "and" | "or"): WorkflowSchema {
+  return {
+    ...workflow,
+    edges: workflow.edges.map((e) =>
+      e.id === edgeId 
+        ? { ...e, data: { ...e.data, logic } }
+        : e
+    ),
   };
 }
 

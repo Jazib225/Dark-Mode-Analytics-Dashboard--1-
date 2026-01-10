@@ -23,6 +23,9 @@ export interface EdgeData {
   source: string;
   target: string;
   type?: string;
+  data?: {
+    logic?: "and" | "or"; // AND/OR block placed on this edge
+  };
 }
 
 export interface WorkflowSchema {

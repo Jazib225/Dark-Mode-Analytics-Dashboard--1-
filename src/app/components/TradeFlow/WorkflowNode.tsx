@@ -33,7 +33,6 @@ interface WorkflowNodeProps {
   isSelected: boolean;
   onSelect: (nodeId: string) => void;
   onDelete: (nodeId: string) => void;
-  onDragStart: (e: React.DragEvent<HTMLDivElement>, nodeId: string) => void;
 }
 
 export function WorkflowNode({
@@ -41,7 +40,6 @@ export function WorkflowNode({
   isSelected,
   onSelect,
   onDelete,
-  onDragStart,
 }: WorkflowNodeProps) {
   const baseColor = nodeColors[node.type] || "bg-gray-800 border-gray-700";
   const label = nodeLabels[node.type] || node.type;
@@ -60,21 +58,21 @@ export function WorkflowNode({
 
   return (
     <div
-      className={`absolute w-40 rounded-lg border-2 p-4 cursor-move transition-all ${baseColor} ${
+      className={`absolute w-40 rounded-lg border-2 p-4 cursor-grab active:cursor-grabbing transition-all ${baseColor} ${
         isSelected ? "ring-2 ring-white shadow-lg" : "hover:shadow-md"
       }`}
       style={{
         left: `${node.position.x}px`,
         top: `${node.position.y}px`,
+        pointerEvents: "auto",
       }}
+      data-node-id={node.id}
       onClick={() => onSelect(node.id)}
-      onDragStart={(e) => onDragStart(e, node.id)}
-      draggable={true}
     >
       <div className="flex items-start justify-between mb-2">
         <div className="text-sm font-semibold text-gray-100">{label}</div>
         <button
-          onClick={(e) => {
+          onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
             e.stopPropagation();
             onDelete(node.id);
           }}
@@ -84,9 +82,22 @@ export function WorkflowNode({
         </button>
       </div>
       {displayData && <div className="text-xs text-gray-300">{displayData}</div>}
-      {/* Input/Output ports */}
-      <div className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 w-3 h-3 bg-blue-500 rounded-full" />
-      <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 w-3 h-3 bg-blue-500 rounded-full" />
+      
+      {/* Input handle (left side) - for connection targets */}
+      <div 
+        className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-2 w-4 h-4 bg-blue-500 rounded-full hover:bg-blue-400 transition-colors cursor-crosshair shadow-lg"
+        data-handle-type="input"
+        data-node-id={node.id}
+        title="Connect input"
+      />
+      
+      {/* Output handle (right side) - for connection sources */}
+      <div 
+        className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-2 w-4 h-4 bg-green-500 rounded-full hover:bg-green-400 transition-colors cursor-crosshair shadow-lg"
+        data-handle-type="output"
+        data-node-id={node.id}
+        title="Create connection"
+      />
     </div>
   );
 }

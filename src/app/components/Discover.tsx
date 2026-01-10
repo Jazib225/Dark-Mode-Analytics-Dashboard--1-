@@ -1,4 +1,4 @@
-import { TrendingUp, Users, PieChart, Eye } from "lucide-react";
+import { TrendingUp, Users, PieChart, Eye, Zap } from "lucide-react";
 
 interface DiscoverProps {
   toggleBookmark: (market: any) => void;
@@ -38,6 +38,13 @@ export function Discover({ onNavigate }: DiscoverProps) {
       icon: Eye,
       previewBg: "from-[#3a2a1a] to-[#201510]",
     },
+    {
+      id: "tradeflow",
+      title: "TradeFlow",
+      description: "Build automated trading logic with drag-and-drop workflow nodes",
+      icon: Zap,
+      previewBg: "from-[#2a3a1a] to-[#152010]",
+    },
   ];
 
   const handleNavigation = (pageId: string) => {
@@ -57,7 +64,7 @@ export function Discover({ onNavigate }: DiscoverProps) {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-start">
         {pages.map((page) => {
           const Icon = page.icon;
           return (
@@ -130,6 +137,30 @@ export function Discover({ onNavigate }: DiscoverProps) {
                         </div>
                       </div>
                     </div>
+                  )}
+
+                  {/* Workflow nodes visualization for TradeFlow */}
+                  {page.id === "tradeflow" && (
+                    <svg className="absolute bottom-6 left-6 right-6 h-16 opacity-30" viewBox="0 0 320 64" preserveAspectRatio="xMidYMid meet">
+                      {/* Node boxes */}
+                      <rect x="10" y="20" width="40" height="24" fill="none" stroke="#4a7c7e" strokeWidth="1.5" rx="2" />
+                      <text x="30" y="37" textAnchor="middle" fontSize="8" fill="#4a7c7e">M</text>
+                      <rect x="80" y="20" width="40" height="24" fill="none" stroke="#4a7c7e" strokeWidth="1.5" rx="2" />
+                      <text x="100" y="37" textAnchor="middle" fontSize="8" fill="#4a7c7e">E</text>
+                      <rect x="150" y="20" width="40" height="24" fill="none" stroke="#4a7c7e" strokeWidth="1.5" rx="2" />
+                      <text x="170" y="37" textAnchor="middle" fontSize="8" fill="#4a7c7e">X</text>
+                      <rect x="220" y="20" width="40" height="24" fill="none" stroke="#4a7c7e" strokeWidth="1.5" rx="2" />
+                      <text x="240" y="37" textAnchor="middle" fontSize="8" fill="#4a7c7e">P</text>
+                      {/* Connection arrows */}
+                      <line x1="50" y1="32" x2="80" y2="32" stroke="#4a7c7e" strokeWidth="1" markerEnd="url(#arrowhead)" />
+                      <line x1="120" y1="32" x2="150" y2="32" stroke="#4a7c7e" strokeWidth="1" markerEnd="url(#arrowhead)" />
+                      <line x1="190" y1="32" x2="220" y2="32" stroke="#4a7c7e" strokeWidth="1" markerEnd="url(#arrowhead)" />
+                      <defs>
+                        <marker id="arrowhead" markerWidth="10" markerHeight="10" refX="9" refY="3" orient="auto">
+                          <polygon points="0 0, 6 3, 0 6" fill="#4a7c7e" />
+                        </marker>
+                      </defs>
+                    </svg>
                   )}
                 </div>
 
