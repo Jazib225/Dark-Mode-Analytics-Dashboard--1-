@@ -78,7 +78,7 @@ export function NodeLibrary({ onDragStart }: NodeLibraryProps) {
                       title={nodeType === "and" ? "AND Logic" : "OR Logic"}
                     >
                       <div
-                        className="w-10 h-10 rounded-full flex items-center justify-center font-bold text-white border-2 border-gray-500 hover:scale-110 transition-transform hover:border-gray-300"
+                        className="px-3 py-1.5 rounded-full flex items-center justify-center font-bold text-white border-2 border-gray-500 hover:scale-110 transition-transform hover:border-gray-300 text-sm"
                         style={{
                           background:
                             nodeType === "and"
@@ -86,7 +86,7 @@ export function NodeLibrary({ onDragStart }: NodeLibraryProps) {
                               : "linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)",
                         }}
                       >
-                        {nodeType === "and" ? "&" : "|"}
+                        {nodeType === "and" ? "AND" : "OR"}
                       </div>
                     </div>
                   ) : (

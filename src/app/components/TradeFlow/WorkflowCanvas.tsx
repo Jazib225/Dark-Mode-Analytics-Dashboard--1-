@@ -71,6 +71,28 @@ function distanceToLineSegment(px: number, py: number, x1: number, y1: number, x
   return Math.sqrt((px - closestX) ** 2 + (py - closestY) ** 2);
 }
 
+// Calculate handle position given node position and handle ID
+function getHandlePosition(nodePos: { x: number; y: number }, handleId: string = "right"): { x: number; y: number } {
+  // Node dimensions: 160px wide, ~120px tall
+  const nodeWidth = 160;
+  const nodeHeight = 120;
+  const centerX = nodePos.x + nodeWidth / 2;
+  const centerY = nodePos.y + nodeHeight / 2;
+  
+  switch (handleId) {
+    case "top":
+      return { x: centerX, y: nodePos.y };
+    case "right":
+      return { x: nodePos.x + nodeWidth, y: centerY };
+    case "bottom":
+      return { x: centerX, y: nodePos.y + nodeHeight };
+    case "left":
+      return { x: nodePos.x, y: centerY };
+    default:
+      return { x: nodePos.x + nodeWidth, y: centerY }; // default to right
+  }
+}
+
 export function WorkflowCanvas({
   nodes,
   edges,
@@ -174,12 +196,17 @@ export function WorkflowCanvas({
       const targetNode = nodes.find((n) => n.id === edge.target);
 
       if (sourceNode && targetNode) {
-        // Calculate positions from node centers to handle centers
-        // Node is 160px wide, handles are at left (x-20) and right (x+20), centered vertically at y+60
-        const fromX = sourceNode.position.x + 160 + 8; // right handle center
-        const fromY = sourceNode.position.y + 60;
-        const toX = targetNode.position.x - 8; // left handle center
-        const toY = targetNode.position.y + 60;
+        // Calculate edge endpoint positions from specific handles
+        const sourceHandleId = edge.sourceHandle || "right";
+        const targetHandleId = edge.targetHandle || "left";
+        
+        const fromPos = getHandlePosition(sourceNode.position, sourceHandleId);
+        const toPos = getHandlePosition(targetNode.position, targetHandleId);
+        
+        const fromX = fromPos.x;
+        const fromY = fromPos.y;
+        const toX = toPos.x;
+        const toY = toPos.y;
         
         // Determine line width: base=2, all edges thickened when dragging logic (+1), even more if hovered (+1)
         let lineWidth = 2;
@@ -232,10 +259,10 @@ export function WorkflowCanvas({
           
           // Draw text
           ctx.fillStyle = "#ffffff";
-          ctx.font = "bold 10px sans-serif";
+          ctx.font = "bold 12px sans-serif";
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
-          ctx.fillText(logic === "AND" ? "&" : "|", midX, midY);
+          ctx.fillText(logic === "AND" ? "AND" : "OR", midX, midY);
         }
       }
     });
@@ -244,14 +271,13 @@ export function WorkflowCanvas({
     if (connectionStart) {
       const startNode = nodes.find((n) => n.id === connectionStart);
       if (startNode) {
-        const fromX = startNode.position.x + 160 + 8;
-        const fromY = startNode.position.y + 60;
+        const fromPos = getHandlePosition(startNode.position, "right"); // Default to right handle
         ctx.strokeStyle = "#ffffff";
         ctx.lineWidth = 2.5;
         ctx.lineCap = "round";
         ctx.setLineDash([5, 5]);
         ctx.beginPath();
-        ctx.moveTo(fromX, fromY);
+        ctx.moveTo(fromPos.x, fromPos.y);
         ctx.lineTo(mousePos.x, mousePos.y);
         ctx.stroke();
         ctx.setLineDash([]);
@@ -278,12 +304,12 @@ export function WorkflowCanvas({
         const targetNode = nodes.find((n) => n.id === edge.target);
         
         if (sourceNode && targetNode) {
-          const x1 = sourceNode.position.x + 160 + 8;
-          const y1 = sourceNode.position.y + 60;
-          const x2 = targetNode.position.x - 8;
-          const y2 = targetNode.position.y + 60;
+          const sourceHandleId = edge.sourceHandle || "right";
+          const targetHandleId = edge.targetHandle || "left";
+          const fromPos = getHandlePosition(sourceNode.position, sourceHandleId);
+          const toPos = getHandlePosition(targetNode.position, targetHandleId);
           
-          const dist = distanceToLineSegment(x, y, x1, y1, x2, y2);
+          const dist = distanceToLineSegment(x, y, fromPos.x, fromPos.y, toPos.x, toPos.y);
           if (dist < tolerance) {
             foundEdge = edge.id;
             break;
@@ -470,24 +496,27 @@ export function WorkflowCanvas({
     >
       <canvas
         ref={canvasRef}
-        className="absolute inset-0 w-full h-full"
+        className="absolute inset-0 w-full h-full z-0"
       />
 
-      {/* Nodes rendered on top */}
-      {nodes.map((node) => (
-        <WorkflowNode
-          key={node.id}
-          node={node}
-          isSelected={selectedNodeId === node.id}
-          onSelect={onNodeSelect}
-          onDelete={onNodeDelete}
-          highlightedInputHandle={highlightedHandles.has(`input-${node.id}`)}
-        />
-      ))}
+      {/* Nodes rendered on top of canvas (z-10) */}
+      <div className="absolute inset-0 z-10 pointer-events-none">
+        {nodes.map((node) => (
+          <div key={node.id} className="pointer-events-auto">
+            <WorkflowNode
+              node={node}
+              isSelected={selectedNodeId === node.id}
+              onSelect={onNodeSelect}
+              onDelete={onNodeDelete}
+              highlightedInputHandle={highlightedHandles.has(`input-${node.id}`)}
+            />
+          </div>
+        ))}
+      </div>
 
-      {/* Help text */}
+      {/* Help text above canvas */}
       {nodes.length === 0 && (
-        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+        <div className="absolute inset-0 z-5 flex items-center justify-center pointer-events-none">
           <div className="text-center text-gray-600">
             <p className="text-lg mb-2">Drag nodes from the library to get started</p>
             <p className="text-sm">Right-click nodes to connect them</p>

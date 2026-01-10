@@ -85,24 +85,53 @@ export function WorkflowNode({
       </div>
       {displayData && <div className="text-xs text-gray-300">{displayData}</div>}
       
-      {/* Input handle (left side) - solid black dot at center */}
+      {/* Four connection handles - top, right, bottom, left - all black dots */}
+      
+      {/* Top handle */}
       <div 
-        className={`absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full hover:bg-gray-300 transition-all cursor-crosshair shadow-lg border border-gray-600 ${
+        className={`absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3 h-3 rounded-full hover:bg-gray-300 transition-all cursor-crosshair shadow-lg border border-gray-600 ${
           highlightedInputHandle
-            ? "bg-white scale-150 animate-pulse box-shadow: 0 0 8px rgba(255,255,255,0.8)"
+            ? "bg-white scale-150 animate-pulse"
             : "bg-black"
         }`}
         data-handle-type="input"
+        data-handle-id="top"
         data-node-id={node.id}
-        title="Connect input"
+        title="Connect top"
       />
       
-      {/* Output handle (right side) - solid black dot at center */}
+      {/* Right handle */}
       <div 
-        className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-4 h-4 bg-black rounded-full hover:bg-gray-300 transition-colors cursor-crosshair shadow-lg border border-gray-600"
+        className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-3 h-3 bg-black rounded-full hover:bg-gray-300 transition-colors cursor-crosshair shadow-lg border border-gray-600"
         data-handle-type="output"
+        data-handle-id="right"
         data-node-id={node.id}
         title="Create connection"
+      />
+      
+      {/* Bottom handle */}
+      <div 
+        className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-3 h-3 bg-black rounded-full hover:bg-gray-300 transition-colors cursor-crosshair shadow-lg border border-gray-600"
+        data-handle-type="output"
+        data-handle-id="bottom"
+        data-node-id={node.id}
+        title="Create connection"
+      />
+      
+      {/* Left handle */}
+      <div 
+        className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-3 h-3 rounded-full hover:bg-gray-300 transition-all cursor-crosshair shadow-lg border border-gray-600"
+        data-handle-type="input"
+        data-handle-id="left"
+        data-node-id={node.id}
+        title="Connect input"
+        style={{
+          backgroundColor: highlightedInputHandle ? "#ffffff" : "#000000",
+          transform: "translate(-50%, -50%)",
+          ...(highlightedInputHandle ? {
+            boxShadow: "0 0 8px rgba(255,255,255,0.8), 0 0 0 2px rgba(255,255,255,0.6)"
+          } : {})
+        }}
       />
     </div>
   );

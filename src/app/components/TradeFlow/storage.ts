@@ -6,30 +6,139 @@ function generateId(): string {
   return `node_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 }
 
-const STORAGE_KEY = "paragon_tradeflow_v2";
+function generateWorkflowId(): string {
+  return `flow_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+}
+
+const WORKFLOWS_STORAGE_KEY = "paragon_tradeflow_workflows";
+const CURRENT_WORKFLOW_KEY = "paragon_tradeflow_current";
+
+// Save all workflows to localStorage
+function saveAllWorkflows(workflows: WorkflowSchema[]): void {
+  try {
+    localStorage.setItem(WORKFLOWS_STORAGE_KEY, JSON.stringify(workflows));
+  } catch (error) {
+    console.error("Failed to save workflows:", error);
+  }
+}
+
+// Load all workflows from localStorage
+function loadAllWorkflows(): WorkflowSchema[] {
+  try {
+    const data = localStorage.getItem(WORKFLOWS_STORAGE_KEY);
+    if (!data) return [];
+    return JSON.parse(data) as WorkflowSchema[];
+  } catch (error) {
+    console.error("Failed to load workflows:", error);
+    return [];
+  }
+}
+
+// Save current workflow ID
+function saveCurrentWorkflowId(id: string): void {
+  try {
+    localStorage.setItem(CURRENT_WORKFLOW_KEY, id);
+  } catch (error) {
+    console.error("Failed to save current workflow ID:", error);
+  }
+}
+
+// Load current workflow ID
+function loadCurrentWorkflowId(): string | null {
+  try {
+    return localStorage.getItem(CURRENT_WORKFLOW_KEY);
+  } catch (error) {
+    console.error("Failed to load current workflow ID:", error);
+    return null;
+  }
+}
 
 export function saveWorkflow(schema: WorkflowSchema): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(schema));
+    const workflows = loadAllWorkflows();
+    const index = workflows.findIndex((w) => w.id === schema.id);
+    
+    if (index >= 0) {
+      // Update existing workflow
+      workflows[index] = schema;
+    } else {
+      // Add new workflow
+      workflows.push(schema);
+    }
+    
+    saveAllWorkflows(workflows);
+    saveCurrentWorkflowId(schema.id);
   } catch (error) {
     console.error("Failed to save workflow:", error);
   }
 }
 
-export function loadWorkflow(): WorkflowSchema | null {
+export function loadWorkflow(id?: string): WorkflowSchema | null {
   try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    if (!data) return null;
-    return JSON.parse(data) as WorkflowSchema;
+    const workflows = loadAllWorkflows();
+    if (workflows.length === 0) return null;
+    
+    // If specific ID requested, find it
+    if (id) {
+      return workflows.find((w) => w.id === id) || null;
+    }
+    
+    // Otherwise load current or first one
+    const currentId = loadCurrentWorkflowId();
+    if (currentId) {
+      return workflows.find((w) => w.id === currentId) || workflows[0] || null;
+    }
+    
+    return workflows[0] || null;
   } catch (error) {
     console.error("Failed to load workflow:", error);
     return null;
   }
 }
 
+export function getAllWorkflows(): WorkflowSchema[] {
+  return loadAllWorkflows();
+}
+
+export function deleteWorkflow(id: string): void {
+  try {
+    let workflows = loadAllWorkflows();
+    workflows = workflows.filter((w) => w.id !== id);
+    saveAllWorkflows(workflows);
+    
+    // If deleted workflow was current, switch to first available
+    const currentId = loadCurrentWorkflowId();
+    if (currentId === id && workflows.length > 0) {
+      saveCurrentWorkflowId(workflows[0].id);
+    }
+  } catch (error) {
+    console.error("Failed to delete workflow:", error);
+  }
+}
+
+export function renameWorkflow(id: string, newTitle: string): WorkflowSchema | null {
+  try {
+    const workflows = loadAllWorkflows();
+    const index = workflows.findIndex((w) => w.id === id);
+    
+    if (index >= 0) {
+      workflows[index].title = newTitle;
+      workflows[index].lastSavedAt = Date.now();
+      saveAllWorkflows(workflows);
+      return workflows[index];
+    }
+    return null;
+  } catch (error) {
+    console.error("Failed to rename workflow:", error);
+    return null;
+  }
+}
+
 export function clearWorkflow(): void {
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    const workflows = loadAllWorkflows();
+    localStorage.setItem(WORKFLOWS_STORAGE_KEY, JSON.stringify(workflows));
+    localStorage.removeItem(CURRENT_WORKFLOW_KEY);
   } catch (error) {
     console.error("Failed to clear workflow:", error);
   }
@@ -37,9 +146,12 @@ export function clearWorkflow(): void {
 
 export function createDefaultWorkflow(): WorkflowSchema {
   return {
+    id: generateWorkflowId(),
+    title: "Untitled Flow",
     version: "2.0",
     nodes: [],
     edges: [],
+    createdAt: Date.now(),
     lastSavedAt: Date.now(),
     selectedNodeId: null,
   };

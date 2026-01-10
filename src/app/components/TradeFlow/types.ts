@@ -22,6 +22,8 @@ export interface EdgeData {
   id: string;
   source: string;
   target: string;
+  sourceHandle?: string; // "top" | "right" | "bottom" | "left"
+  targetHandle?: string; // "top" | "right" | "bottom" | "left"
   type?: string;
   data?: {
     logic?: "and" | "or"; // AND/OR block placed on this edge
@@ -29,9 +31,12 @@ export interface EdgeData {
 }
 
 export interface WorkflowSchema {
+  id: string; // Unique identifier for this workflow
+  title: string; // User-friendly title
   version: string;
   nodes: NodeData[];
   edges: EdgeData[];
+  createdAt: number;
   lastSavedAt: number;
   selectedNodeId: string | null;
 }
