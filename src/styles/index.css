@@ -197,7 +197,7 @@ body {
 
 /* Hide some nav items on very small screens */
 @media screen and (max-width: 480px) {
-  .nav-items > button:nth-child(n+5) {
+  .nav-items>button:nth-child(n+5) {
     display: none;
   }
 }
