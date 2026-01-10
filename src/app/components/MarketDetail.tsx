@@ -1,9 +1,7 @@
 import { ArrowLeft, Bookmark, TrendingUp, TrendingDown, DollarSign, Users, Activity, Minus, Plus, Loader2, BarChart3, Trophy, Wallet } from "lucide-react";
-import { XAxis, YAxis, Tooltip, ResponsiveContainer, Area, AreaChart } from "recharts";
 import { useState, useEffect, useMemo, useRef } from "react";
 import {
   getMarketDetails,
-  getMarketPriceHistory,
   getMarketTrades,
   getEventWithMarkets,
   getClobPrices,
@@ -13,7 +11,6 @@ import {
   getMarketTopTraders,
   getCachedMarketDetail,
   getMarketFromCache,
-  getCachedPriceHistory,
   getCachedTrades,
   getCachedOrderBook,
   getCachedEventData,
@@ -33,6 +30,7 @@ import {
 } from "../services/marketDataClient";
 import { useAuth } from "../context/AuthContext";
 import { MarketDetailSkeleton } from "./SkeletonLoaders";
+import { PriceChart } from "./PriceChart";
 
 // Helper function to format balance
 function formatBalance(cents: number): string {
@@ -103,12 +101,6 @@ interface EventData {
   isMultiOutcome: boolean;
   markets: OutcomeMarket[];
   targetMarket?: OutcomeMarket;
-}
-
-interface PricePoint {
-  time: string;
-  timestamp: number;
-  probability: number;
 }
 
 interface Trade {
@@ -188,7 +180,6 @@ export function MarketDetail({
   // PHASE 2: Full data states (loaded async, non-blocking)
   const [marketData, setMarketData] = useState<MarketData | null>(null);
   const [eventData, setEventData] = useState<EventData | null>(null);
-  const [priceHistory, setPriceHistory] = useState<PricePoint[]>([]);
   const [recentTrades, setRecentTrades] = useState<Trade[]>([]);
   const [orderBook, setOrderBook] = useState<OrderBookData>({ bids: [], asks: [], spread: 0 });
   const [tradersCount, setTradersCount] = useState<number>(0);
@@ -224,7 +215,6 @@ export function MarketDetail({
       setPhase1Complete(!!newShell);
       setMarketData(null);
       setEventData(null);
-      setPriceHistory([]);
       setRecentTrades([]);
       setOrderBook({ bids: [], asks: [], spread: 0 });
       setTradersCount(0);
@@ -263,12 +253,6 @@ export function MarketDetail({
     if (cachedDetail) {
       console.log(`[MarketDetail] Found cached full detail`);
       setMarketData(cachedDetail);
-    }
-
-    // Check cached price history
-    const cachedHistory = getCachedPriceHistory(market.id, "1d");
-    if (cachedHistory && cachedHistory.length > 0) {
-      setPriceHistory(cachedHistory);
     }
 
     // Check cached trades
@@ -403,10 +387,10 @@ export function MarketDetail({
 
       try {
         // Fire ALL requests in parallel - don't block on any single request
-        const [details, event, history, trades] = await Promise.all([
+        // Note: Price history is now handled by PriceChart component independently
+        const [details, event, trades] = await Promise.all([
           getMarketDetails(market.id),
           getEventWithMarkets(market.id),
-          getMarketPriceHistory(market.id, "1d"),
           getMarketTrades(market.id, 10),
         ]);
 
@@ -471,27 +455,6 @@ export function MarketDetail({
           if (event.isMultiOutcome && event.targetMarket) {
             setSelectedOutcome(event.targetMarket);
           }
-        }
-
-        // Update price history
-        if (history && history.length > 0) {
-          setPriceHistory(history);
-        } else if (priceHistory.length === 0) {
-          // Generate placeholder only if we have no data
-          const now = new Date();
-          const placeholderHistory: PricePoint[] = [];
-          const baseProb = details?.probability || market.probability || 50;
-          for (let i = 6; i >= 0; i--) {
-            const date = new Date(now);
-            date.setDate(date.getDate() - i);
-            const variance = (Math.random() - 0.5) * 10;
-            placeholderHistory.push({
-              time: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-              timestamp: date.getTime(),
-              probability: Math.max(1, Math.min(99, baseProb + variance)),
-            });
-          }
-          setPriceHistory(placeholderHistory);
         }
 
         // Update trades
@@ -832,38 +795,8 @@ export function MarketDetail({
               )}
             </div>
 
-            {/* Price Chart */}
-            <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl p-6 shadow-xl shadow-black/20">
-              <div className="flex items-center justify-between mb-6">
-                <h3 className="text-sm font-light tracking-wide text-gray-400 uppercase">
-                  Price History
-                </h3>
-                <div className="flex gap-2">
-                  {["1D", "1W", "1M", "ALL"].map((period) => (
-                    <button
-                      key={period}
-                      className="px-3 py-1 text-xs font-light text-gray-500 hover:text-gray-300 hover:bg-gray-800/30 rounded transition-all"
-                    >
-                      {period}
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <ResponsiveContainer width="100%" height={280}>
-                <AreaChart data={priceHistory}>
-                  <defs>
-                    <linearGradient id="colorProbability" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#4a6fa5" stopOpacity={0.3} />
-                      <stop offset="95%" stopColor="#4a6fa5" stopOpacity={0} />
-                    </linearGradient>
-                  </defs>
-                  <XAxis dataKey="time" stroke="#3a3a3a" tick={{ fill: "#666", fontSize: 10 }} axisLine={false} tickLine={false} />
-                  <YAxis stroke="#3a3a3a" tick={{ fill: "#666", fontSize: 10 }} axisLine={false} tickLine={false} domain={[0, 100]} tickFormatter={(value) => `${value}%`} />
-                  <Tooltip contentStyle={{ backgroundColor: "#0d0d0d", border: "1px solid #3a3a3a", borderRadius: 8, fontSize: 11 }} labelStyle={{ color: "#999" }} formatter={(value: number) => [`${value.toFixed(1)}%`, "Probability"]} />
-                  <Area type="monotone" dataKey="probability" stroke="#4a6fa5" strokeWidth={2} fillOpacity={1} fill="url(#colorProbability)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+            {/* Price Chart - Real-time from CLOB API */}
+            <PriceChart marketId={market.id} />
 
             {/* Activity Section with Tabs */}
             <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl shadow-xl shadow-black/20">

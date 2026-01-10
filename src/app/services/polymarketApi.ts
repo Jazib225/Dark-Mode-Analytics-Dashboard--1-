@@ -1339,42 +1339,236 @@ export async function getMarketDetails(marketId: string) {
   }
 }
 
+// =============================================================================
+// PRICE HISTORY - REAL DATA FROM CLOB /prices-history ENDPOINT
+// =============================================================================
+
 /**
- * Get market price history for charts
+ * Interval mapping for CLOB API
+ * The CLOB API accepts: 1m, 1w, 1d, 6h, 1h, max
  */
-export async function getMarketPriceHistory(marketId: string, interval: string = "1d") {
+type ClobInterval = '1h' | '6h' | '1d' | '1w' | '1m' | 'max';
+
+interface PriceHistoryPoint {
+  time: string;
+  timestamp: number;
+  probability: number;
+  price: number;
+}
+
+interface ClobHistoryResponse {
+  history: Array<{ t: number; p: number }>;
+}
+
+// Cache for price history per tokenId + interval
+const clobPriceHistoryCache = new Map<string, { data: PriceHistoryPoint[]; timestamp: number }>();
+
+// Cache durations based on interval
+const PRICE_HISTORY_CACHE_DURATIONS: Record<ClobInterval, number> = {
+  '1h': 10 * 1000,     // 10 seconds for 1 hour view (fast updates)
+  '6h': 30 * 1000,     // 30 seconds for 6 hour view
+  '1d': 60 * 1000,     // 1 minute for 1 day view
+  '1w': 2 * 60 * 1000, // 2 minutes for 1 week view
+  '1m': 5 * 60 * 1000, // 5 minutes for 1 month view
+  'max': 10 * 60 * 1000 // 10 minutes for all-time view
+};
+
+/**
+ * Get fidelity (resolution in minutes) for each interval
+ * Lower fidelity = more data points = better resolution
+ */
+function getFidelityForInterval(interval: ClobInterval): number {
+  switch (interval) {
+    case '1h': return 1;    // 1 minute resolution (60 points max)
+    case '6h': return 5;    // 5 minute resolution (~72 points)
+    case '1d': return 15;   // 15 minute resolution (~96 points)
+    case '1w': return 60;   // 1 hour resolution (~168 points)
+    case '1m': return 240;  // 4 hour resolution (~180 points)
+    case 'max': return 1440; // 1 day resolution
+    default: return 60;
+  }
+}
+
+/**
+ * Format timestamp for display based on interval
+ */
+function formatTimeForInterval(timestamp: number, interval: ClobInterval): string {
+  const date = new Date(timestamp * 1000); // CLOB uses Unix seconds
+  
+  switch (interval) {
+    case '1h':
+    case '6h':
+      return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+    case '1d':
+      return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit", hour12: true });
+    case '1w':
+      return date.toLocaleDateString("en-US", { weekday: "short", hour: "numeric", hour12: true });
+    case '1m':
+    case 'max':
+      return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    default:
+      return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  }
+}
+
+/**
+ * Fetch real price history from CLOB API /prices-history endpoint
+ * This is the OFFICIAL Polymarket price history source
+ * 
+ * @param tokenId - The CLOB token ID (YES token)
+ * @param interval - Time range: 1h, 6h, 1d, 1w, 1m, max
+ * @returns Array of price history points
+ */
+export async function getClobPriceHistory(
+  tokenId: string,
+  interval: ClobInterval = '1d'
+): Promise<PriceHistoryPoint[]> {
+  if (!tokenId) {
+    console.warn('[PriceHistory] No tokenId provided');
+    return [];
+  }
+
+  const cacheKey = `${tokenId}_${interval}`;
+  const cacheDuration = PRICE_HISTORY_CACHE_DURATIONS[interval] || 60000;
+  
+  // Check cache first
+  const cached = clobPriceHistoryCache.get(cacheKey);
+  if (cached && Date.now() - cached.timestamp < cacheDuration) {
+    console.log(`[PriceHistory] Using cached data for ${tokenId} (${interval})`);
+    return cached.data;
+  }
+
   try {
-    // Check cache first
-    const cacheKey = `${marketId}_${interval}`;
-    const cached = priceHistoryCache.get(cacheKey);
-    if (cached && Date.now() - cached.timestamp < PRICE_HISTORY_CACHE_DURATION_MS) {
-      console.log(`Using cached price history for: ${marketId}`);
-      return cached.data;
+    const fidelity = getFidelityForInterval(interval);
+    const url = clobUrl('/prices-history', {
+      market: tokenId,
+      interval: interval,
+      fidelity: fidelity.toString()
+    });
+
+    console.log(`[PriceHistory] Fetching from CLOB: ${url}`);
+    const response = await fetchWithTimeout(url, 15000);
+
+    if (!response.ok) {
+      console.error(`[PriceHistory] CLOB API error: ${response.status}`);
+      return cached?.data || [];
     }
 
-    // Try to get price history from data API
-    const response = await fetchWithTimeout(
-      dataUrl(`/markets/${marketId}/prices`, { interval })
-    );
+    const data: ClobHistoryResponse = await response.json();
+    
+    if (!data.history || !Array.isArray(data.history) || data.history.length === 0) {
+      console.warn(`[PriceHistory] No history data returned for ${tokenId}`);
+      return cached?.data || [];
+    }
 
-    if (response.ok) {
-      const data = await response.json();
-      if (Array.isArray(data)) {
-        const result = data.map((point: any) => ({
-          time: new Date(point.timestamp || point.t).toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-          timestamp: point.timestamp || point.t,
-          probability: (parseFloat(String(point.price || point.p || 0.5)) * 100),
-        }));
-        // Cache the result
-        priceHistoryCache.set(cacheKey, { data: result, timestamp: Date.now() });
-        return result;
+    // Transform CLOB response to our format
+    // CLOB returns: { history: [{ t: unix_timestamp, p: price_0_to_1 }] }
+    const result: PriceHistoryPoint[] = data.history.map(point => ({
+      time: formatTimeForInterval(point.t, interval),
+      timestamp: point.t * 1000, // Convert to milliseconds
+      price: point.p,
+      probability: point.p * 100 // Convert to percentage
+    }));
+
+    // Sort by timestamp (ascending)
+    result.sort((a, b) => a.timestamp - b.timestamp);
+
+    // Cache the result
+    clobPriceHistoryCache.set(cacheKey, { data: result, timestamp: Date.now() });
+    
+    console.log(`[PriceHistory] Got ${result.length} points for ${tokenId} (${interval})`);
+    return result;
+  } catch (error) {
+    console.error(`[PriceHistory] Failed to fetch:`, error);
+    // Return stale cache if available
+    return cached?.data || [];
+  }
+}
+
+/**
+ * Get price history for a market by market ID
+ * Automatically looks up the CLOB token ID
+ * 
+ * @param marketId - The market ID
+ * @param interval - Time range: 1h, 6h, 1d, 1w, 1m, max
+ * @param outcome - Which outcome: 'yes' (default) or 'no'
+ */
+export async function getMarketPriceHistory(
+  marketId: string,
+  interval: string = "1d",
+  outcome: 'yes' | 'no' = 'yes'
+): Promise<PriceHistoryPoint[]> {
+  try {
+    // Map UI interval names to CLOB API intervals
+    const intervalMap: Record<string, ClobInterval> = {
+      '1H': '1h',
+      '1h': '1h',
+      '6H': '6h',
+      '6h': '6h',
+      '24H': '1d',
+      '1D': '1d',
+      '1d': '1d',
+      '7D': '1w',
+      '1W': '1w',
+      '1w': '1w',
+      '30D': '1m',
+      '1M': '1m',
+      '1m': '1m',
+      'ALL': 'max',
+      'all': 'max',
+      'max': 'max'
+    };
+    
+    const clobInterval = intervalMap[interval] || '1d';
+
+    // First, check if we already have the market data cached with clobTokenIds
+    const cachedDetail = getCachedMarketDetail(marketId);
+    let tokenId: string | null = null;
+
+    if (cachedDetail?.clobTokenIds) {
+      const tokens = typeof cachedDetail.clobTokenIds === 'string'
+        ? JSON.parse(cachedDetail.clobTokenIds)
+        : cachedDetail.clobTokenIds;
+      // Index 0 = YES token, Index 1 = NO token
+      tokenId = outcome === 'yes' ? tokens[0] : tokens[1];
+    }
+
+    // If no cached detail, try to get from global market cache
+    if (!tokenId) {
+      const cachedMarket = getMarketFromCache(marketId);
+      if (cachedMarket?.clobTokenIds) {
+        try {
+          const tokens = typeof cachedMarket.clobTokenIds === 'string'
+            ? JSON.parse(cachedMarket.clobTokenIds)
+            : cachedMarket.clobTokenIds;
+          tokenId = outcome === 'yes' ? tokens[0] : tokens[1];
+        } catch (e) {
+          console.warn('[PriceHistory] Failed to parse clobTokenIds from cache');
+        }
       }
     }
 
-    // Fallback: generate mock data based on current price
-    return [];
+    // If still no token ID, fetch market details to get it
+    if (!tokenId) {
+      console.log('[PriceHistory] Fetching market details to get tokenId...');
+      const details = await getMarketDetails(marketId);
+      if (details?.clobTokenIds) {
+        const tokens = Array.isArray(details.clobTokenIds)
+          ? details.clobTokenIds
+          : (typeof details.clobTokenIds === 'string' ? JSON.parse(details.clobTokenIds) : []);
+        tokenId = outcome === 'yes' ? tokens[0] : tokens[1];
+      }
+    }
+
+    if (!tokenId) {
+      console.warn(`[PriceHistory] No CLOB token ID found for market ${marketId}`);
+      return [];
+    }
+
+    // Now fetch the actual price history from CLOB
+    return await getClobPriceHistory(tokenId, clobInterval);
   } catch (error) {
-    console.error("Failed to fetch price history:", error);
+    console.error('[PriceHistory] Error:', error);
     return [];
   }
 }
