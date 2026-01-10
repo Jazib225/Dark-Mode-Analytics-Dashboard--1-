@@ -5,6 +5,10 @@ import type { Express } from "express";
 // Optimized markets endpoint with caching
 import marketsV2Router from "./routes/marketsV2";
 
+// Proxy infrastructure for bypassing rate limits
+import { proxyManager } from "./proxy/ProxyManager";
+import { proxyFetch, proxyFetchBatch, proxyFetchAllPages, polymarketProxyFetch } from "./proxy/proxyFetch";
+
 // Routes no longer needed - frontend calls Polymarket APIs directly via backend proxy
 // import marketsRouter from "./routes/markets";
 // import tradingRouter from "./routes/trading";
@@ -12,6 +16,12 @@ import marketsV2Router from "./routes/marketsV2";
 
 const app: Express = express();
 const PORT = parseInt(process.env.BACKEND_PORT || "3001", 10);
+
+// Log proxy configuration on startup
+console.log(`🔄 Proxy Manager: ${proxyManager.hasProxies() ? proxyManager.getProxyCount() + ' proxies configured' : 'No proxies (direct connection)'}`);
+if (!proxyManager.hasProxies()) {
+  console.log('   Set PROXY_LIST env var for rate limit bypass (e.g., http://user:pass@host:port)');
+}
 
 // Middleware
 app.use(express.json({ limit: "10mb" }));
@@ -35,13 +45,13 @@ app.use((req, res, next) => {
 // =============================================================================
 app.use("/api/v2/markets", marketsV2Router);
 
-// API Proxy for Polymarket APIs (to avoid CORS issues)
+// API Proxy for Polymarket APIs (to avoid CORS issues) - with proxy rotation support
 app.get("/api/proxy/:service/*", async (req, res) => {
   try {
     const service = req.params.service;
     const path = (req.params as any)[0];
     const queryString = new URLSearchParams(req.query as Record<string, string>).toString();
-    
+
     let apiUrl = "";
     if (service === "gamma") {
       apiUrl = `https://gamma-api.polymarket.com/${path}`;
@@ -52,26 +62,122 @@ app.get("/api/proxy/:service/*", async (req, res) => {
     } else {
       return res.status(400).json({ error: "Unknown service" });
     }
-    
+
     if (queryString) {
       apiUrl += `?${queryString}`;
     }
-    
+
     console.log(`Proxying request to: ${apiUrl}`);
-    
+
+    // Use proxy-aware fetch if proxies are configured
+    if (proxyManager.hasProxies()) {
+      try {
+        const result = await proxyFetch(apiUrl, {
+          headers: {
+            "User-Agent": "Polymarket-Dashboard/1.0",
+          },
+          timeout: 30000,
+          retries: 2,
+        });
+
+        console.log(`✅ Proxied via ${result.proxy?.host || 'direct'} in ${result.latencyMs}ms`);
+        return res.json(result.data);
+      } catch (proxyError) {
+        console.error("Proxy fetch failed, falling back to direct:", proxyError);
+        // Fall through to direct fetch
+      }
+    }
+
+    // Direct fetch (no proxy)
     const response = await fetch(apiUrl, {
       headers: {
         "User-Agent": "Polymarket-Dashboard/1.0",
       },
-      timeout: 30000,
-    } as any);
-    
+    });
+
     const data = await response.json();
     res.json(data);
   } catch (error) {
     console.error("Proxy error:", error);
     res.status(500).json({ error: "Failed to proxy request" });
   }
+});
+
+// =============================================================================
+// Bulk Fetch Endpoint - Fetch many markets at once using proxy rotation
+// =============================================================================
+app.get("/api/bulk/markets", async (req, res) => {
+  const startTime = Date.now();
+
+  try {
+    console.log("🚀 Starting bulk market fetch with proxy rotation...");
+
+    // Fetch all markets using paginated proxy fetch
+    const allMarkets = await proxyFetchAllPages(
+      "https://gamma-api.polymarket.com/events",
+      {
+        pageSize: 500,
+        maxPages: 100,
+        limitParam: "limit",
+        offsetParam: "offset",
+        timeout: 15000,
+        retries: 2,
+        extractItems: (response: any) => {
+          // Events endpoint returns array of events, each with markets
+          const events = Array.isArray(response) ? response : [];
+          const markets: any[] = [];
+          events.forEach((event: any) => {
+            if (Array.isArray(event.markets)) {
+              event.markets.forEach((m: any) => {
+                markets.push({ ...m, eventTitle: event.title, eventSlug: event.slug });
+              });
+            }
+          });
+          return markets;
+        },
+        onPage: (pageNum, items) => {
+          console.log(`📊 Page ${pageNum + 1}: ${items.length} markets`);
+        },
+      }
+    );
+
+    const duration = Date.now() - startTime;
+    const stats = proxyManager.getStats();
+
+    console.log(`✅ Bulk fetch complete: ${allMarkets.length} markets in ${duration}ms`);
+    console.log(`   Proxy stats: ${stats.successfulRequests} success, ${stats.failedRequests} failed, ${stats.rateLimitHits} rate limits`);
+
+    res.json({
+      success: true,
+      data: {
+        markets: allMarkets,
+        count: allMarkets.length,
+        durationMs: duration,
+        proxyStats: stats,
+      },
+    });
+  } catch (error) {
+    console.error("Bulk fetch error:", error);
+    res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to fetch markets",
+    });
+  }
+});
+
+// =============================================================================
+// Proxy Stats Endpoint - Monitor proxy health
+// =============================================================================
+app.get("/api/proxy/stats", (req, res) => {
+  const stats = proxyManager.getStats();
+  res.json({
+    success: true,
+    data: {
+      ...stats,
+      hasProxies: proxyManager.hasProxies(),
+      proxyCount: proxyManager.getProxyCount(),
+    },
+  });
 });
 
 // Health check endpoint
