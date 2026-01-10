@@ -22,6 +22,7 @@ import {
   getCachedTopTraders
 } from "../services/polymarketApi";
 import { useAuth } from "../context/AuthContext";
+import { MarketDetailSkeleton } from "./SkeletonLoaders";
 
 // Helper function to format balance
 function formatBalance(cents: number): string {
@@ -443,13 +444,8 @@ export function MarketDetail({
         <span className="text-sm font-light">Back to Markets</span>
       </button>
 
-      {/* Loading State */}
-      {isLoading && (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
-          <span className="ml-3 text-gray-400">Loading market data...</span>
-        </div>
-      )}
+      {/* Loading State - High-fidelity Skeleton */}
+      {isLoading && <MarketDetailSkeleton />}
 
       {/* Error State */}
       {error && !isLoading && (
@@ -541,8 +537,8 @@ export function MarketDetail({
                             setTradeAmount("");
                           }}
                           className={`flex items-center justify-between p-4 rounded-lg cursor-pointer transition-all ${isSelected
-                              ? "bg-gradient-to-r from-[#4a6fa5]/20 to-[#4a6fa5]/10 border border-[#4a6fa5]/50"
-                              : "bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-800/30 hover:border-gray-700/50"
+                            ? "bg-gradient-to-r from-[#4a6fa5]/20 to-[#4a6fa5]/10 border border-[#4a6fa5]/50"
+                            : "bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-800/30 hover:border-gray-700/50"
                             }`}
                         >
                           <div className="flex-1">
@@ -649,8 +645,8 @@ export function MarketDetail({
                     key={tab.id}
                     onClick={() => setActiveActivityTab(tab.id)}
                     className={`relative flex items-center gap-2 px-4 py-3 text-xs font-light tracking-wide transition-all ${activeActivityTab === tab.id
-                        ? "text-white"
-                        : "text-gray-500 hover:text-gray-300"
+                      ? "text-white"
+                      : "text-gray-500 hover:text-gray-300"
                       }`}
                   >
                     <tab.icon className="w-3.5 h-3.5" />
@@ -736,8 +732,8 @@ export function MarketDetail({
                             </td>
                             <td className="py-2.5 px-4">
                               <span className={`text-xs font-medium px-2 py-0.5 rounded ${holder.side === "YES"
-                                  ? "bg-green-500/20 text-green-400"
-                                  : "bg-red-500/20 text-red-400"
+                                ? "bg-green-500/20 text-green-400"
+                                : "bg-red-500/20 text-red-400"
                                 }`}>
                                 {holder.side}
                               </span>
@@ -775,8 +771,8 @@ export function MarketDetail({
                             <td className="py-2.5 px-4 text-gray-600 font-light">
                               {index < 3 ? (
                                 <span className={`text-sm ${index === 0 ? "text-yellow-500" :
-                                    index === 1 ? "text-gray-400" :
-                                      "text-amber-700"
+                                  index === 1 ? "text-gray-400" :
+                                    "text-amber-700"
                                   }`}>
                                   {index === 0 ? "🥇" : index === 1 ? "🥈" : "🥉"}
                                 </span>
@@ -904,8 +900,8 @@ export function MarketDetail({
                     <button
                       onClick={() => { setTradeSide("YES"); setShareQuantity(0); setTradeAmount(""); }}
                       className={`relative py-4 px-4 text-sm font-normal tracking-wide rounded-lg transition-all ${tradeSide === "YES"
-                          ? "bg-gradient-to-br from-green-900/40 to-green-900/20 border-2 border-green-500/50 text-green-400 shadow-lg shadow-green-900/20"
-                          : "bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-800/30 text-gray-500 hover:border-gray-700/50 hover:text-gray-400"
+                        ? "bg-gradient-to-br from-green-900/40 to-green-900/20 border-2 border-green-500/50 text-green-400 shadow-lg shadow-green-900/20"
+                        : "bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-800/30 text-gray-500 hover:border-gray-700/50 hover:text-gray-400"
                         }`}
                     >
                       <div className="text-lg font-medium">YES</div>
@@ -915,8 +911,8 @@ export function MarketDetail({
                     <button
                       onClick={() => { setTradeSide("NO"); setShareQuantity(0); setTradeAmount(""); }}
                       className={`relative py-4 px-4 text-sm font-normal tracking-wide rounded-lg transition-all ${tradeSide === "NO"
-                          ? "bg-gradient-to-br from-red-900/40 to-red-900/20 border-2 border-red-500/50 text-red-400 shadow-lg shadow-red-900/20"
-                          : "bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-800/30 text-gray-500 hover:border-gray-700/50 hover:text-gray-400"
+                        ? "bg-gradient-to-br from-red-900/40 to-red-900/20 border-2 border-red-500/50 text-red-400 shadow-lg shadow-red-900/20"
+                        : "bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-800/30 text-gray-500 hover:border-gray-700/50 hover:text-gray-400"
                         }`}
                     >
                       <div className="text-lg font-medium">NO</div>
@@ -975,10 +971,10 @@ export function MarketDetail({
                 <button
                   disabled={shareQuantity === 0}
                   className={`w-full py-4 text-sm font-medium tracking-wide rounded-lg transition-all ${shareQuantity > 0
-                      ? tradeSide === "YES"
-                        ? "bg-gradient-to-br from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white shadow-lg shadow-green-900/30"
-                        : "bg-gradient-to-br from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white shadow-lg shadow-red-900/30"
-                      : "bg-gradient-to-br from-gray-800 to-gray-900 text-gray-600 cursor-not-allowed"
+                    ? tradeSide === "YES"
+                      ? "bg-gradient-to-br from-green-600 to-green-700 hover:from-green-500 hover:to-green-600 text-white shadow-lg shadow-green-900/30"
+                      : "bg-gradient-to-br from-red-600 to-red-700 hover:from-red-500 hover:to-red-600 text-white shadow-lg shadow-red-900/30"
+                    : "bg-gradient-to-br from-gray-800 to-gray-900 text-gray-600 cursor-not-allowed"
                     }`}
                 >
                   {shareQuantity > 0 ? `Buy ${shareQuantity} ${tradeSide} Shares for $${tradeAmount}` : "Enter amount to buy shares"}

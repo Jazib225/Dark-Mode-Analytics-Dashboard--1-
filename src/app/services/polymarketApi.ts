@@ -2181,3 +2181,80 @@ export async function getClobPrices(tokenId: string) {
   }
 }
 
+// =============================================================================
+// PARALLEL DATA FETCHING - Fetch all market data at once for instant loading
+// =============================================================================
+
+/**
+ * Fetch all market detail data in parallel for instant loading
+ * Returns all data needed for MarketDetail component
+ * This is the main function for TanStack Query hooks
+ */
+export interface AllMarketData {
+  details: any;
+  priceHistory: any[];
+  trades: any[];
+  orderBook: { bids: any[]; asks: any[]; spread: number };
+  tradersCount: number;
+  topHolders: any[];
+  topTraders: any[];
+  relatedMarkets: any[];
+}
+
+export async function getAllMarketDataParallel(marketId: string): Promise<AllMarketData> {
+  // Start all fetches in parallel
+  const [
+    detailsResult,
+    priceHistoryResult,
+    tradesResult,
+    tradersCountResult,
+    topHoldersResult,
+    topTradersResult,
+  ] = await Promise.allSettled([
+    getMarketDetails(marketId),
+    getMarketPriceHistory(marketId, "1d"),
+    getMarketTrades(marketId, 20),
+    getMarketTradersCount(marketId),
+    getMarketTopHolders(marketId, 20),
+    getMarketTopTraders(marketId, 20),
+  ]);
+
+  // Extract results with fallbacks
+  const details = detailsResult.status === 'fulfilled' ? detailsResult.value : null;
+  const priceHistory = priceHistoryResult.status === 'fulfilled' ? priceHistoryResult.value : [];
+  const trades = tradesResult.status === 'fulfilled' ? tradesResult.value : [];
+  const tradersCount = tradersCountResult.status === 'fulfilled' ? tradersCountResult.value : 0;
+  const topHolders = topHoldersResult.status === 'fulfilled' ? topHoldersResult.value : [];
+  const topTraders = topTradersResult.status === 'fulfilled' ? topTradersResult.value : [];
+
+  // Fetch order book if we have token IDs
+  let orderBook = { bids: [], asks: [], spread: 0 };
+  if (details?.clobTokenIds) {
+    try {
+      const tokenIds = JSON.parse(details.clobTokenIds);
+      if (tokenIds[0]) {
+        const orderBookData = await getOrderBook(tokenIds[0]);
+        if (orderBookData) {
+          orderBook = orderBookData;
+        }
+      }
+    } catch (e) {
+      console.log("Failed to fetch order book:", e);
+    }
+  }
+
+  return {
+    details,
+    priceHistory: priceHistory || [],
+    trades: trades || [],
+    orderBook,
+    tradersCount: tradersCount || 0,
+    topHolders: topHolders || [],
+    topTraders: topTraders || [],
+    relatedMarkets: [], // TODO: Add related markets fetch
+  };
+}
+
+// Alias for backwards compatibility with hooks
+export const getPriceHistory = getMarketPriceHistory;
+export const getRecentTradesById = getMarketTrades;

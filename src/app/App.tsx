@@ -10,6 +10,7 @@ import { SearchResults } from "./components/SearchResults";
 import { LoginPage } from "./components/LoginPage";
 import { TradeFlow } from "./components/TradeFlow";
 import { AuthProvider, useAuth } from "./context/AuthContext";
+import { QueryProvider } from "./providers/QueryProvider";
 import { Search, X, Clock, TrendingUp, Bookmark, Loader2, LogOut, User, ChevronDown } from "lucide-react";
 import paragonLogo from "../assets/paragon-logo.png";
 import { getAllActiveMarkets, searchMarkets, initializeMarketCache, instantSearch, prefetchMarketDetail } from "./services/polymarketApi";
@@ -753,8 +754,8 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
 
   return (
     <div className="dark min-h-screen bg-[#0a0a0a] text-gray-100 font-['Inter'] overflow-x-hidden">
-      {/* Top Navigation */}
-      <header className="border-b border-gray-800/50 bg-gradient-to-b from-[#0d0d0d] to-[#0a0a0a]">
+      {/* Fixed Header - Outside scaling context */}
+      <header className="fixed-header border-b border-gray-800/50 bg-gradient-to-b from-[#0d0d0d] to-[#0a0a0a]">
         <nav className="flex items-center h-16 px-4 sm:px-6 lg:px-8">
           <div className="flex items-center gap-4 lg:gap-8 xl:gap-12 flex-shrink-0">
             <button
@@ -899,8 +900,8 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                 onKeyDown={handleSearchKeyDown}
                 placeholder="Search..."
                 className={`w-[120px] sm:w-[200px] md:w-[280px] lg:w-[350px] xl:w-[400px] bg-[#0d0d0d] border border-gray-800/50 pl-7 sm:pl-10 pr-7 sm:pr-10 py-1.5 sm:py-2 text-xs sm:text-[14px] text-gray-200 placeholder-gray-500 focus:outline-none focus:border-gray-600/50 transition-all ${isSearchFocused && (searchHistory.length > 0 || searchQuery.trim() || isSearching)
-                    ? "rounded-t-lg rounded-b-none border-b-transparent"
-                    : "rounded-lg"
+                  ? "rounded-t-lg rounded-b-none border-b-transparent"
+                  : "rounded-lg"
                   }`}
               />
               {searchQuery && (
@@ -1047,93 +1048,95 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
         }}
       />
 
-      {/* Main Content */}
-      <main className="p-3 sm:p-4 md:p-6 lg:p-8">
-        {selectedWalletAddress ? (
-          <WalletProfile walletAddress={selectedWalletAddress} onClose={() => {
-            // Go back properly instead of just closing
-            goBack();
-          }} />
-        ) : (
-          <>
-            {currentPage === "discover" && (
-              <Discover
-                toggleBookmark={toggleBookmark}
-                isBookmarked={isBookmarked}
-                onWalletClick={openWalletProfile}
-                onMarketClick={(market) => {
-                  // Push current state to history before navigating
-                  pushToHistory();
-                  setSelectedMarketId(market.id);
-                  setSelectedMarketData({
-                    id: market.id,
-                    name: market.name || market.title || "Unknown",
-                    probability: Number(market.probability) || 50,
-                    volume: market.volume || "$0",
-                  });
-                  setCurrentPage("markets");
-                }}
-                onNavigate={(page) => {
-                  pushToHistory();
-                  setCurrentPage(page as Page);
-                  setSelectedWalletAddress(null);
-                  setSelectedMarketId(null);
-                }}
-              />
-            )}
-            {currentPage === "markets" && (
-              <Markets
-                toggleBookmark={toggleBookmark}
-                isBookmarked={isBookmarked}
-                onWalletClick={openWalletProfile}
-                onBack={goBack}
-                onMarketSelect={(market) => {
-                  // Save to App state so it gets persisted to localStorage
-                  if (market) {
-                    // Push current state to history before selecting market
+      {/* Main Content - Inside scaling wrapper */}
+      <div className="content-scaler">
+        <main className="main-content-area p-3 sm:p-4 md:p-6 lg:p-8">
+          {selectedWalletAddress ? (
+            <WalletProfile walletAddress={selectedWalletAddress} onClose={() => {
+              // Go back properly instead of just closing
+              goBack();
+            }} />
+          ) : (
+            <>
+              {currentPage === "discover" && (
+                <Discover
+                  toggleBookmark={toggleBookmark}
+                  isBookmarked={isBookmarked}
+                  onWalletClick={openWalletProfile}
+                  onMarketClick={(market) => {
+                    // Push current state to history before navigating
                     pushToHistory();
                     setSelectedMarketId(market.id);
-                    setSelectedMarketData(market);
-                  } else {
-                    // Clear selection (back button pressed)
+                    setSelectedMarketData({
+                      id: market.id,
+                      name: market.name || market.title || "Unknown",
+                      probability: Number(market.probability) || 50,
+                      volume: market.volume || "$0",
+                    });
+                    setCurrentPage("markets");
+                  }}
+                  onNavigate={(page) => {
+                    pushToHistory();
+                    setCurrentPage(page as Page);
+                    setSelectedWalletAddress(null);
                     setSelectedMarketId(null);
-                    setSelectedMarketData(null);
-                  }
-                }}
-                initialMarketId={selectedMarketId}
-                initialMarketData={selectedMarketData}
-              />
-            )}
-            {currentPage === "wallets" && <WalletsList onWalletClick={openWalletProfile} onMarketClick={(marketId) => {
-              pushToHistory();
-              navigateToMarket(marketId);
-            }} />}
-            {currentPage === "insiderlens" && <InsiderLens onWalletClick={openWalletProfile} />}
-            {currentPage === "tradeflow" && <TradeFlow />}
-            {currentPage === "portfolio" && <Portfolio />}
-            {currentPage === "search" && (
-              <SearchResults
-                initialQuery={searchResultsQuery}
-                onBack={goBack}
-                onMarketSelect={(market) => {
-                  pushToHistory();
-                  addToSearchHistory(market);
-                  setSelectedMarketId(market.id);
-                  setSelectedMarketData({
-                    id: market.id,
-                    name: market.name || market.title || "Unknown",
-                    probability: Number(market.probability) || 50,
-                    volume: market.volume || "$0",
-                  });
-                  setCurrentPage("markets");
-                }}
-                toggleBookmark={toggleBookmark}
-                isBookmarked={isBookmarked}
-              />
-            )}
-          </>
-        )}
-      </main>
+                  }}
+                />
+              )}
+              {currentPage === "markets" && (
+                <Markets
+                  toggleBookmark={toggleBookmark}
+                  isBookmarked={isBookmarked}
+                  onWalletClick={openWalletProfile}
+                  onBack={goBack}
+                  onMarketSelect={(market) => {
+                    // Save to App state so it gets persisted to localStorage
+                    if (market) {
+                      // Push current state to history before selecting market
+                      pushToHistory();
+                      setSelectedMarketId(market.id);
+                      setSelectedMarketData(market);
+                    } else {
+                      // Clear selection (back button pressed)
+                      setSelectedMarketId(null);
+                      setSelectedMarketData(null);
+                    }
+                  }}
+                  initialMarketId={selectedMarketId}
+                  initialMarketData={selectedMarketData}
+                />
+              )}
+              {currentPage === "wallets" && <WalletsList onWalletClick={openWalletProfile} onMarketClick={(marketId) => {
+                pushToHistory();
+                navigateToMarket(marketId);
+              }} />}
+              {currentPage === "insiderlens" && <InsiderLens onWalletClick={openWalletProfile} />}
+              {currentPage === "tradeflow" && <TradeFlow />}
+              {currentPage === "portfolio" && <Portfolio />}
+              {currentPage === "search" && (
+                <SearchResults
+                  initialQuery={searchResultsQuery}
+                  onBack={goBack}
+                  onMarketSelect={(market) => {
+                    pushToHistory();
+                    addToSearchHistory(market);
+                    setSelectedMarketId(market.id);
+                    setSelectedMarketData({
+                      id: market.id,
+                      name: market.name || market.title || "Unknown",
+                      probability: Number(market.probability) || 50,
+                      volume: market.volume || "$0",
+                    });
+                    setCurrentPage("markets");
+                  }}
+                  toggleBookmark={toggleBookmark}
+                  isBookmarked={isBookmarked}
+                />
+              )}
+            </>
+          )}
+        </main>
+      </div>
     </div>
   );
 }
@@ -1166,11 +1169,13 @@ function AppWithAuth() {
   return <AppContent showLoginPage={showLoginPage} setShowLoginPage={setShowLoginPage} />;
 }
 
-// Main App component wrapped with AuthProvider
+// Main App component wrapped with AuthProvider and QueryProvider
 export default function App() {
   return (
-    <AuthProvider>
-      <AppWithAuth />
-    </AuthProvider>
+    <QueryProvider>
+      <AuthProvider>
+        <AppWithAuth />
+      </AuthProvider>
+    </QueryProvider>
   );
 }
