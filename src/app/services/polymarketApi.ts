@@ -56,8 +56,8 @@ const globalMarketCache: MarketCache = {
   loadPromise: null,
 };
 
-// Cache duration: 5 minutes (markets don't change that frequently)
-const CACHE_DURATION_MS = 5 * 60 * 1000;
+// Cache duration: 10 minutes (markets don't change that frequently)
+const CACHE_DURATION_MS = 10 * 60 * 1000;
 
 // =============================================================================
 // MARKET DETAIL CACHE - Instant loading for individual markets
@@ -69,35 +69,35 @@ interface CachedMarketDetail {
 
 // In-memory cache for market details (faster than localStorage for frequent access)
 const marketDetailCache = new Map<string, CachedMarketDetail>();
-const DETAIL_CACHE_DURATION_MS = 2 * 60 * 1000; // 2 minutes for detail data
+const DETAIL_CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes for detail data
 
 // Cache for price history
 const priceHistoryCache = new Map<string, { data: any; timestamp: number }>();
-const PRICE_HISTORY_CACHE_DURATION_MS = 60 * 1000; // 1 minute
+const PRICE_HISTORY_CACHE_DURATION_MS = 2 * 60 * 1000; // 2 minutes
 
 // Cache for trades
 const tradesCache = new Map<string, { data: any; timestamp: number }>();
-const TRADES_CACHE_DURATION_MS = 30 * 1000; // 30 seconds for trades
+const TRADES_CACHE_DURATION_MS = 60 * 1000; // 1 minute for trades
 
 // Cache for order book
 const orderBookCache = new Map<string, { data: any; timestamp: number }>();
-const ORDER_BOOK_CACHE_DURATION_MS = 10 * 1000; // 10 seconds for order book
+const ORDER_BOOK_CACHE_DURATION_MS = 15 * 1000; // 15 seconds for order book
 
 // Cache for event data (multi-outcome markets)
 const eventCache = new Map<string, { data: any; timestamp: number }>();
-const EVENT_CACHE_DURATION_MS = 2 * 60 * 1000; // 2 minutes
+const EVENT_CACHE_DURATION_MS = 5 * 60 * 1000; // 5 minutes
 
 // Cache for traders count
 const tradersCountCache = new Map<string, { data: number; timestamp: number }>();
-const TRADERS_COUNT_CACHE_DURATION_MS = 60 * 1000; // 1 minute
+const TRADERS_COUNT_CACHE_DURATION_MS = 3 * 60 * 1000; // 3 minutes
 
 // Cache for top holders
 const topHoldersCache = new Map<string, { data: any[]; timestamp: number }>();
-const TOP_HOLDERS_CACHE_DURATION_MS = 60 * 1000; // 1 minute
+const TOP_HOLDERS_CACHE_DURATION_MS = 3 * 60 * 1000; // 3 minutes
 
 // Cache for top traders
 const topTradersCache = new Map<string, { data: any[]; timestamp: number }>();
-const TOP_TRADERS_CACHE_DURATION_MS = 60 * 1000; // 1 minute
+const TOP_TRADERS_CACHE_DURATION_MS = 3 * 60 * 1000; // 3 minutes
 
 /**
  * Get cached market detail if available and not expired

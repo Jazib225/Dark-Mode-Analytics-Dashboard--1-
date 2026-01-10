@@ -33,7 +33,7 @@ export class LRUCache<T> {
     if (!entry) return null;
 
     const now = Date.now();
-    
+
     // Entry has completely expired
     if (now > entry.expiresAt) {
       this.cache.delete(key);
@@ -53,7 +53,7 @@ export class LRUCache<T> {
   set(key: string, data: T, ttl?: number): void {
     const now = Date.now();
     const staleTTL = ttl || this.defaultTTL;
-    
+
     // Evict oldest entries if at capacity
     while (this.cache.size >= this.maxSize) {
       const oldestKey = this.cache.keys().next().value;
@@ -71,12 +71,12 @@ export class LRUCache<T> {
   has(key: string): boolean {
     const entry = this.cache.get(key);
     if (!entry) return false;
-    
+
     if (Date.now() > entry.expiresAt) {
       this.cache.delete(key);
       return false;
     }
-    
+
     return true;
   }
 
@@ -104,25 +104,25 @@ export class LRUCache<T> {
 // Market-specific caches with appropriate TTLs
 // =============================================================================
 
-// Market list cache (short TTL - 15s stale, 60s max)
+// Market list cache (longer TTL - 2min stale, 10min max)
 export const marketListCache = new LRUCache<any>({
   maxSize: 50,
-  defaultTTL: 15000,  // 15 seconds until stale
-  maxTTL: 60000,      // 60 seconds until expired
+  defaultTTL: 120000,  // 2 minutes until stale
+  maxTTL: 600000,      // 10 minutes until expired
 });
 
-// Market metadata cache (longer TTL - 60s stale, 5min max)
+// Market metadata cache (longer TTL - 3min stale, 15min max)
 export const marketMetadataCache = new LRUCache<any>({
   maxSize: 500,
-  defaultTTL: 60000,  // 60 seconds until stale
-  maxTTL: 300000,     // 5 minutes until expired
+  defaultTTL: 180000,  // 3 minutes until stale
+  maxTTL: 900000,      // 15 minutes until expired
 });
 
-// Event cache (medium TTL - 30s stale, 2min max)
+// Event cache (longer TTL - 2min stale, 10min max)
 export const eventCache = new LRUCache<any>({
   maxSize: 100,
-  defaultTTL: 30000,  // 30 seconds until stale
-  maxTTL: 120000,     // 2 minutes until expired
+  defaultTTL: 120000,  // 2 minutes until stale
+  maxTTL: 600000,      // 10 minutes until expired
 });
 
 // Order book cache (very short TTL - 5s stale, 15s max)
@@ -181,14 +181,14 @@ export function logTiming(operation: string, duration: number, cacheHit: boolean
     cacheHit,
     timestamp: Date.now(),
   };
-  
+
   timingLogs.push(log);
-  
+
   // Keep only recent logs
   if (timingLogs.length > MAX_TIMING_LOGS) {
     timingLogs.shift();
   }
-  
+
   // Log slow operations (> 500ms)
   if (duration > 500) {
     console.warn(`⚠️ Slow operation: ${operation} took ${duration}ms (cache: ${cacheHit})`);
@@ -197,20 +197,20 @@ export function logTiming(operation: string, duration: number, cacheHit: boolean
   }
 }
 
-export function getTimingStats(): { 
-  avgDuration: number; 
-  cacheHitRate: number; 
+export function getTimingStats(): {
+  avgDuration: number;
+  cacheHitRate: number;
   slowOperations: number;
   recentLogs: TimingLog[];
 } {
   if (timingLogs.length === 0) {
     return { avgDuration: 0, cacheHitRate: 0, slowOperations: 0, recentLogs: [] };
   }
-  
+
   const totalDuration = timingLogs.reduce((sum, log) => sum + log.duration, 0);
   const cacheHits = timingLogs.filter(log => log.cacheHit).length;
   const slowOps = timingLogs.filter(log => log.duration > 500).length;
-  
+
   return {
     avgDuration: totalDuration / timingLogs.length,
     cacheHitRate: (cacheHits / timingLogs.length) * 100,
@@ -233,7 +233,7 @@ export async function getWithRevalidation<T>(
 ): Promise<T> {
   const startTime = Date.now();
   const cached = cache.get(key);
-  
+
   if (cached) {
     // If stale, trigger background revalidation
     if (cached.isStale && !revalidationQueue.has(key)) {
@@ -248,15 +248,15 @@ export async function getWithRevalidation<T>(
       })();
       revalidationQueue.set(key, revalidationPromise);
     }
-    
+
     logTiming(`cache:${key.split(':')[0]}`, Date.now() - startTime, true);
     return cached.data;
   }
-  
+
   // Cache miss - fetch fresh data
   const data = await fetcher();
   cache.set(key, data, ttl);
-  
+
   logTiming(`fetch:${key.split(':')[0]}`, Date.now() - startTime, false);
   return data;
 }
