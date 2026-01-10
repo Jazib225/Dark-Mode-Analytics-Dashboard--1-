@@ -1,6 +1,6 @@
 import { ArrowLeft, Bookmark, TrendingUp, TrendingDown, DollarSign, Users, Activity, Minus, Plus, Loader2, BarChart3, Trophy, Wallet } from "lucide-react";
 import { XAxis, YAxis, Tooltip, ResponsiveContainer, Area, AreaChart } from "recharts";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import {
   getMarketDetails,
   getMarketPriceHistory,
@@ -19,7 +19,9 @@ import {
   getCachedEventData,
   getCachedTradersCount,
   getCachedTopHolders,
-  getCachedTopTraders
+  getCachedTopTraders,
+  getMarketShellFromCache,
+  type MarketShell,
 } from "../services/polymarketApi";
 import { useAuth } from "../context/AuthContext";
 import { MarketDetailSkeleton } from "./SkeletonLoaders";
@@ -169,7 +171,13 @@ export function MarketDetail({
   const [shareQuantity, setShareQuantity] = useState(0);
   const [selectedOutcome, setSelectedOutcome] = useState<OutcomeMarket | null>(null);
 
-  // Real data states
+  // PHASE 1: Market shell for instant render (title, outcomes, image)
+  const [marketShell, setMarketShell] = useState<MarketShell | null>(() => {
+    // Initialize synchronously from cache for instant display
+    return getMarketShellFromCache(market.id);
+  });
+
+  // PHASE 2: Full data states (loaded async, non-blocking)
   const [marketData, setMarketData] = useState<MarketData | null>(null);
   const [eventData, setEventData] = useState<EventData | null>(null);
   const [priceHistory, setPriceHistory] = useState<PricePoint[]>([]);
@@ -179,209 +187,188 @@ export function MarketDetail({
   const [topHolders, setTopHolders] = useState<TopHolder[]>([]);
   const [topTraders, setTopTraders] = useState<TopTrader[]>([]);
   const [activeActivityTab, setActiveActivityTab] = useState<ActivityTab>("trades");
-  const [isLoading, setIsLoading] = useState(false); // Start false - we'll show cached data immediately
+
+  // Loading states - Phase 1 (shell) vs Phase 2 (details)
+  const [phase1Complete, setPhase1Complete] = useState(!!marketShell);
+  const [phase2Loading, setPhase2Loading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // INSTANT LOAD: Check ALL caches immediately on mount and populate state
+  // Track if we've started fetching to prevent duplicate calls
+  const fetchStarted = useRef(false);
+
+  // PHASE 1: Instant cache load - runs synchronously on mount
+  // This should complete in <50ms
   useEffect(() => {
-    console.log(`[MarketDetail] Loading market: ${market.id}`);
+    console.log(`[MarketDetail] PHASE 1 START: ${market.id}`);
     const startTime = performance.now();
 
-    // 1. Check for cached market detail (full data)
-    const cachedDetail = getCachedMarketDetail(market.id);
-    if (cachedDetail) {
-      console.log(`[MarketDetail] Found cached detail`);
-      setMarketData(cachedDetail);
-    } else {
-      // Fall back to global market cache (basic data)
-      const cachedMarket = getMarketFromCache(market.id);
-      if (cachedMarket) {
-        console.log(`[MarketDetail] Found market in global cache`);
-        setMarketData({
-          id: cachedMarket.id,
-          name: cachedMarket.title,
-          title: cachedMarket.title,
-          description: cachedMarket.description || '',
-          yesPrice: cachedMarket.probability / 100,
-          noPrice: 1 - (cachedMarket.probability / 100),
-          probability: cachedMarket.probability,
-          spread: 0,
-          volume: `$${(cachedMarket.volumeUsd / 1000000).toFixed(1)}M`,
-          volumeUsd: cachedMarket.volumeUsd,
-          volume24hr: `$${(cachedMarket.volume24hr / 1000).toFixed(0)}K`,
-          volume24hrNum: cachedMarket.volume24hr,
-          liquidity: `$${(cachedMarket.liquidity / 1000).toFixed(0)}K`,
-          liquidityNum: cachedMarket.liquidity,
-          outcomes: cachedMarket.outcomes ? (typeof cachedMarket.outcomes === 'string' ? JSON.parse(cachedMarket.outcomes) : cachedMarket.outcomes) : ["Yes", "No"],
-          outcomePrices: cachedMarket.outcomePrices ? (typeof cachedMarket.outcomePrices === 'string' ? JSON.parse(cachedMarket.outcomePrices).map(Number) : cachedMarket.outcomePrices) : [cachedMarket.probability / 100, 1 - cachedMarket.probability / 100],
-          endDate: cachedMarket.endDate,
-          uniqueTraders: 0,
-          tradesCount: 0,
-          image: cachedMarket.image,
-        } as any);
+    // Try to get shell data from cache immediately
+    if (!marketShell) {
+      const shell = getMarketShellFromCache(market.id);
+      if (shell) {
+        console.log(`[MarketDetail] Found shell in cache`);
+        setMarketShell(shell);
+        setPhase1Complete(true);
       }
+    } else {
+      setPhase1Complete(true);
     }
 
-    // 2. Check for cached price history
+    // Also check for any cached full data
+    const cachedDetail = getCachedMarketDetail(market.id);
+    if (cachedDetail) {
+      console.log(`[MarketDetail] Found cached full detail`);
+      setMarketData(cachedDetail);
+    }
+
+    // Check cached price history
     const cachedHistory = getCachedPriceHistory(market.id, "1d");
     if (cachedHistory && cachedHistory.length > 0) {
-      console.log(`[MarketDetail] Found cached price history`);
       setPriceHistory(cachedHistory);
     }
 
-    // 3. Check for cached trades
+    // Check cached trades
     const cachedTrades = getCachedTrades(market.id, 10);
     if (cachedTrades && cachedTrades.length > 0) {
-      console.log(`[MarketDetail] Found cached trades`);
       setRecentTrades(cachedTrades);
     }
 
-    // 4. Check for cached event data
+    // Check cached event data
     const cachedEvent = getCachedEventData(market.id);
     if (cachedEvent) {
-      console.log(`[MarketDetail] Found cached event data`);
       setEventData(cachedEvent);
       if (cachedEvent.isMultiOutcome && cachedEvent.targetMarket) {
         setSelectedOutcome(cachedEvent.targetMarket);
       }
     }
 
-    // Get condition ID for additional cached data
-    const conditionId = cachedDetail?.conditionId || market.id;
-
-    // 5. Check for cached traders count
-    const cachedCount = getCachedTradersCount(conditionId);
-    if (cachedCount !== null) {
-      console.log(`[MarketDetail] Found cached traders count`);
-      setTradersCount(cachedCount);
-    }
-
-    // 6. Check for cached top holders
-    const cachedHolders = getCachedTopHolders(conditionId);
-    if (cachedHolders && cachedHolders.length > 0) {
-      console.log(`[MarketDetail] Found cached top holders`);
-      setTopHolders(cachedHolders);
-    }
-
-    // 7. Check for cached top traders
-    const cachedTraders = getCachedTopTraders(conditionId);
-    if (cachedTraders && cachedTraders.length > 0) {
-      console.log(`[MarketDetail] Found cached top traders`);
-      setTopTraders(cachedTraders);
-    }
-
-    // 8. Check for cached order book (need token ID)
-    const tokenId = cachedDetail?.clobTokenIds?.[0] ||
-      (cachedDetail?.clobTokenIds && typeof cachedDetail.clobTokenIds === 'string'
-        ? JSON.parse(cachedDetail.clobTokenIds)[0]
-        : null);
-    if (tokenId) {
-      const cachedBook = getCachedOrderBook(tokenId);
-      if (cachedBook) {
-        console.log(`[MarketDetail] Found cached order book`);
-        setOrderBook(cachedBook);
-      }
-    }
-
-    const cacheTime = performance.now() - startTime;
-    console.log(`[MarketDetail] Cache load completed in ${cacheTime.toFixed(0)}ms`);
-
-    // Now fetch fresh data in background (non-blocking)
-    fetchFreshData();
+    const phase1Time = performance.now() - startTime;
+    console.log(`[MarketDetail] PHASE 1 COMPLETE in ${phase1Time.toFixed(0)}ms`);
   }, [market.id]);
 
-  // Background fetch for fresh data
-  const fetchFreshData = async () => {
-    try {
-      console.log(`[MarketDetail] Starting background fetch for fresh data`);
+  // PHASE 2: Background fetch for fresh data - runs async, non-blocking
+  useEffect(() => {
+    if (fetchStarted.current) return;
+    fetchStarted.current = true;
+
+    const fetchPhase2Data = async () => {
+      setPhase2Loading(true);
+      console.log(`[MarketDetail] PHASE 2 START: Background fetch`);
       const startTime = performance.now();
 
-      // Fire ALL requests in parallel
-      const [details, event, history, trades] = await Promise.all([
-        getMarketDetails(market.id),
-        getEventWithMarkets(market.id),
-        getMarketPriceHistory(market.id, "1d"),
-        getMarketTrades(market.id, 10),
-      ]);
-
-      // Update with fresh details
-      if (details) {
-        setMarketData(details);
-
-        // Now fetch data that depends on details
-        const tokenId = details.clobTokenIds?.[0] ||
-          (typeof details.clobTokenIds === 'string' ? JSON.parse(details.clobTokenIds)[0] : null);
-        const conditionId = details.conditionId || market.id;
-
-        // Fire all dependent requests in parallel
-        const [bookData, tradersNum, holders, tradersList] = await Promise.all([
-          tokenId ? getOrderBook(tokenId) : Promise.resolve({ bids: [], asks: [], spread: 0 }),
-          getMarketTradersCount(conditionId),
-          getMarketTopHolders(conditionId, 20),
-          getMarketTopTraders(conditionId, 20),
+      try {
+        // Fire ALL requests in parallel - don't block on any single request
+        const [details, event, history, trades] = await Promise.all([
+          getMarketDetails(market.id),
+          getEventWithMarkets(market.id),
+          getMarketPriceHistory(market.id, "1d"),
+          getMarketTrades(market.id, 10),
         ]);
 
-        if (bookData && (bookData.bids?.length > 0 || bookData.asks?.length > 0)) {
-          setOrderBook(bookData);
+        // Update with fresh details
+        if (details) {
+          setMarketData(details);
+
+          // Update shell if we got better data
+          if (!marketShell || marketShell.title === 'Unknown Market') {
+            setMarketShell({
+              id: details.id,
+              title: details.title || details.name || 'Unknown Market',
+              question: details.question || details.title || '',
+              description: details.description || '',
+              outcomes: Array.isArray(details.outcomes) ? details.outcomes : ['Yes', 'No'],
+              outcomePrices: Array.isArray(details.outcomePrices) ? details.outcomePrices : [0.5, 0.5],
+              probability: details.probability || 50,
+              image: details.image || null,
+              volume: details.volume || '$0',
+              volume24hr: details.volume24hr || '$0',
+              liquidity: details.liquidity || '$0',
+              endDate: details.endDate || '',
+              status: details.closed ? 'closed' : 'active',
+              category: details.groupItemTitle || null,
+            });
+            setPhase1Complete(true);
+          }
+
+          // Now fetch data that depends on details - also in parallel
+          const tokenId = details.clobTokenIds?.[0] ||
+            (typeof details.clobTokenIds === 'string' ? JSON.parse(details.clobTokenIds)[0] : null);
+          const conditionId = details.conditionId || market.id;
+
+          // Fire all dependent requests in parallel
+          const [bookData, tradersNum, holders, tradersList] = await Promise.all([
+            tokenId ? getOrderBook(tokenId) : Promise.resolve({ bids: [], asks: [], spread: 0 }),
+            getMarketTradersCount(conditionId),
+            getMarketTopHolders(conditionId, 20),
+            getMarketTopTraders(conditionId, 20),
+          ]);
+
+          if (bookData && (bookData.bids?.length > 0 || bookData.asks?.length > 0)) {
+            setOrderBook(bookData);
+          }
+
+          if (tradersNum > 0) {
+            setTradersCount(tradersNum);
+          }
+
+          if (holders.length > 0) {
+            setTopHolders(holders);
+          }
+
+          if (tradersList.length > 0) {
+            setTopTraders(tradersList);
+          }
         }
 
-        if (tradersNum > 0) {
-          setTradersCount(tradersNum);
+        // Update event data
+        if (event) {
+          setEventData(event);
+          if (event.isMultiOutcome && event.targetMarket) {
+            setSelectedOutcome(event.targetMarket);
+          }
         }
 
-        if (holders.length > 0) {
-          setTopHolders(holders);
+        // Update price history
+        if (history && history.length > 0) {
+          setPriceHistory(history);
+        } else if (priceHistory.length === 0) {
+          // Generate placeholder only if we have no data
+          const now = new Date();
+          const placeholderHistory: PricePoint[] = [];
+          const baseProb = details?.probability || market.probability || 50;
+          for (let i = 6; i >= 0; i--) {
+            const date = new Date(now);
+            date.setDate(date.getDate() - i);
+            const variance = (Math.random() - 0.5) * 10;
+            placeholderHistory.push({
+              time: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+              timestamp: date.getTime(),
+              probability: Math.max(1, Math.min(99, baseProb + variance)),
+            });
+          }
+          setPriceHistory(placeholderHistory);
         }
 
-        if (tradersList.length > 0) {
-          setTopTraders(tradersList);
+        // Update trades
+        if (trades && trades.length > 0) {
+          setRecentTrades(trades);
         }
+
+        const totalTime = performance.now() - startTime;
+        console.log(`[MarketDetail] PHASE 2 COMPLETE in ${totalTime.toFixed(0)}ms`);
+      } catch (err) {
+        console.error("[MarketDetail] Error in Phase 2:", err);
+        // Don't show error if we have shell data - graceful degradation
+        if (!marketShell && !marketData) {
+          setError("Failed to load market data");
+        }
+      } finally {
+        setPhase2Loading(false);
       }
+    };
 
-      // Update event data
-      if (event) {
-        setEventData(event);
-        if (event.isMultiOutcome && event.targetMarket) {
-          setSelectedOutcome(event.targetMarket);
-        }
-      }
-
-      // Update price history
-      if (history && history.length > 0) {
-        setPriceHistory(history);
-      } else if (priceHistory.length === 0) {
-        // Generate placeholder only if we have no data
-        const now = new Date();
-        const placeholderHistory: PricePoint[] = [];
-        const baseProb = details?.probability || market.probability || 50;
-        for (let i = 6; i >= 0; i--) {
-          const date = new Date(now);
-          date.setDate(date.getDate() - i);
-          const variance = (Math.random() - 0.5) * 10;
-          placeholderHistory.push({
-            time: date.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
-            timestamp: date.getTime(),
-            probability: Math.max(1, Math.min(99, baseProb + variance)),
-          });
-        }
-        setPriceHistory(placeholderHistory);
-      }
-
-      // Update trades
-      if (trades && trades.length > 0) {
-        setRecentTrades(trades);
-      }
-
-      const totalTime = performance.now() - startTime;
-      console.log(`[MarketDetail] Background fetch completed in ${totalTime.toFixed(0)}ms`);
-    } catch (err) {
-      console.error("[MarketDetail] Error fetching fresh data:", err);
-      // Don't show error if we have cached data
-      if (!marketData) {
-        setError("Failed to load market data");
-      }
-    }
-  };
+    fetchPhase2Data();
+  }, [market.id]);
 
   // Use real data or fallback to props with safe number conversion
   const safeNumber = (val: any, fallback: number) => {
@@ -444,18 +431,18 @@ export function MarketDetail({
         <span className="text-sm font-light">Back to Markets</span>
       </button>
 
-      {/* Loading State - Show skeleton only when we have NO data at all */}
-      {!marketData && !error && <MarketDetailSkeleton />}
+      {/* Loading State - Show skeleton only when we have NO data at all (not even shell) */}
+      {!marketShell && !marketData && !error && <MarketDetailSkeleton />}
 
       {/* Error State */}
-      {error && !marketData && (
+      {error && !marketShell && !marketData && (
         <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4 mb-6">
           <p className="text-red-400">{error}</p>
         </div>
       )}
 
-      {/* Main Split Layout - Show as soon as we have ANY data (cached or fresh) */}
-      {marketData && (
+      {/* Main Split Layout - Show as soon as we have ANY data (shell, cached, or fresh) */}
+      {(marketShell || marketData) && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* LEFT SIDE - Market Info & Chart */}
           <div className="space-y-6">
@@ -463,9 +450,9 @@ export function MarketDetail({
             <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl p-6 shadow-xl shadow-black/20">
               <div className="flex items-start justify-between mb-4">
                 <div className="flex items-start gap-4 flex-1 pr-4">
-                  {marketData?.image ? (
+                  {(marketData?.image || marketShell?.image) ? (
                     <img
-                      src={marketData.image}
+                      src={marketData?.image || marketShell?.image || ''}
                       alt=""
                       className="w-14 h-14 rounded-xl object-cover flex-shrink-0"
                       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
@@ -474,7 +461,7 @@ export function MarketDetail({
                     <div className="w-14 h-14 rounded-xl bg-gray-800/50 flex-shrink-0" />
                   )}
                   <h1 className="text-xl font-light tracking-tight text-gray-100 leading-relaxed">
-                    {marketData?.name || market.name}
+                    {marketData?.name || marketShell?.title || market.name}
                   </h1>
                 </div>
                 <button
@@ -492,14 +479,18 @@ export function MarketDetail({
                     <Activity className="w-3 h-3" />
                     <span>Probability</span>
                   </div>
-                  <div className="text-xl font-light text-[#4a6fa5]">{currentProbability.toFixed(1)}%</div>
+                  <div className="text-xl font-light text-[#4a6fa5]">
+                    {marketData ? currentProbability.toFixed(1) : (marketShell?.probability?.toFixed(1) || market.probability?.toFixed(1) || '50.0')}%
+                  </div>
                 </div>
                 <div className="bg-gradient-to-br from-[#111111] to-[#0a0a0a] rounded-lg p-4 border border-gray-800/30">
                   <div className="flex items-center gap-2 text-gray-500 text-xs mb-1">
                     <DollarSign className="w-3 h-3" />
                     <span>Volume</span>
                   </div>
-                  <div className="text-xl font-light text-gray-300">{currentVolume}</div>
+                  <div className="text-xl font-light text-gray-300">
+                    {marketData ? currentVolume : (marketShell?.volume || market.volume || '$0')}
+                  </div>
                 </div>
                 <div className="bg-gradient-to-br from-[#111111] to-[#0a0a0a] rounded-lg p-4 border border-gray-800/30">
                   <div className="flex items-center gap-2 text-gray-500 text-xs mb-1">

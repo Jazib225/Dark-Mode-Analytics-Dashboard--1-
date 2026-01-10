@@ -143,18 +143,19 @@ body {
   position: relative;
 }
 
-/* Sticky Header - uses CSS variable for height */
+/* Sticky Header - uses CSS variable for min-height, allows growth */
 .site-header {
   position: sticky;
   top: 0;
   left: 0;
   right: 0;
-  height: var(--header-height);
   min-height: var(--header-height);
   z-index: 50;
   background: linear-gradient(to bottom, #0d0d0d, #0a0a0a);
   border-bottom: 1px solid rgba(55, 65, 81, 0.3);
   flex-shrink: 0;
+  /* Ensure header content doesn't overflow */
+  overflow: visible;
 }
 
 /* Header navigation container */
@@ -210,58 +211,101 @@ body {
 .header-left {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: clamp(0.5rem, 1.5vw, 1rem);
   flex-shrink: 0;
 }
 
 .header-center {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
+  gap: clamp(0.25rem, 1vw, 0.75rem);
   flex: 1;
+  min-width: 0;
+  /* Critical: allows flex children to shrink below content size */
   overflow-x: auto;
+  overflow-y: hidden;
   -ms-overflow-style: none;
   scrollbar-width: none;
+  /* Prevent text truncation - let items scroll if needed */
+  padding-right: var(--space-2);
 }
 
 .header-center::-webkit-scrollbar {
   display: none;
 }
 
+/* Navigation items container - responsive gaps */
+.nav-items {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.125rem, 0.8vw, 0.5rem);
+  flex-shrink: 0;
+}
+
+@media screen and (min-width: 640px) {
+  .nav-items {
+    gap: clamp(0.25rem, 1vw, 0.75rem);
+  }
+}
+
+@media screen and (min-width: 1024px) {
+  .nav-items {
+    gap: clamp(0.5rem, 1.2vw, 1rem);
+  }
+}
+
 .header-right {
   display: flex;
   align-items: center;
-  gap: var(--space-4);
+  gap: clamp(0.25rem, 0.8vw, 0.5rem);
   flex-shrink: 0;
   margin-left: auto;
+  padding-left: var(--space-2);
 }
 
 @media screen and (min-width: 1024px) {
   .header-left {
-    gap: var(--space-6);
+    gap: clamp(0.75rem, 2vw, 1.5rem);
   }
 
   .header-center {
-    gap: var(--space-5);
+    gap: clamp(0.5rem, 1.5vw, 1rem);
   }
 
   .header-right {
-    gap: var(--space-5);
+    gap: clamp(0.5rem, 1vw, 0.75rem);
+  }
+}
+
+@media screen and (min-width: 1280px) {
+  .header-left {
+    gap: 1.5rem;
+  }
+
+  .header-center {
+    gap: 1rem;
+  }
+
+  .header-right {
+    gap: 1rem;
   }
 }
 
 /* =============================================================================
    NAVIGATION LINK STYLES
+   Responsive font sizing using clamp() to prevent truncation
    ============================================================================= */
 .nav-link {
   position: relative;
-  padding: var(--space-4) var(--space-3);
-  font-size: 0.75rem;
+  padding: var(--space-3) var(--space-2);
+  /* clamp(min, preferred, max) - scales smoothly */
+  font-size: clamp(0.625rem, 1.5vw, 0.875rem);
   font-weight: 300;
-  letter-spacing: 0.025em;
+  letter-spacing: 0.02em;
   color: rgba(156, 163, 175, 1);
   transition: color 0.2s ease;
   white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .nav-link:hover {
@@ -274,14 +318,21 @@ body {
 
 @media screen and (min-width: 640px) {
   .nav-link {
-    padding: var(--space-5) var(--space-4);
-    font-size: 0.8125rem;
+    padding: var(--space-4) var(--space-3);
+    font-size: clamp(0.6875rem, 1.2vw, 0.8125rem);
   }
 }
 
 @media screen and (min-width: 1024px) {
   .nav-link {
-    padding: var(--space-6) var(--space-5);
+    padding: var(--space-5) var(--space-4);
+    font-size: clamp(0.75rem, 1vw, 0.875rem);
+  }
+}
+
+@media screen and (min-width: 1280px) {
+  .nav-link {
+    padding: var(--space-5) var(--space-5);
     font-size: 0.875rem;
   }
 }

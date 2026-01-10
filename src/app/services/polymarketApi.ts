@@ -245,6 +245,92 @@ export interface AllMarketData {
   relatedMarkets: any[];
 }
 
+/**
+ * PHASE 1 DATA: Lightweight market shell for instant rendering
+ * This is the minimum data needed to show something to the user immediately
+ * TradeFox pattern: Show market title, question, outcomes, image in <200ms
+ */
+export interface MarketShell {
+  id: string;
+  title: string;
+  question: string;
+  description: string;
+  outcomes: string[];
+  outcomePrices: number[];
+  probability: number;
+  image: string | null;
+  volume: string;
+  volume24hr: string;
+  liquidity: string;
+  endDate: string;
+  status: 'active' | 'closed' | 'resolved';
+  category: string | null;
+}
+
+/**
+ * Get market shell data instantly from cache (Phase 1)
+ * This returns the minimal data needed to render the market detail skeleton
+ * Should complete in <50ms from cache
+ */
+export function getMarketShellFromCache(marketId: string): MarketShell | null {
+  // Try detailed cache first
+  const cachedDetail = getCachedMarketDetail(marketId);
+  if (cachedDetail) {
+    return {
+      id: cachedDetail.id,
+      title: cachedDetail.title || cachedDetail.name || 'Unknown Market',
+      question: cachedDetail.question || cachedDetail.title || '',
+      description: cachedDetail.description || '',
+      outcomes: Array.isArray(cachedDetail.outcomes) ? cachedDetail.outcomes :
+        (typeof cachedDetail.outcomes === 'string' ? JSON.parse(cachedDetail.outcomes) : ['Yes', 'No']),
+      outcomePrices: Array.isArray(cachedDetail.outcomePrices) ? cachedDetail.outcomePrices :
+        (typeof cachedDetail.outcomePrices === 'string' ? JSON.parse(cachedDetail.outcomePrices).map(Number) : [0.5, 0.5]),
+      probability: cachedDetail.probability || 50,
+      image: cachedDetail.image || null,
+      volume: cachedDetail.volume || '$0',
+      volume24hr: cachedDetail.volume24hr || '$0',
+      liquidity: cachedDetail.liquidity || '$0',
+      endDate: cachedDetail.endDate || '',
+      status: cachedDetail.closed ? 'closed' : 'active',
+      category: cachedDetail.groupItemTitle || cachedDetail.category || null,
+    };
+  }
+
+  // Fall back to global market list cache
+  const cachedMarket = getMarketFromCache(marketId);
+  if (cachedMarket) {
+    return {
+      id: cachedMarket.id,
+      title: cachedMarket.title || 'Unknown Market',
+      question: cachedMarket.title || '',
+      description: cachedMarket.description || '',
+      outcomes: Array.isArray(cachedMarket.outcomes) ? cachedMarket.outcomes :
+        (typeof cachedMarket.outcomes === 'string' ? JSON.parse(cachedMarket.outcomes) : ['Yes', 'No']),
+      outcomePrices: Array.isArray(cachedMarket.outcomePrices) ? cachedMarket.outcomePrices :
+        (typeof cachedMarket.outcomePrices === 'string' ? JSON.parse(cachedMarket.outcomePrices).map(Number) :
+          [cachedMarket.probability / 100, 1 - cachedMarket.probability / 100]),
+      probability: cachedMarket.probability || 50,
+      image: cachedMarket.image || null,
+      volume: `$${formatVolume(cachedMarket.volumeUsd)}`,
+      volume24hr: `$${formatVolume(cachedMarket.volume24hr)}`,
+      liquidity: `$${formatVolume(cachedMarket.liquidity)}`,
+      endDate: cachedMarket.endDate || '',
+      status: cachedMarket.closed ? 'closed' : 'active',
+      category: cachedMarket.groupItemTitle || null,
+    };
+  }
+
+  return null;
+}
+
+// Helper to format volume consistently
+function formatVolume(volume: number | undefined): string {
+  if (!volume || isNaN(volume)) return '0';
+  if (volume >= 1000000) return `${(volume / 1000000).toFixed(1)}M`;
+  if (volume >= 1000) return `${(volume / 1000).toFixed(0)}K`;
+  return volume.toFixed(0);
+}
+
 // =============================================================================
 // UTILITY FUNCTIONS (must be defined before cache functions that use them)
 // =============================================================================

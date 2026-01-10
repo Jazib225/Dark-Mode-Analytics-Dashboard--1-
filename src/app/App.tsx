@@ -757,35 +757,36 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
       {/* Sticky Header - Uses CSS variable for height */}
       <header className="site-header border-b border-gray-800/50 bg-gradient-to-b from-[#0d0d0d] to-[#0a0a0a]">
         <nav className="header-nav flex items-center h-full px-3 sm:px-4 lg:px-6">
-          <div className="flex items-center gap-4 lg:gap-8 xl:gap-12 flex-shrink-0">
+          <div className="flex items-center gap-2 sm:gap-4 lg:gap-6 xl:gap-8 flex-shrink-0">
             <button
               onClick={() => {
                 setCurrentPage("discover");
                 setSelectedWalletAddress(null);
                 setSelectedMarketId(null);
               }}
-              className="flex items-center gap-2 lg:gap-3 hover:opacity-80 transition-opacity flex-shrink-0"
+              className="flex items-center gap-1.5 sm:gap-2 lg:gap-3 hover:opacity-80 transition-opacity flex-shrink-0"
             >
-              <img src={paragonLogo} alt="Paragon" className="h-8 w-8 lg:h-10 lg:w-10 object-contain" />
-              <div className="text-lg lg:text-[22px] font-light tracking-tight text-gray-100 hidden sm:block">PARAGON</div>
+              <img src={paragonLogo} alt="Paragon" className="h-6 w-6 sm:h-8 sm:w-8 lg:h-9 lg:w-9 object-contain" />
+              <div className="text-sm sm:text-base lg:text-lg xl:text-[20px] font-light tracking-tight text-gray-100 hidden sm:block">PARAGON</div>
             </button>
-            <div className="flex items-center gap-2 sm:gap-4 lg:gap-6 xl:gap-8">
+            {/* Navigation items with responsive sizing */}
+            <div className="nav-items flex items-center">
               <button
                 onClick={() => {
                   setCurrentPage("discover");
                   setSelectedWalletAddress(null);
                   setSelectedMarketId(null);
                 }}
-                className="relative group py-5"
+                className="relative group py-3 sm:py-4 lg:py-5 px-1 sm:px-2"
               >
-                <span className={`text-xs sm:text-sm lg:text-[16px] font-light tracking-wide transition-all ${currentPage === "discover" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
+                <span className={`text-[10px] sm:text-xs md:text-sm lg:text-[15px] font-light tracking-wide transition-all whitespace-nowrap ${currentPage === "discover" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
                   }`}>
                   DISCOVER
                 </span>
                 {/* Active/Hover indicator with animated stretching bar and triangle */}
                 <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "discover" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
                   }`}>
-                  <div className="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-white" />
+                  <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[4px] border-b-white sm:border-l-[5px] sm:border-r-[5px] sm:border-b-[5px]" />
                   <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "discover" ? "w-full" : "w-0 group-hover:w-full"
                     }`} style={{ marginTop: "-1px" }} />
                 </div>
@@ -796,15 +797,15 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                   setSelectedWalletAddress(null);
                   setSelectedMarketId(null);
                 }}
-                className="relative group py-5"
+                className="relative group py-3 sm:py-4 lg:py-5 px-1 sm:px-2"
               >
-                <span className={`text-xs sm:text-sm lg:text-[16px] font-light tracking-wide transition-all ${currentPage === "markets" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
+                <span className={`text-[10px] sm:text-xs md:text-sm lg:text-[15px] font-light tracking-wide transition-all whitespace-nowrap ${currentPage === "markets" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
                   }`}>
                   MARKETS
                 </span>
                 <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "markets" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
                   }`}>
-                  <div className="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-white" />
+                  <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[4px] border-b-white sm:border-l-[5px] sm:border-r-[5px] sm:border-b-[5px]" />
                   <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "markets" ? "w-full" : "w-0 group-hover:w-full"
                     }`} style={{ marginTop: "-1px" }} />
                 </div>
@@ -815,15 +816,15 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                   setSelectedWalletAddress(null);
                   setSelectedMarketId(null);
                 }}
-                className="relative group py-5"
+                className="relative group py-3 sm:py-4 lg:py-5 px-1 sm:px-2"
               >
-                <span className={`text-xs sm:text-sm lg:text-[16px] font-light tracking-wide transition-all ${currentPage === "insiderlens" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
+                <span className={`text-[10px] sm:text-xs md:text-sm lg:text-[15px] font-light tracking-wide transition-all whitespace-nowrap ${currentPage === "insiderlens" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
                   }`}>
                   INSIDER
                 </span>
                 <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "insiderlens" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
                   }`}>
-                  <div className="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-white" />
+                  <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[4px] border-b-white sm:border-l-[5px] sm:border-r-[5px] sm:border-b-[5px]" />
                   <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "insiderlens" ? "w-full" : "w-0 group-hover:w-full"
                     }`} style={{ marginTop: "-1px" }} />
                 </div>
@@ -834,15 +835,15 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                   setSelectedWalletAddress(null);
                   setSelectedMarketId(null);
                 }}
-                className="relative group py-5"
+                className="relative group py-3 sm:py-4 lg:py-5 px-1 sm:px-2"
               >
-                <span className={`text-xs sm:text-sm lg:text-[16px] font-light tracking-wide transition-all ${currentPage === "wallets" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
+                <span className={`text-[10px] sm:text-xs md:text-sm lg:text-[15px] font-light tracking-wide transition-all whitespace-nowrap ${currentPage === "wallets" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
                   }`}>
                   WALLETS
                 </span>
                 <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "wallets" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
                   }`}>
-                  <div className="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-white" />
+                  <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[4px] border-b-white sm:border-l-[5px] sm:border-r-[5px] sm:border-b-[5px]" />
                   <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "wallets" ? "w-full" : "w-0 group-hover:w-full"
                     }`} style={{ marginTop: "-1px" }} />
                 </div>
@@ -853,15 +854,15 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                   setSelectedWalletAddress(null);
                   setSelectedMarketId(null);
                 }}
-                className="relative group py-5"
+                className="relative group py-3 sm:py-4 lg:py-5 px-1 sm:px-2"
               >
-                <span className={`text-xs sm:text-sm lg:text-[16px] font-light tracking-wide transition-all ${currentPage === "tradeflow" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
+                <span className={`text-[10px] sm:text-xs md:text-sm lg:text-[15px] font-light tracking-wide transition-all whitespace-nowrap ${currentPage === "tradeflow" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
                   }`}>
                   TRADE
                 </span>
                 <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "tradeflow" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
                   }`}>
-                  <div className="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-white" />
+                  <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[4px] border-b-white sm:border-l-[5px] sm:border-r-[5px] sm:border-b-[5px]" />
                   <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "tradeflow" ? "w-full" : "w-0 group-hover:w-full"
                     }`} style={{ marginTop: "-1px" }} />
                 </div>
@@ -872,25 +873,25 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                   setSelectedWalletAddress(null);
                   setSelectedMarketId(null);
                 }}
-                className="relative group py-5"
+                className="relative group py-3 sm:py-4 lg:py-5 px-1 sm:px-2"
               >
-                <span className={`text-xs sm:text-sm lg:text-[16px] font-light tracking-wide transition-all ${currentPage === "portfolio" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
+                <span className={`text-[10px] sm:text-xs md:text-sm lg:text-[15px] font-light tracking-wide transition-all whitespace-nowrap ${currentPage === "portfolio" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
                   }`}>
                   FOLIO
                 </span>
                 <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "portfolio" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
                   }`}>
-                  <div className="w-0 h-0 border-l-[5px] border-l-transparent border-r-[5px] border-r-transparent border-b-[5px] border-b-white" />
+                  <div className="w-0 h-0 border-l-[4px] border-l-transparent border-r-[4px] border-r-transparent border-b-[4px] border-b-white sm:border-l-[5px] sm:border-r-[5px] sm:border-b-[5px]" />
                   <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "portfolio" ? "w-full" : "w-0 group-hover:w-full"
                     }`} style={{ marginTop: "-1px" }} />
                 </div>
               </button>
             </div>
           </div>
-          <div className="ml-auto flex items-center gap-2 sm:gap-3 lg:gap-6 flex-shrink-0">
+          <div className="ml-auto flex items-center gap-1 sm:gap-2 lg:gap-4 flex-shrink-0">
             {/* Search Bar */}
             <div ref={searchRef} className="relative">
-              <Search className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 sm:w-4 sm:h-4 text-gray-500 z-10" />
+              <Search className="absolute left-2 sm:left-3 top-1/2 -translate-y-1/2 w-3 h-3 sm:w-3.5 sm:h-3.5 md:w-4 md:h-4 text-gray-500 z-10" />
               <input
                 ref={searchInputRef}
                 type="text"
