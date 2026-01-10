@@ -5,9 +5,10 @@ type NodeType = "market" | "entry" | "exit" | "profit" | "and" | "or" | "add" | 
 
 const stageNodes = {
   market: ["market"],
-  entry: ["entry", "add", "subtract", "multiply", "divide"],
-  exit: ["exit", "add", "subtract", "multiply", "divide"],
+  entry: ["entry"],
+  exit: ["exit"],
   profit: ["profit"],
+  operators: ["add", "subtract", "multiply", "divide"],
   logic: ["and", "or"],
 };
 

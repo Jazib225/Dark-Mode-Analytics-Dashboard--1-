@@ -234,8 +234,8 @@ export function TradeFlow() {
         </div>
       )}
 
-      {/* Main layout - canvas fills entire remaining space */}
-      <div className="flex flex-1 w-full overflow-hidden bg-[#0a0a0a]">
+      {/* Main layout - canvas fills entire remaining space without scrolling */}
+      <div className="flex flex-1 w-full h-full overflow-hidden bg-[#0a0a0a]">
         <NodeLibrary onDragStart={handleNodeLibraryDragStart} />
 
         <WorkflowCanvas

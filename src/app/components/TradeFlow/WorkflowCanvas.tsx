@@ -91,6 +91,7 @@ export function WorkflowCanvas({
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [draggingLogicNode, setDraggingLogicNode] = useState<boolean>(false);
   const [highlightedHandles, setHighlightedHandles] = useState<Set<string>>(new Set());
+  const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
 
   // Handle canvas resize
   useEffect(() => {
@@ -137,10 +138,17 @@ export function WorkflowCanvas({
       ctx.lineWidth = 2;
       ctx.strokeRect(col.startX, 0, col.width, canvas.height);
       
-      // Draw column header
-      ctx.fillStyle = "#999999";
-      ctx.font = "12px sans-serif";
-      ctx.fillText(def.label, col.startX + 10, 25);
+      // Draw column header inside column (sticky at top with background tint)
+      // Header background box
+      ctx.fillStyle = def.bgColor.replace("0.15", "0.4"); // Darker tint for header
+      ctx.fillRect(col.startX, 0, col.width, 50);
+      
+      // Header text
+      ctx.fillStyle = "#e5e7eb";
+      ctx.font = "bold 14px sans-serif";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "middle";
+      ctx.fillText(def.label, col.startX + 12, 25);
     });
 
     // Draw grid
@@ -173,9 +181,31 @@ export function WorkflowCanvas({
         const toX = targetNode.position.x - 8; // left handle center
         const toY = targetNode.position.y + 60;
         
-        // Draw white line (no arrowhead for cleaner look)
-        ctx.strokeStyle = draggingLogicNode ? "#ffffff" : "#ffffff";
-        ctx.lineWidth = draggingLogicNode ? 3 : 2;
+        // Determine line width: base=2, all edges thickened when dragging logic (+1), even more if hovered (+1)
+        let lineWidth = 2;
+        if (draggingLogicNode) {
+          lineWidth = 3; // All edges thicker when dragging logic node
+          if (hoveredEdgeId === edge.id) {
+            lineWidth = 4; // Hovered edge even thicker
+          }
+        }
+        
+        // Draw white line with optional glow effect
+        if (hoveredEdgeId === edge.id && draggingLogicNode) {
+          // Add subtle glow for hovered edge
+          ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+          ctx.lineWidth = lineWidth + 4;
+          ctx.lineCap = "round";
+          ctx.lineJoin = "round";
+          ctx.beginPath();
+          ctx.moveTo(fromX, fromY);
+          ctx.lineTo(toX, toY);
+          ctx.stroke();
+        }
+        
+        // Draw main white line
+        ctx.strokeStyle = "#ffffff";
+        ctx.lineWidth = lineWidth;
         ctx.lineCap = "round";
         ctx.lineJoin = "round";
         ctx.beginPath();
@@ -227,7 +257,7 @@ export function WorkflowCanvas({
         ctx.setLineDash([]);
       }
     }
-  }, [nodes, edges, connectionStart, mousePos]);
+  }, [nodes, edges, connectionStart, mousePos, draggingLogicNode, hoveredEdgeId]);
 
   const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current) return;
@@ -237,6 +267,31 @@ export function WorkflowCanvas({
     const y = e.clientY - rect.top;
 
     setMousePos({ x, y });
+
+    // Check if hovering over edges when dragging logic node
+    if (draggingLogicNode) {
+      let foundEdge: string | null = null;
+      const tolerance = 15;
+      
+      for (const edge of edges) {
+        const sourceNode = nodes.find((n) => n.id === edge.source);
+        const targetNode = nodes.find((n) => n.id === edge.target);
+        
+        if (sourceNode && targetNode) {
+          const x1 = sourceNode.position.x + 160 + 8;
+          const y1 = sourceNode.position.y + 60;
+          const x2 = targetNode.position.x - 8;
+          const y2 = targetNode.position.y + 60;
+          
+          const dist = distanceToLineSegment(x, y, x1, y1, x2, y2);
+          if (dist < tolerance) {
+            foundEdge = edge.id;
+            break;
+          }
+        }
+      }
+      setHoveredEdgeId(foundEdge);
+    }
 
     if (connectionStart) {
       // Highlight valid target handles
@@ -340,6 +395,7 @@ export function WorkflowCanvas({
   const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
     if (e.target === containerRef.current) {
       setDraggingLogicNode(false);
+      setHoveredEdgeId(null);
     }
   };
 
@@ -385,6 +441,7 @@ export function WorkflowCanvas({
           onEdgeLogicAdd(closestEdge.id, nodeType as "and" | "or");
         }
         setDraggingLogicNode(false);
+        setHoveredEdgeId(null);
         return;
       }
       
@@ -395,6 +452,7 @@ export function WorkflowCanvas({
         onNodeDrop(nodeType, stage as NodeStage, constrainedPos);
       }
       setDraggingLogicNode(false);
+      setHoveredEdgeId(null);
     }
   };
 
