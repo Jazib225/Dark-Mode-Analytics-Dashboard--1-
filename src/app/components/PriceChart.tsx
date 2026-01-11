@@ -7,7 +7,7 @@ import {
     Area,
     AreaChart,
 } from "recharts";
-import { Loader2, RefreshCw, AlertCircle } from "lucide-react";
+import { Loader2, RefreshCw, AlertCircle, TrendingUp } from "lucide-react";
 import { getMarketPriceHistory } from "../services/polymarketApi";
 
 // =============================================================================
@@ -23,12 +23,18 @@ interface PricePoint {
 
 interface PriceChartProps {
     marketId: string;
+    /** For multi-outcome markets: the specific outcome market ID to show price history for */
+    selectedOutcomeMarketId?: string | null;
+    /** For multi-outcome markets: the name of the selected outcome */
+    selectedOutcomeName?: string | null;
     /** Initial interval to display */
     defaultInterval?: TimeInterval;
     /** Height of the chart in pixels */
     height?: number;
-    /** Show YES/NO toggle */
+    /** Show YES/NO toggle (for binary markets) */
     showOutcomeToggle?: boolean;
+    /** Whether this is a multi-outcome market */
+    isMultiOutcome?: boolean;
     /** Callback when price data is loaded (useful for parent component) */
     onDataLoad?: (data: PricePoint[]) => void;
     /** Class name for container */
@@ -60,9 +66,12 @@ const POLLING_INTERVALS: Record<TimeInterval, number> = {
 
 export function PriceChart({
     marketId,
+    selectedOutcomeMarketId,
+    selectedOutcomeName,
     defaultInterval = "1D",
     height = 280,
     showOutcomeToggle = true,
+    isMultiOutcome = false,
     onDataLoad,
     className = "",
 }: PriceChartProps) {
@@ -74,17 +83,22 @@ export function PriceChart({
     const [error, setError] = useState<string | null>(null);
     const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
 
+    // For multi-outcome markets, use the selected outcome's market ID
+    const effectiveMarketId = isMultiOutcome && selectedOutcomeMarketId
+        ? selectedOutcomeMarketId
+        : marketId;
+
     // Refs for polling control
     const pollingRef = useRef<ReturnType<typeof globalThis.setInterval> | null>(null);
     const mountedRef = useRef(true);
-    const currentMarketIdRef = useRef(marketId);
+    const currentMarketIdRef = useRef(effectiveMarketId);
 
     // =============================================================================
     // DATA FETCHING
     // =============================================================================
 
     const fetchPriceData = useCallback(async (showLoading = true) => {
-        if (!marketId) return;
+        if (!effectiveMarketId) return;
 
         // Don't show loading spinner for background refreshes
         if (showLoading) {
@@ -95,11 +109,11 @@ export function PriceChart({
         setError(null);
 
         try {
-            console.log(`[PriceChart] Fetching ${timeInterval} data for ${marketId} (${outcome})`);
-            const data = await getMarketPriceHistory(marketId, timeInterval, outcome);
+            console.log(`[PriceChart] Fetching ${timeInterval} data for ${effectiveMarketId} (${outcome})${isMultiOutcome ? ' [multi-outcome]' : ''}`);
+            const data = await getMarketPriceHistory(effectiveMarketId, timeInterval, outcome);
 
             // Only update if component is still mounted and market hasn't changed
-            if (mountedRef.current && currentMarketIdRef.current === marketId) {
+            if (mountedRef.current && currentMarketIdRef.current === effectiveMarketId) {
                 if (data && data.length > 0) {
                     setPriceData(data);
                     setLastUpdated(new Date());
@@ -107,7 +121,7 @@ export function PriceChart({
                     console.log(`[PriceChart] Loaded ${data.length} points`);
                 } else {
                     // No data - might be a new market or API issue
-                    console.warn(`[PriceChart] No data returned for ${marketId}`);
+                    console.warn(`[PriceChart] No data returned for ${effectiveMarketId}`);
                     if (priceData.length === 0) {
                         setError("No price history available for this market");
                     }
@@ -124,27 +138,27 @@ export function PriceChart({
                 setIsRefreshing(false);
             }
         }
-    }, [marketId, timeInterval, outcome, onDataLoad, priceData.length]);
+    }, [effectiveMarketId, timeInterval, outcome, isMultiOutcome, onDataLoad, priceData.length]);
 
     // =============================================================================
     // EFFECTS
     // =============================================================================
 
-    // Reset when market changes
+    // Reset when effective market changes (either main market or selected outcome)
     useEffect(() => {
-        if (currentMarketIdRef.current !== marketId) {
-            console.log(`[PriceChart] Market changed from ${currentMarketIdRef.current} to ${marketId}`);
-            currentMarketIdRef.current = marketId;
+        if (currentMarketIdRef.current !== effectiveMarketId) {
+            console.log(`[PriceChart] Market changed from ${currentMarketIdRef.current} to ${effectiveMarketId}`);
+            currentMarketIdRef.current = effectiveMarketId;
             setPriceData([]);
             setError(null);
             setIsLoading(true);
         }
-    }, [marketId]);
+    }, [effectiveMarketId]);
 
     // Fetch data when market, interval, or outcome changes
     useEffect(() => {
         fetchPriceData(true);
-    }, [marketId, timeInterval, outcome]);
+    }, [effectiveMarketId, timeInterval, outcome]);
 
     // Set up polling for live updates
     useEffect(() => {
@@ -226,9 +240,17 @@ export function PriceChart({
             {/* Header */}
             <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-4">
-                    <h3 className="text-sm font-light tracking-wide text-gray-400 uppercase">
-                        Price History
-                    </h3>
+                    <div className="flex flex-col">
+                        <h3 className="text-sm font-light tracking-wide text-gray-400 uppercase">
+                            Price History
+                        </h3>
+                        {/* Show selected outcome name for multi-outcome markets */}
+                        {isMultiOutcome && selectedOutcomeName && (
+                            <span className="text-xs text-[#4a6fa5] mt-0.5 truncate max-w-[200px]">
+                                {selectedOutcomeName}
+                            </span>
+                        )}
+                    </div>
 
                     {/* Current price and change */}
                     {currentPrice !== null && (
@@ -238,8 +260,8 @@ export function PriceChart({
                             </span>
                             {priceChange !== 0 && (
                                 <span className={`text-xs px-1.5 py-0.5 rounded ${priceChange > 0
-                                        ? "bg-green-500/20 text-green-400"
-                                        : "bg-red-500/20 text-red-400"
+                                    ? "bg-green-500/20 text-green-400"
+                                    : "bg-red-500/20 text-red-400"
                                     }`}>
                                     {priceChange > 0 ? "+" : ""}{priceChange.toFixed(1)}%
                                 </span>
@@ -254,14 +276,14 @@ export function PriceChart({
                 </div>
 
                 <div className="flex items-center gap-3">
-                    {/* Outcome toggle */}
-                    {showOutcomeToggle && (
+                    {/* Outcome toggle - only show for binary markets */}
+                    {showOutcomeToggle && !isMultiOutcome && (
                         <div className="flex items-center gap-1 bg-gray-800/50 rounded-lg p-0.5">
                             <button
                                 onClick={() => setOutcome("yes")}
                                 className={`px-2 py-1 text-[10px] font-medium rounded transition-all ${outcome === "yes"
-                                        ? "bg-green-500/20 text-green-400"
-                                        : "text-gray-500 hover:text-gray-300"
+                                    ? "bg-green-500/20 text-green-400"
+                                    : "text-gray-500 hover:text-gray-300"
                                     }`}
                             >
                                 YES
@@ -269,8 +291,8 @@ export function PriceChart({
                             <button
                                 onClick={() => setOutcome("no")}
                                 className={`px-2 py-1 text-[10px] font-medium rounded transition-all ${outcome === "no"
-                                        ? "bg-red-500/20 text-red-400"
-                                        : "text-gray-500 hover:text-gray-300"
+                                    ? "bg-red-500/20 text-red-400"
+                                    : "text-gray-500 hover:text-gray-300"
                                     }`}
                             >
                                 NO
@@ -285,8 +307,8 @@ export function PriceChart({
                                 key={ti}
                                 onClick={() => handleIntervalChange(ti)}
                                 className={`px-2 py-1 text-[10px] font-medium rounded transition-all ${timeInterval === ti
-                                        ? "bg-[#4a6fa5]/20 text-[#4a6fa5]"
-                                        : "text-gray-500 hover:text-gray-300 hover:bg-gray-800/30"
+                                    ? "bg-[#4a6fa5]/20 text-[#4a6fa5]"
+                                    : "text-gray-500 hover:text-gray-300 hover:bg-gray-800/30"
                                     }`}
                             >
                                 {ti}
@@ -298,8 +320,20 @@ export function PriceChart({
 
             {/* Chart Container */}
             <div style={{ height }}>
+                {/* Multi-outcome with no selection state */}
+                {isMultiOutcome && !selectedOutcomeMarketId && !isLoading && priceData.length === 0 && (
+                    <div className="h-full flex items-center justify-center">
+                        <div className="flex flex-col items-center gap-3 text-center">
+                            <div className="w-12 h-12 rounded-full bg-[#4a6fa5]/10 flex items-center justify-center">
+                                <TrendingUp className="w-6 h-6 text-[#4a6fa5]" />
+                            </div>
+                            <span className="text-sm text-gray-400">Select an outcome above to view its price chart</span>
+                        </div>
+                    </div>
+                )}
+
                 {/* Loading state */}
-                {isLoading && priceData.length === 0 && (
+                {isLoading && priceData.length === 0 && (isMultiOutcome ? selectedOutcomeMarketId : true) && (
                     <div className="h-full flex items-center justify-center">
                         <div className="flex flex-col items-center gap-3">
                             <Loader2 className="w-8 h-8 text-gray-500 animate-spin" />
@@ -330,15 +364,15 @@ export function PriceChart({
                     <ResponsiveContainer width="100%" height="100%">
                         <AreaChart data={priceData} margin={{ top: 5, right: 5, bottom: 5, left: 0 }}>
                             <defs>
-                                <linearGradient id={`colorPrice-${outcome}`} x1="0" y1="0" x2="0" y2="1">
+                                <linearGradient id={`colorPrice-${outcome}-${isMultiOutcome ? 'multi' : 'binary'}`} x1="0" y1="0" x2="0" y2="1">
                                     <stop
                                         offset="5%"
-                                        stopColor={outcome === "yes" ? "#22c55e" : "#ef4444"}
+                                        stopColor={isMultiOutcome ? "#4a6fa5" : (outcome === "yes" ? "#22c55e" : "#ef4444")}
                                         stopOpacity={0.3}
                                     />
                                     <stop
                                         offset="95%"
-                                        stopColor={outcome === "yes" ? "#22c55e" : "#ef4444"}
+                                        stopColor={isMultiOutcome ? "#4a6fa5" : (outcome === "yes" ? "#22c55e" : "#ef4444")}
                                         stopOpacity={0}
                                     />
                                 </linearGradient>
@@ -372,17 +406,19 @@ export function PriceChart({
                                 labelStyle={{ color: "#999", marginBottom: 4 }}
                                 formatter={(value: number) => [
                                     `${value.toFixed(2)}%`,
-                                    outcome === "yes" ? "YES Price" : "NO Price"
+                                    isMultiOutcome
+                                        ? (selectedOutcomeName ? `${selectedOutcomeName} (${outcome.toUpperCase()})` : "YES Price")
+                                        : (outcome === "yes" ? "YES Price" : "NO Price")
                                 ]}
                                 labelFormatter={(label) => label}
                             />
                             <Area
                                 type="monotone"
                                 dataKey="probability"
-                                stroke={outcome === "yes" ? "#22c55e" : "#ef4444"}
+                                stroke={isMultiOutcome ? "#4a6fa5" : (outcome === "yes" ? "#22c55e" : "#ef4444")}
                                 strokeWidth={2}
                                 fillOpacity={1}
-                                fill={`url(#colorPrice-${outcome})`}
+                                fill={`url(#colorPrice-${outcome}-${isMultiOutcome ? 'multi' : 'binary'})`}
                                 isAnimationActive={false} // Disable animation for faster updates
                             />
                         </AreaChart>

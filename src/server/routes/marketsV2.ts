@@ -510,11 +510,23 @@ router.get("/:id/outcomes", async (req: Request, res: Response) => {
             } catch (e) { /* use default */ }
           }
 
+          // Format volume for display
+          const volumeNum = parseFloat(String(market.volume || market.volumeNum || 0));
+          const formatVolume = (v: number): string => {
+            if (v >= 1000000) return `$${(v / 1000000).toFixed(1)}M`;
+            if (v >= 1000) return `$${(v / 1000).toFixed(1)}K`;
+            return `$${v.toFixed(0)}`;
+          };
+
           return {
             id: market.id,
             name: market.groupItemTitle || market.question || market.outcome || `Outcome ${index + 1}`,
+            question: market.question,
+            outcome: market.groupItemTitle || market.outcome,
             index: index,
             probability: Math.round(probability * 10) / 10, // 1 decimal place
+            volume: formatVolume(volumeNum),
+            volumeNum: volumeNum,
             isTarget: market.id === id,
           };
         });

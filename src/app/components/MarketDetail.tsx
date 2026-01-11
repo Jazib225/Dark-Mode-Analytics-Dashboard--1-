@@ -886,7 +886,14 @@ export function MarketDetail({
             </div>
 
             {/* Price Chart - Real-time from CLOB API */}
-            <PriceChart marketId={market.id} />
+            {/* For multi-outcome markets, shows data for the selected outcome */}
+            <PriceChart
+              marketId={market.id}
+              selectedOutcomeMarketId={isMultiOutcome ? selectedOutcome?.id : null}
+              selectedOutcomeName={isMultiOutcome ? (selectedOutcome?.outcome || selectedOutcome?.question) : null}
+              isMultiOutcome={!!isMultiOutcome}
+              showOutcomeToggle={!isMultiOutcome}
+            />
 
             {/* Activity Section with Tabs */}
             <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl shadow-xl shadow-black/20">

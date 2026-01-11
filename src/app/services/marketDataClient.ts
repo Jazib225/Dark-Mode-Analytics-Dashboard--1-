@@ -408,8 +408,12 @@ export async function loadMarketWithOrderbook(
 export interface OutcomeListItem {
   id: string;
   name: string;
+  question?: string;  // Full question text
+  outcome?: string;   // Short outcome label
   index: number;
   probability: number;
+  volume?: string;     // Formatted volume string
+  volumeNum?: number;  // Numeric volume
   isTarget?: boolean;
 }
 
