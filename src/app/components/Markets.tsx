@@ -2,9 +2,9 @@ import { useState, useEffect, useMemo } from "react";
 import { Bookmark, Loader2, TrendingUp, Sparkles, Clock } from "lucide-react";
 import { BookmarkedMarket } from "../App";
 import { MarketDetail } from "./MarketDetail";
-import { 
-  getTrendingMarkets, 
-  getNewMarkets, 
+import {
+  getTrendingMarkets,
+  getNewMarkets,
   getNearlyResolvedMarkets,
   formatTimeUntilClose
 } from "../services/polymarketApi";
@@ -276,37 +276,37 @@ function ColumnSkeleton({ rows = 5 }: { rows?: number }) {
 // ============================================================================
 // Main Markets Component
 // ============================================================================
-export function Markets({ 
-  toggleBookmark, 
-  isBookmarked, 
-  onWalletClick, 
-  onMarketSelect, 
-  onBack, 
-  initialMarketId, 
-  initialMarketData 
+export function Markets({
+  toggleBookmark,
+  isBookmarked,
+  onWalletClick,
+  onMarketSelect,
+  onBack,
+  initialMarketId,
+  initialMarketData
 }: MarketsProps) {
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(initialMarketId ?? null);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("24h");
 
   // State for all three columns
-  const [trendingMarkets, setTrendingMarkets] = useState<DisplayMarket[]>(() => 
+  const [trendingMarkets, setTrendingMarkets] = useState<DisplayMarket[]>(() =>
     loadCachedMarkets(MARKETS_CACHE_PREFIX + "trending_" + "24h") || []
   );
-  const [newMarkets, setNewMarkets] = useState<DisplayMarket[]>(() => 
+  const [newMarkets, setNewMarkets] = useState<DisplayMarket[]>(() =>
     loadCachedMarkets(MARKETS_CACHE_PREFIX + "new") || []
   );
-  const [nearlyResolvedMarkets, setNearlyResolvedMarkets] = useState<DisplayMarket[]>(() => 
+  const [nearlyResolvedMarkets, setNearlyResolvedMarkets] = useState<DisplayMarket[]>(() =>
     loadCachedMarkets(MARKETS_CACHE_PREFIX + "resolved") || []
   );
 
   // Loading states for each column
-  const [loadingTrending, setLoadingTrending] = useState(() => 
+  const [loadingTrending, setLoadingTrending] = useState(() =>
     !loadCachedMarkets(MARKETS_CACHE_PREFIX + "trending_" + "24h")
   );
-  const [loadingNew, setLoadingNew] = useState(() => 
+  const [loadingNew, setLoadingNew] = useState(() =>
     !loadCachedMarkets(MARKETS_CACHE_PREFIX + "new")
   );
-  const [loadingResolved, setLoadingResolved] = useState(() => 
+  const [loadingResolved, setLoadingResolved] = useState(() =>
     !loadCachedMarkets(MARKETS_CACHE_PREFIX + "resolved")
   );
 
@@ -447,16 +447,16 @@ export function Markets({
   }, [timeFilter]);
 
   // Displayed markets (paginated)
-  const displayedTrending = useMemo(() => 
-    trendingMarkets.slice(0, trendingDisplayed), 
+  const displayedTrending = useMemo(() =>
+    trendingMarkets.slice(0, trendingDisplayed),
     [trendingMarkets, trendingDisplayed]
   );
-  const displayedNew = useMemo(() => 
-    newMarkets.slice(0, newDisplayed), 
+  const displayedNew = useMemo(() =>
+    newMarkets.slice(0, newDisplayed),
     [newMarkets, newDisplayed]
   );
-  const displayedResolved = useMemo(() => 
-    nearlyResolvedMarkets.slice(0, resolvedDisplayed), 
+  const displayedResolved = useMemo(() =>
+    nearlyResolvedMarkets.slice(0, resolvedDisplayed),
     [nearlyResolvedMarkets, resolvedDisplayed]
   );
 
@@ -548,31 +548,28 @@ export function Markets({
         <div className="flex items-center gap-1 sm:gap-2">
           <button
             onClick={() => setTimeFilter("24h")}
-            className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-light tracking-wide rounded transition-all ${
-              timeFilter === "24h"
+            className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-light tracking-wide rounded transition-all ${timeFilter === "24h"
                 ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
                 : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
-            }`}
+              }`}
           >
             24H
           </button>
           <button
             onClick={() => setTimeFilter("7d")}
-            className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-light tracking-wide rounded transition-all ${
-              timeFilter === "7d"
+            className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-light tracking-wide rounded transition-all ${timeFilter === "7d"
                 ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
                 : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
-            }`}
+              }`}
           >
             7D
           </button>
           <button
             onClick={() => setTimeFilter("1m")}
-            className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-light tracking-wide rounded transition-all ${
-              timeFilter === "1m"
+            className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-light tracking-wide rounded transition-all ${timeFilter === "1m"
                 ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
                 : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
-            }`}
+              }`}
           >
             1M
           </button>
@@ -581,7 +578,7 @@ export function Markets({
 
       {/* 3-Column Grid Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
-        
+
         {/* Column 1: Trending Markets */}
         <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl overflow-hidden shadow-xl shadow-black/20">
           {/* Column Header */}

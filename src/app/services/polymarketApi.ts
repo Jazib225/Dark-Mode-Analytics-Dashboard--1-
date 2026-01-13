@@ -2572,7 +2572,7 @@ export async function getNewMarkets(limit = 30): Promise<any[]> {
     }
 
     console.log("Fetching new markets from Gamma API...");
-    
+
     // Fetch from Gamma API with descending order by creation time
     // Note: Gamma API supports order parameter for sorting
     const response = await fetchWithTimeout(
@@ -2697,7 +2697,7 @@ export async function getNearlyResolvedMarkets(hoursAhead = 72, limit = 30): Pro
     }
 
     console.log("Fetching nearly resolved markets from Gamma API...");
-    
+
     // Calculate the cutoff time (now + hoursAhead)
     const now = Date.now();
     const cutoffTime = now + (hoursAhead * 60 * 60 * 1000);
@@ -2705,7 +2705,7 @@ export async function getNearlyResolvedMarkets(hoursAhead = 72, limit = 30): Pro
     // First try to use the global cache if available (faster)
     if (globalMarketCache.markets.length > 0) {
       console.log("Using global cache for nearly resolved markets");
-      
+
       const nearlyResolved = globalMarketCache.markets
         .filter(m => {
           if (!m.endDate || m.closed) return false;
@@ -2767,7 +2767,7 @@ export async function getNearlyResolvedMarkets(hoursAhead = 72, limit = 30): Pro
         if (!m.endDate || m.closed === true) return false;
         const hasTitle = m.question || m.title;
         if (!hasTitle) return false;
-        
+
         const endTime = new Date(m.endDate).getTime();
         // Validate the date is valid
         if (isNaN(endTime)) return false;
@@ -2840,19 +2840,19 @@ export async function getNearlyResolvedMarkets(hoursAhead = 72, limit = 30): Pro
  */
 export function formatTimeUntilClose(ms: number): string {
   if (ms <= 0) return "Closing now";
-  
+
   const hours = Math.floor(ms / (1000 * 60 * 60));
   const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
-  
+
   if (hours >= 24) {
     const days = Math.floor(hours / 24);
     return `${days}d ${hours % 24}h`;
   }
-  
+
   if (hours > 0) {
     return `${hours}h ${minutes}m`;
   }
-  
+
   return `${minutes}m`;
 }
 
@@ -2867,7 +2867,7 @@ export async function fetchAllMarketColumns(timeframe: "24h" | "7d" | "1m" = "24
   nearlyResolved: any[];
 }> {
   console.log("Fetching all market columns in parallel...");
-  
+
   const [trendingResult, newMarketsResult, nearlyResolvedResult] = await Promise.allSettled([
     getTrendingMarkets(timeframe),
     getNewMarkets(30),
