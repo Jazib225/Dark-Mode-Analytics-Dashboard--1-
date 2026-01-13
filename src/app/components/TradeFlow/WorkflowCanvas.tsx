@@ -45,7 +45,7 @@ function getNodeRect(node: NodeData): Rect {
     x: node.position.x,
     y: node.position.y,
     width: 160, // w-40 = 160px
-    height: 120, // approximate height
+    height: 80, // accurate height based on content
   };
 }
 
@@ -74,9 +74,10 @@ function distanceToLineSegment(px: number, py: number, x1: number, y1: number, x
 
 // Calculate handle position given node position and handle ID
 function getHandlePosition(nodePos: { x: number; y: number }, handleId: string = "right"): { x: number; y: number } {
-  // Node dimensions: 160px wide, ~120px tall
+  // Node dimensions: w-40 (160px width), p-4 padding with content = ~80px tall
+  // Actual CSS: w-40 = 160px, height varies but typically ~70-90px
   const nodeWidth = 160;
-  const nodeHeight = 120;
+  const nodeHeight = 80; // More accurate based on actual content height
   const centerX = nodePos.x + nodeWidth / 2;
   const centerY = nodePos.y + nodeHeight / 2;
   
@@ -92,6 +93,28 @@ function getHandlePosition(nodePos: { x: number; y: number }, handleId: string =
     default:
       return { x: nodePos.x + nodeWidth, y: centerY }; // default to right
   }
+}
+
+// Find the nearest handle on a node to a given point
+function findNearestHandle(
+  nodePos: { x: number; y: number },
+  mouseX: number,
+  mouseY: number
+): { handleId: string; distance: number } {
+  const handles = ["top", "right", "bottom", "left"];
+  let nearestHandle = "right";
+  let minDistance = Infinity;
+  
+  for (const handleId of handles) {
+    const pos = getHandlePosition(nodePos, handleId);
+    const dist = Math.sqrt((mouseX - pos.x) ** 2 + (mouseY - pos.y) ** 2);
+    if (dist < minDistance) {
+      minDistance = dist;
+      nearestHandle = handleId;
+    }
+  }
+  
+  return { handleId: nearestHandle, distance: minDistance };
 }
 
 export function WorkflowCanvas({
@@ -363,16 +386,17 @@ export function WorkflowCanvas({
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current) return;
     
-    // Check if clicked on a handle
+    // Check if clicked on a handle (any handle can start a connection)
     const target = e.target as HTMLElement;
     const handleType = target.getAttribute("data-handle-type");
     const handleId = target.getAttribute("data-handle-id");
     const nodeId = target.getAttribute("data-node-id");
     
-    if (handleType === "output" && nodeId && handleId) {
-      // Start connection from output handle - record which handle is being dragged from
+    if ((handleType === "output" || handleType === "input") && nodeId && handleId) {
+      // Start connection from any handle - record which handle is being dragged from
       setConnectionStart(nodeId);
       setSourceHandleId(handleId);
+      e.stopPropagation();
       return;
     }
     
@@ -407,23 +431,52 @@ export function WorkflowCanvas({
     setHighlightedHandles(new Set());
 
     if (connectionStart) {
-      // Check if released on an input handle
+      const rect = containerRef.current.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      
+      // First, check if released directly on a handle element
       const target = e.target as HTMLElement;
       const handleType = target.getAttribute("data-handle-type");
       const targetHandleId = target.getAttribute("data-handle-id");
       const targetNodeId = target.getAttribute("data-node-id");
       
-      if (handleType === "input" && targetNodeId && targetNodeId !== connectionStart && targetHandleId) {
-        // Create edge with handle IDs
+      if ((handleType === "input" || handleType === "output") && targetNodeId && targetNodeId !== connectionStart && targetHandleId) {
+        // Create edge with handle IDs - directly on handle
         onSetPendingHandles(sourceHandleId, targetHandleId);
         onEdgeCreate(connectionStart, targetNodeId);
         setConnectionStart(null);
-        setSourceHandleId("right"); // Reset to default
+        setSourceHandleId("right");
         return;
       }
 
+      // If not on a handle element, check proximity to any node's handles
+      const handleSnapDistance = 25; // pixels
+      let bestTarget: { nodeId: string; handleId: string; distance: number } | null = null;
+      
+      for (const node of nodes) {
+        if (node.id === connectionStart) continue;
+        
+        const sourceNode = nodes.find((n) => n.id === connectionStart);
+        if (!sourceNode || !canConnect(sourceNode.type, node.type, sourceNode.stage, node.stage)) continue;
+        
+        const nearest = findNearestHandle(node.position, x, y);
+        if (nearest.distance < handleSnapDistance) {
+          if (!bestTarget || nearest.distance < bestTarget.distance) {
+            bestTarget = { nodeId: node.id, handleId: nearest.handleId, distance: nearest.distance };
+          }
+        }
+      }
+      
+      if (bestTarget) {
+        // Snap to nearest handle
+        onSetPendingHandles(sourceHandleId, bestTarget.handleId);
+        onEdgeCreate(connectionStart, bestTarget.nodeId);
+      }
+      
+      // Always clear connection state - mouse disconnects from drag
       setConnectionStart(null);
-      setSourceHandleId("right"); // Reset to default
+      setSourceHandleId("right");
     }
   };
 
