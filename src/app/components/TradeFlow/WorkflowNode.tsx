@@ -60,7 +60,7 @@ export function WorkflowNode({
 
   return (
     <div
-      className={`absolute w-40 rounded-lg border-2 p-4 cursor-grab active:cursor-grabbing transition-all ${baseColor} ${isSelected ? "ring-2 ring-white shadow-lg" : "hover:shadow-md"
+      className={`absolute w-40 h-20 rounded-lg border-2 p-4 cursor-grab active:cursor-grabbing transition-all ${baseColor} ${isSelected ? "ring-2 ring-white shadow-lg" : "hover:shadow-md"
         }`}
       style={{
         left: `${node.position.x}px`,

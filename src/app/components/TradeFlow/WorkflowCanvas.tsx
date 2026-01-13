@@ -40,12 +40,16 @@ function getColumnBounds(stage: NodeStage, canvasWidth: number): { startX: numbe
   };
 }
 
+// Node dimensions - MUST match WorkflowNode CSS: w-40 h-20 = 160px x 80px
+const NODE_WIDTH = 160;
+const NODE_HEIGHT = 80;
+
 function getNodeRect(node: NodeData): Rect {
   return {
     x: node.position.x,
     y: node.position.y,
-    width: 160, // w-40 = 160px
-    height: 80, // accurate height based on content
+    width: NODE_WIDTH,
+    height: NODE_HEIGHT,
   };
 }
 
@@ -56,8 +60,7 @@ function pointInRect(x: number, y: number, rect: Rect): boolean {
 // Constrain position within column boundaries
 function constrainPositionToColumn(x: number, y: number, stage: NodeStage, canvasWidth: number): { x: number; y: number } {
   const col = getColumnBounds(stage, canvasWidth);
-  const nodeWidth = 160;
-  const constrainedX = Math.max(col.startX, Math.min(x, col.startX + col.width - nodeWidth));
+  const constrainedX = Math.max(col.startX, Math.min(x, col.startX + col.width - NODE_WIDTH));
   const constrainedY = Math.max(60, y); // Leave space for header
   return { x: constrainedX, y: constrainedY };
 }
@@ -73,25 +76,22 @@ function distanceToLineSegment(px: number, py: number, x1: number, y1: number, x
 }
 
 // Calculate handle position given node position and handle ID
+// Handles are positioned at the exact edge centers of the node
 function getHandlePosition(nodePos: { x: number; y: number }, handleId: string = "right"): { x: number; y: number } {
-  // Node dimensions: w-40 (160px width), p-4 padding with content = ~80px tall
-  // Actual CSS: w-40 = 160px, height varies but typically ~70-90px
-  const nodeWidth = 160;
-  const nodeHeight = 80; // More accurate based on actual content height
-  const centerX = nodePos.x + nodeWidth / 2;
-  const centerY = nodePos.y + nodeHeight / 2;
+  const centerX = nodePos.x + NODE_WIDTH / 2;
+  const centerY = nodePos.y + NODE_HEIGHT / 2;
 
   switch (handleId) {
     case "top":
       return { x: centerX, y: nodePos.y };
     case "right":
-      return { x: nodePos.x + nodeWidth, y: centerY };
+      return { x: nodePos.x + NODE_WIDTH, y: centerY };
     case "bottom":
-      return { x: centerX, y: nodePos.y + nodeHeight };
+      return { x: centerX, y: nodePos.y + NODE_HEIGHT };
     case "left":
       return { x: nodePos.x, y: centerY };
     default:
-      return { x: nodePos.x + nodeWidth, y: centerY }; // default to right
+      return { x: nodePos.x + NODE_WIDTH, y: centerY }; // default to right
   }
 }
 
@@ -522,13 +522,14 @@ export function WorkflowCanvas({
 
           if (!sourceNode || !targetNode) continue;
 
-          const x1 = sourceNode.position.x + 160 + 8;
-          const y1 = sourceNode.position.y + 60;
-          const x2 = targetNode.position.x - 8;
-          const y2 = targetNode.position.y + 60;
+          // Use actual handle positions for edge detection
+          const sourceHandle = edge.sourceHandle || "right";
+          const targetHandle = edge.targetHandle || "left";
+          const fromPos = getHandlePosition(sourceNode.position, sourceHandle);
+          const toPos = getHandlePosition(targetNode.position, targetHandle);
 
           // Calculate distance from point to line segment
-          const dist = distanceToLineSegment(x, y, x1, y1, x2, y2);
+          const dist = distanceToLineSegment(x, y, fromPos.x, fromPos.y, toPos.x, toPos.y);
           if (dist < minDistance) {
             minDistance = dist;
             closestEdge = edge;
