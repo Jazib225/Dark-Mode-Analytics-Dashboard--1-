@@ -84,7 +84,7 @@ function getHandlePosition(nodePos: { x: number; y: number }, handleId: string):
   // - right: right-0 top-1/2 translate-x-1/2 -translate-y-1/2 -> center of right edge
   // - bottom: bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 -> center of bottom edge
   // - left: left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 -> center of left edge
-  
+
   switch (handleId) {
     case "top":
       return { x: nodePos.x + NODE_WIDTH / 2, y: nodePos.y };
@@ -153,14 +153,14 @@ export function WorkflowCanvas({
 }: WorkflowCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  
+
   // Use refs for drag state to avoid re-renders during drag (smoother experience)
   const draggingNodeRef = useRef<string | null>(null);
   const dragOffsetRef = useRef({ x: 0, y: 0 });
   const connectionStartRef = useRef<string | null>(null);
   const sourceHandleIdRef = useRef<string>("right");
   const mousePosRef = useRef({ x: 0, y: 0 });
-  
+
   // State for UI updates
   const [connectionStart, setConnectionStart] = useState<string | null>(null);
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
@@ -234,7 +234,7 @@ export function WorkflowCanvas({
         // Get or calculate handles
         let sourceHandleId = edge.sourceHandle;
         let targetHandleId = edge.targetHandle;
-        
+
         if (!sourceHandleId || !targetHandleId) {
           const bestHandles = getBestHandles(sourceNode.position, targetNode.position);
           sourceHandleId = sourceHandleId || bestHandles.sourceHandle;
@@ -362,7 +362,7 @@ export function WorkflowCanvas({
     // Update UI state for connection drawing
     if (connectionStartRef.current) {
       setMousePos({ x, y });
-      
+
       // Highlight valid target handles
       const validTargets = new Set<string>();
       for (const node of nodes) {
@@ -463,7 +463,7 @@ export function WorkflowCanvas({
       if (targetNodeId && targetNodeId !== connectionStartRef.current && targetHandleId) {
         const sourceNode = nodes.find((n) => n.id === connectionStartRef.current);
         const targetNode = nodes.find((n) => n.id === targetNodeId);
-        
+
         if (sourceNode && targetNode && canConnect(sourceNode.type, targetNode.type, sourceNode.stage, targetNode.stage)) {
           // Create edge with the handles that were actually used
           onEdgeCreate(connectionStartRef.current, targetNodeId, sourceHandleIdRef.current, targetHandleId);
