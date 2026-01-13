@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState, useCallback } from "react";
 import { NodeData, EdgeData, NodeStage } from "./types";
 import { WorkflowNode } from "./WorkflowNode";
 import { canConnect } from "./validators";
@@ -11,8 +11,7 @@ interface WorkflowCanvasProps {
   onNodeDelete: (nodeId: string) => void;
   onNodeMove: (nodeId: string, position: { x: number; y: number }) => void;
   onNodeDrop: (nodeType: string, stage: NodeStage, position: { x: number; y: number }) => void;
-  onEdgeCreate: (sourceId: string, targetId: string) => void;
-  onSetPendingHandles: (sourceHandle: string, targetHandle: string) => void;
+  onEdgeCreate: (sourceId: string, targetId: string, sourceHandle: string, targetHandle: string) => void;
   onEdgeLogicAdd: (edgeId: string, logic: "and" | "or") => void;
   onCanvasClick: () => void;
 }
@@ -24,7 +23,7 @@ interface Rect {
   height: number;
 }
 
-// Column definitions: stage -> {label, percentStart, percentWidth, bgColor}
+// Column definitions
 const columnDefinitions: Record<NodeStage, { label: string; percentStart: number; percentWidth: number; bgColor: string }> = {
   market: { label: "Market Type", percentStart: 0, percentWidth: 25, bgColor: "rgba(30, 58, 138, 0.15)" },
   entry: { label: "Entry Conditions", percentStart: 25, percentWidth: 25, bgColor: "rgba(20, 83, 45, 0.15)" },
@@ -40,9 +39,9 @@ function getColumnBounds(stage: NodeStage, canvasWidth: number): { startX: numbe
   };
 }
 
-// Node dimensions - MUST match WorkflowNode CSS: w-40 h-20 = 160px x 80px
-const NODE_WIDTH = 160;
-const NODE_HEIGHT = 80;
+// Node dimensions - MUST match WorkflowNode CSS exactly
+const NODE_WIDTH = 160;  // w-40 = 160px
+const NODE_HEIGHT = 80;  // h-20 = 80px
 
 function getNodeRect(node: NodeData): Rect {
   return {
@@ -57,50 +56,51 @@ function pointInRect(x: number, y: number, rect: Rect): boolean {
   return x >= rect.x && x <= rect.x + rect.width && y >= rect.y && y <= rect.y + rect.height;
 }
 
-// Constrain position within column boundaries
 function constrainPositionToColumn(x: number, y: number, stage: NodeStage, canvasWidth: number): { x: number; y: number } {
   const col = getColumnBounds(stage, canvasWidth);
   const constrainedX = Math.max(col.startX, Math.min(x, col.startX + col.width - NODE_WIDTH));
-  const constrainedY = Math.max(60, y); // Leave space for header
+  const constrainedY = Math.max(60, y);
   return { x: constrainedX, y: constrainedY };
 }
 
-// Calculate distance from point (px, py) to line segment from (x1, y1) to (x2, y2)
 function distanceToLineSegment(px: number, py: number, x1: number, y1: number, x2: number, y2: number): number {
   const dx = x2 - x1;
   const dy = y2 - y1;
+  if (dx === 0 && dy === 0) {
+    return Math.sqrt((px - x1) ** 2 + (py - y1) ** 2);
+  }
   const t = Math.max(0, Math.min(1, ((px - x1) * dx + (py - y1) * dy) / (dx * dx + dy * dy)));
   const closestX = x1 + t * dx;
   const closestY = y1 + t * dy;
   return Math.sqrt((px - closestX) ** 2 + (py - closestY) ** 2);
 }
 
-// Calculate handle position given node position and handle ID
-// Handles are positioned at the exact edge centers of the node
-function getHandlePosition(nodePos: { x: number; y: number }, handleId: string = "right"): { x: number; y: number } {
-  const centerX = nodePos.x + NODE_WIDTH / 2;
-  const centerY = nodePos.y + NODE_HEIGHT / 2;
-
+// Get the exact pixel position of a handle on a node
+// This MUST match where the CSS positions the black dots
+function getHandlePosition(nodePos: { x: number; y: number }, handleId: string): { x: number; y: number } {
+  // The node is positioned at nodePos.x, nodePos.y with size NODE_WIDTH x NODE_HEIGHT
+  // CSS handles are positioned at the edge centers:
+  // - top: top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 -> center of top edge
+  // - right: right-0 top-1/2 translate-x-1/2 -translate-y-1/2 -> center of right edge
+  // - bottom: bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 -> center of bottom edge
+  // - left: left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 -> center of left edge
+  
   switch (handleId) {
     case "top":
-      return { x: centerX, y: nodePos.y };
+      return { x: nodePos.x + NODE_WIDTH / 2, y: nodePos.y };
     case "right":
-      return { x: nodePos.x + NODE_WIDTH, y: centerY };
+      return { x: nodePos.x + NODE_WIDTH, y: nodePos.y + NODE_HEIGHT / 2 };
     case "bottom":
-      return { x: centerX, y: nodePos.y + NODE_HEIGHT };
+      return { x: nodePos.x + NODE_WIDTH / 2, y: nodePos.y + NODE_HEIGHT };
     case "left":
-      return { x: nodePos.x, y: centerY };
+      return { x: nodePos.x, y: nodePos.y + NODE_HEIGHT / 2 };
     default:
-      return { x: nodePos.x + NODE_WIDTH, y: centerY }; // default to right
+      return { x: nodePos.x + NODE_WIDTH, y: nodePos.y + NODE_HEIGHT / 2 };
   }
 }
 
 // Find the nearest handle on a node to a given point
-function findNearestHandle(
-  nodePos: { x: number; y: number },
-  mouseX: number,
-  mouseY: number
-): { handleId: string; distance: number } {
+function findNearestHandle(nodePos: { x: number; y: number }, mouseX: number, mouseY: number): { handleId: string; distance: number } {
   const handles = ["top", "right", "bottom", "left"];
   let nearestHandle = "right";
   let minDistance = Infinity;
@@ -117,6 +117,28 @@ function findNearestHandle(
   return { handleId: nearestHandle, distance: minDistance };
 }
 
+// Determine the best handles to connect two nodes based on their relative positions
+function getBestHandles(sourcePos: { x: number; y: number }, targetPos: { x: number; y: number }): { sourceHandle: string; targetHandle: string } {
+  const dx = (targetPos.x + NODE_WIDTH / 2) - (sourcePos.x + NODE_WIDTH / 2);
+  const dy = (targetPos.y + NODE_HEIGHT / 2) - (sourcePos.y + NODE_HEIGHT / 2);
+
+  if (Math.abs(dx) > Math.abs(dy)) {
+    // Horizontal connection
+    if (dx > 0) {
+      return { sourceHandle: "right", targetHandle: "left" };
+    } else {
+      return { sourceHandle: "left", targetHandle: "right" };
+    }
+  } else {
+    // Vertical connection
+    if (dy > 0) {
+      return { sourceHandle: "bottom", targetHandle: "top" };
+    } else {
+      return { sourceHandle: "top", targetHandle: "bottom" };
+    }
+  }
+}
+
 export function WorkflowCanvas({
   nodes,
   edges,
@@ -126,68 +148,51 @@ export function WorkflowCanvas({
   onNodeMove,
   onNodeDrop,
   onEdgeCreate,
-  onSetPendingHandles,
   onEdgeLogicAdd,
   onCanvasClick,
 }: WorkflowCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [draggingNode, setDraggingNode] = useState<string | null>(null);
-  const [dragOffset, setDragOffset] = useState({ x: 0, y: 0 });
+  
+  // Use refs for drag state to avoid re-renders during drag (smoother experience)
+  const draggingNodeRef = useRef<string | null>(null);
+  const dragOffsetRef = useRef({ x: 0, y: 0 });
+  const connectionStartRef = useRef<string | null>(null);
+  const sourceHandleIdRef = useRef<string>("right");
+  const mousePosRef = useRef({ x: 0, y: 0 });
+  
+  // State for UI updates
   const [connectionStart, setConnectionStart] = useState<string | null>(null);
-  const [sourceHandleId, setSourceHandleId] = useState<string>("right"); // track which handle is being dragged from
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 });
   const [draggingLogicNode, setDraggingLogicNode] = useState<boolean>(false);
   const [highlightedHandles, setHighlightedHandles] = useState<Set<string>>(new Set());
   const [hoveredEdgeId, setHoveredEdgeId] = useState<string | null>(null);
 
-  // Handle canvas resize
-  useEffect(() => {
-    if (!canvasRef.current || !containerRef.current) return;
-
-    const resizeCanvas = () => {
-      const canvas = canvasRef.current!;
-      const container = containerRef.current!;
-      const rect = container.getBoundingClientRect();
-
-      canvas.width = rect.width;
-      canvas.height = rect.height;
-    };
-
-    resizeCanvas();
-    window.addEventListener("resize", resizeCanvas);
-    return () => window.removeEventListener("resize", resizeCanvas);
-  }, []);
-
-  // Redraw canvas
-  useEffect(() => {
+  // Draw function - extracted for reuse
+  const draw = useCallback(() => {
     if (!canvasRef.current) return;
 
     const canvas = canvasRef.current;
     const ctx = canvas.getContext("2d");
     if (!ctx) return;
 
-    // Clear canvas
+    // Clear
     ctx.fillStyle = "#0a0a0a";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-    // Draw column backgrounds and headers
+    // Draw columns
     const stages: NodeStage[] = ["market", "entry", "exit", "profit"];
     stages.forEach((stage) => {
       const col = getColumnBounds(stage, canvas.width);
       const def = columnDefinitions[stage];
-
-      // Draw column background
       ctx.fillStyle = def.bgColor;
       ctx.fillRect(col.startX, 0, col.width, canvas.height);
-
-      // Draw column border
       ctx.strokeStyle = "#333333";
       ctx.lineWidth = 2;
       ctx.strokeRect(col.startX, 0, col.width, canvas.height);
     });
 
-    // Draw grid BEFORE headers so headers appear on top
+    // Draw grid
     ctx.strokeStyle = "#1a1a1a";
     ctx.lineWidth = 1;
     const gridSize = 20;
@@ -204,21 +209,15 @@ export function WorkflowCanvas({
       ctx.stroke();
     }
 
-    // Draw column headers LAST so they appear above grid
+    // Draw column headers
     stages.forEach((stage) => {
       const col = getColumnBounds(stage, canvas.width);
       const def = columnDefinitions[stage];
-
-      // Header background box with darker tint - semi-opaque
       const headerHeight = 50;
-      ctx.fillStyle = def.bgColor.replace("0.15", "0.5"); // More opaque for readability
+      ctx.fillStyle = def.bgColor.replace("0.15", "0.5");
       ctx.fillRect(col.startX, 0, col.width, headerHeight);
-
-      // Semi-opaque dark overlay for text contrast
       ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
       ctx.fillRect(col.startX, 0, col.width, headerHeight);
-
-      // Header text - bold and bright
       ctx.fillStyle = "#ffffff";
       ctx.font = "bold 16px sans-serif";
       ctx.textAlign = "left";
@@ -226,111 +225,158 @@ export function WorkflowCanvas({
       ctx.fillText(def.label, col.startX + 12, 25);
     });
 
-    // Draw edges
+    // Draw edges - connecting to exact handle positions
     edges.forEach((edge) => {
       const sourceNode = nodes.find((n) => n.id === edge.source);
       const targetNode = nodes.find((n) => n.id === edge.target);
 
       if (sourceNode && targetNode) {
-        // Calculate edge endpoint positions from specific handles
-        const sourceHandleId = edge.sourceHandle || "right";
-        const targetHandleId = edge.targetHandle || "left";
+        // Get or calculate handles
+        let sourceHandleId = edge.sourceHandle;
+        let targetHandleId = edge.targetHandle;
+        
+        if (!sourceHandleId || !targetHandleId) {
+          const bestHandles = getBestHandles(sourceNode.position, targetNode.position);
+          sourceHandleId = sourceHandleId || bestHandles.sourceHandle;
+          targetHandleId = targetHandleId || bestHandles.targetHandle;
+        }
 
+        // Get exact handle positions
         const fromPos = getHandlePosition(sourceNode.position, sourceHandleId);
         const toPos = getHandlePosition(targetNode.position, targetHandleId);
 
-        const fromX = fromPos.x;
-        const fromY = fromPos.y;
-        const toX = toPos.x;
-        const toY = toPos.y;
-
-        // Determine line width: base=2, all edges thickened when dragging logic (+1), even more if hovered (+1)
         let lineWidth = 2;
         if (draggingLogicNode) {
-          lineWidth = 3; // All edges thicker when dragging logic node
+          lineWidth = 3;
           if (hoveredEdgeId === edge.id) {
-            lineWidth = 4; // Hovered edge even thicker
+            lineWidth = 4;
+            // Glow
+            ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
+            ctx.lineWidth = lineWidth + 4;
+            ctx.lineCap = "round";
+            ctx.beginPath();
+            ctx.moveTo(fromPos.x, fromPos.y);
+            ctx.lineTo(toPos.x, toPos.y);
+            ctx.stroke();
           }
         }
 
-        // Draw white line with optional glow effect
-        if (hoveredEdgeId === edge.id && draggingLogicNode) {
-          // Add subtle glow for hovered edge
-          ctx.strokeStyle = "rgba(255, 255, 255, 0.4)";
-          ctx.lineWidth = lineWidth + 4;
-          ctx.lineCap = "round";
-          ctx.lineJoin = "round";
-          ctx.beginPath();
-          ctx.moveTo(fromX, fromY);
-          ctx.lineTo(toX, toY);
-          ctx.stroke();
-        }
-
-        // Draw main white line
+        // Main line
         ctx.strokeStyle = "#ffffff";
         ctx.lineWidth = lineWidth;
         ctx.lineCap = "round";
-        ctx.lineJoin = "round";
         ctx.beginPath();
-        ctx.moveTo(fromX, fromY);
-        ctx.lineTo(toX, toY);
+        ctx.moveTo(fromPos.x, fromPos.y);
+        ctx.lineTo(toPos.x, toPos.y);
         ctx.stroke();
 
-        // Draw AND/OR logic badge on edge if present
+        // Logic badge
         if (edge.data?.logic) {
-          const midX = (fromX + toX) / 2;
-          const midY = (fromY + toY) / 2;
+          const midX = (fromPos.x + toPos.x) / 2;
+          const midY = (fromPos.y + toPos.y) / 2;
           const logic = edge.data.logic.toUpperCase();
 
-          // Draw circle badge
           ctx.fillStyle = logic === "AND" ? "#4f46e5" : "#f59e0b";
           ctx.beginPath();
           ctx.arc(midX, midY, 12, 0, Math.PI * 2);
           ctx.fill();
 
-          // Draw border
           ctx.strokeStyle = "#ffffff";
           ctx.lineWidth = 1.5;
           ctx.stroke();
 
-          // Draw text
           ctx.fillStyle = "#ffffff";
-          ctx.font = "bold 12px sans-serif";
+          ctx.font = "bold 10px sans-serif";
           ctx.textAlign = "center";
           ctx.textBaseline = "middle";
-          ctx.fillText(logic === "AND" ? "AND" : "OR", midX, midY);
+          ctx.fillText(logic, midX, midY);
         }
       }
     });
 
-    // Draw connection in progress
-    if (connectionStart) {
-      const startNode = nodes.find((n) => n.id === connectionStart);
+    // Draw connection in progress (dashed line from handle to mouse)
+    if (connectionStartRef.current) {
+      const startNode = nodes.find((n) => n.id === connectionStartRef.current);
       if (startNode) {
-        const fromPos = getHandlePosition(startNode.position, sourceHandleId); // Use the actual source handle
+        const fromPos = getHandlePosition(startNode.position, sourceHandleIdRef.current);
         ctx.strokeStyle = "#ffffff";
         ctx.lineWidth = 2.5;
         ctx.lineCap = "round";
         ctx.setLineDash([5, 5]);
         ctx.beginPath();
         ctx.moveTo(fromPos.x, fromPos.y);
-        ctx.lineTo(mousePos.x, mousePos.y);
+        ctx.lineTo(mousePosRef.current.x, mousePosRef.current.y);
         ctx.stroke();
         ctx.setLineDash([]);
       }
     }
-  }, [nodes, edges, connectionStart, mousePos, draggingLogicNode, hoveredEdgeId]);
+  }, [nodes, edges, draggingLogicNode, hoveredEdgeId]);
 
-  const handleMouseMove = (e: React.MouseEvent<HTMLDivElement>) => {
+  // Resize canvas
+  useEffect(() => {
+    if (!canvasRef.current || !containerRef.current) return;
+
+    const resizeCanvas = () => {
+      const canvas = canvasRef.current!;
+      const container = containerRef.current!;
+      const rect = container.getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = rect.height;
+      draw();
+    };
+
+    resizeCanvas();
+    window.addEventListener("resize", resizeCanvas);
+    return () => window.removeEventListener("resize", resizeCanvas);
+  }, [draw]);
+
+  // Redraw when dependencies change
+  useEffect(() => {
+    draw();
+  }, [draw, connectionStart, mousePos]);
+
+  const handleMouseMove = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current) return;
 
     const rect = containerRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
 
-    setMousePos({ x, y });
+    mousePosRef.current = { x, y };
 
-    // Check if hovering over edges when dragging logic node
+    // Handle node dragging with immediate feedback
+    if (draggingNodeRef.current && containerRef.current) {
+      const node = nodes.find((n) => n.id === draggingNodeRef.current);
+      if (node) {
+        const newPos = {
+          x: x - dragOffsetRef.current.x,
+          y: y - dragOffsetRef.current.y,
+        };
+        const constrainedPos = constrainPositionToColumn(newPos.x, newPos.y, node.stage, containerRef.current.clientWidth);
+        onNodeMove(draggingNodeRef.current, constrainedPos);
+        // Immediate redraw for smooth dragging
+        draw();
+      }
+    }
+
+    // Update UI state for connection drawing
+    if (connectionStartRef.current) {
+      setMousePos({ x, y });
+      
+      // Highlight valid target handles
+      const validTargets = new Set<string>();
+      for (const node of nodes) {
+        if (node.id !== connectionStartRef.current) {
+          const sourceNode = nodes.find((n) => n.id === connectionStartRef.current);
+          if (sourceNode && canConnect(sourceNode.type, node.type, sourceNode.stage, node.stage)) {
+            validTargets.add(`input-${node.id}`);
+          }
+        }
+      }
+      setHighlightedHandles(validTargets);
+    }
+
+    // Check edge hover when dragging logic node
     if (draggingLogicNode) {
       let foundEdge: string | null = null;
       const tolerance = 15;
@@ -340,10 +386,10 @@ export function WorkflowCanvas({
         const targetNode = nodes.find((n) => n.id === edge.target);
 
         if (sourceNode && targetNode) {
-          const sourceHandleId = edge.sourceHandle || "right";
-          const targetHandleId = edge.targetHandle || "left";
-          const fromPos = getHandlePosition(sourceNode.position, sourceHandleId);
-          const toPos = getHandlePosition(targetNode.position, targetHandleId);
+          const sHandle = edge.sourceHandle || "right";
+          const tHandle = edge.targetHandle || "left";
+          const fromPos = getHandlePosition(sourceNode.position, sHandle);
+          const toPos = getHandlePosition(targetNode.position, tHandle);
 
           const dist = distanceToLineSegment(x, y, fromPos.x, fromPos.y, toPos.x, toPos.y);
           if (dist < tolerance) {
@@ -354,48 +400,22 @@ export function WorkflowCanvas({
       }
       setHoveredEdgeId(foundEdge);
     }
+  }, [nodes, edges, draggingLogicNode, onNodeMove, draw]);
 
-    if (connectionStart) {
-      // Highlight valid target handles
-      const validTargets = new Set<string>();
-      for (const node of nodes) {
-        if (node.id !== connectionStart) {
-          const sourceNode = nodes.find((n) => n.id === connectionStart);
-          if (sourceNode && canConnect(sourceNode.type, node.type, sourceNode.stage, node.stage)) {
-            validTargets.add(`input-${node.id}`);
-          }
-        }
-      }
-      setHighlightedHandles(validTargets);
-    }
-
-    if (draggingNode && containerRef.current) {
-      const node = nodes.find((n) => n.id === draggingNode);
-      if (node) {
-        const newPos = {
-          x: x - dragOffset.x,
-          y: y - dragOffset.y,
-        };
-        // Constrain to column boundaries
-        const constrainedPos = constrainPositionToColumn(newPos.x, newPos.y, node.stage, containerRef.current.clientWidth);
-        onNodeMove(draggingNode, constrainedPos);
-      }
-    }
-  };
-
-  const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleMouseDown = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current) return;
 
-    // Check if clicked on a handle (any handle can start a connection)
+    // Check if clicked on a handle
     const target = e.target as HTMLElement;
     const handleType = target.getAttribute("data-handle-type");
     const handleId = target.getAttribute("data-handle-id");
     const nodeId = target.getAttribute("data-node-id");
 
     if ((handleType === "output" || handleType === "input") && nodeId && handleId) {
-      // Start connection from any handle - record which handle is being dragged from
+      // Start connection from this handle
+      connectionStartRef.current = nodeId;
+      sourceHandleIdRef.current = handleId;
       setConnectionStart(nodeId);
-      setSourceHandleId(handleId);
       e.stopPropagation();
       return;
     }
@@ -414,91 +434,89 @@ export function WorkflowCanvas({
     }
 
     if (clickedNodeId) {
-      // Left click to select and drag
       onNodeSelect(clickedNodeId);
-      setDraggingNode(clickedNodeId);
+      draggingNodeRef.current = clickedNodeId;
       const node = nodes.find((n) => n.id === clickedNodeId)!;
-      setDragOffset({ x: x - node.position.x, y: y - node.position.y });
+      dragOffsetRef.current = { x: x - node.position.x, y: y - node.position.y };
     } else {
       onCanvasClick();
     }
-  };
+  }, [nodes, onNodeSelect, onCanvasClick]);
 
-  const handleMouseUp = (e: React.MouseEvent<HTMLDivElement>) => {
+  const handleMouseUp = useCallback((e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current) return;
 
-    setDraggingNode(null);
+    // Clear drag state
+    draggingNodeRef.current = null;
     setHighlightedHandles(new Set());
 
-    if (connectionStart) {
+    if (connectionStartRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
 
-      // First, check if released directly on a handle element
+      // Check if released on a handle element
       const target = e.target as HTMLElement;
-      const handleType = target.getAttribute("data-handle-type");
       const targetHandleId = target.getAttribute("data-handle-id");
       const targetNodeId = target.getAttribute("data-node-id");
 
-      if ((handleType === "input" || handleType === "output") && targetNodeId && targetNodeId !== connectionStart && targetHandleId) {
-        // Create edge with handle IDs - directly on handle
-        onSetPendingHandles(sourceHandleId, targetHandleId);
-        onEdgeCreate(connectionStart, targetNodeId);
-        setConnectionStart(null);
-        setSourceHandleId("right");
-        return;
-      }
+      if (targetNodeId && targetNodeId !== connectionStartRef.current && targetHandleId) {
+        const sourceNode = nodes.find((n) => n.id === connectionStartRef.current);
+        const targetNode = nodes.find((n) => n.id === targetNodeId);
+        
+        if (sourceNode && targetNode && canConnect(sourceNode.type, targetNode.type, sourceNode.stage, targetNode.stage)) {
+          // Create edge with the handles that were actually used
+          onEdgeCreate(connectionStartRef.current, targetNodeId, sourceHandleIdRef.current, targetHandleId);
+        }
+      } else {
+        // Check proximity to any node's handles
+        const handleSnapDistance = 30;
+        let bestTarget: { nodeId: string; handleId: string; distance: number } | null = null;
 
-      // If not on a handle element, check proximity to any node's handles
-      const handleSnapDistance = 25; // pixels
-      let bestTarget: { nodeId: string; handleId: string; distance: number } | null = null;
+        for (const node of nodes) {
+          if (node.id === connectionStartRef.current) continue;
 
-      for (const node of nodes) {
-        if (node.id === connectionStart) continue;
+          const sourceNode = nodes.find((n) => n.id === connectionStartRef.current);
+          if (!sourceNode || !canConnect(sourceNode.type, node.type, sourceNode.stage, node.stage)) continue;
 
-        const sourceNode = nodes.find((n) => n.id === connectionStart);
-        if (!sourceNode || !canConnect(sourceNode.type, node.type, sourceNode.stage, node.stage)) continue;
-
-        const nearest = findNearestHandle(node.position, x, y);
-        if (nearest.distance < handleSnapDistance) {
-          if (!bestTarget || nearest.distance < bestTarget.distance) {
-            bestTarget = { nodeId: node.id, handleId: nearest.handleId, distance: nearest.distance };
+          const nearest = findNearestHandle(node.position, x, y);
+          if (nearest.distance < handleSnapDistance) {
+            if (!bestTarget || nearest.distance < bestTarget.distance) {
+              bestTarget = { nodeId: node.id, handleId: nearest.handleId, distance: nearest.distance };
+            }
           }
+        }
+
+        if (bestTarget) {
+          onEdgeCreate(connectionStartRef.current, bestTarget.nodeId, sourceHandleIdRef.current, bestTarget.handleId);
         }
       }
 
-      if (bestTarget) {
-        // Snap to nearest handle
-        onSetPendingHandles(sourceHandleId, bestTarget.handleId);
-        onEdgeCreate(connectionStart, bestTarget.nodeId);
-      }
-
-      // Always clear connection state - mouse disconnects from drag
+      // Clear connection state
+      connectionStartRef.current = null;
+      sourceHandleIdRef.current = "right";
       setConnectionStart(null);
-      setSourceHandleId("right");
     }
-  };
+  }, [nodes, onEdgeCreate]);
 
-  const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDragOver = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "copy";
 
-    // Check if dragging a logic node
     const nodeType = e.dataTransfer.types.includes("text/html") ? null : e.dataTransfer.getData("nodeType");
     if ((nodeType === "and" || nodeType === "or")) {
       setDraggingLogicNode(true);
     }
-  };
+  }, []);
 
-  const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDragLeave = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     if (e.target === containerRef.current) {
       setDraggingLogicNode(false);
       setHoveredEdgeId(null);
     }
-  };
+  }, []);
 
-  const handleDrop = (e: React.DragEvent<HTMLDivElement>) => {
+  const handleDrop = useCallback((e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     if (!containerRef.current || !canvasRef.current) return;
 
@@ -510,11 +528,9 @@ export function WorkflowCanvas({
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
 
-      // Check if dropping AND/OR (logic node)
       if ((nodeType === "and" || nodeType === "or") && stage === "logic") {
-        // Try to find an edge near the drop point
         let closestEdge = null;
-        let minDistance = 20; // tolerance for snapping to edge
+        let minDistance = 20;
 
         for (const edge of edges) {
           const sourceNode = nodes.find((n) => n.id === edge.source);
@@ -522,13 +538,11 @@ export function WorkflowCanvas({
 
           if (!sourceNode || !targetNode) continue;
 
-          // Use actual handle positions for edge detection
-          const sourceHandle = edge.sourceHandle || "right";
-          const targetHandle = edge.targetHandle || "left";
-          const fromPos = getHandlePosition(sourceNode.position, sourceHandle);
-          const toPos = getHandlePosition(targetNode.position, targetHandle);
+          const sHandle = edge.sourceHandle || "right";
+          const tHandle = edge.targetHandle || "left";
+          const fromPos = getHandlePosition(sourceNode.position, sHandle);
+          const toPos = getHandlePosition(targetNode.position, tHandle);
 
-          // Calculate distance from point to line segment
           const dist = distanceToLineSegment(x, y, fromPos.x, fromPos.y, toPos.x, toPos.y);
           if (dist < minDistance) {
             minDistance = dist;
@@ -537,7 +551,6 @@ export function WorkflowCanvas({
         }
 
         if (closestEdge) {
-          // Add logic to the edge
           onEdgeLogicAdd(closestEdge.id, nodeType as "and" | "or");
         }
         setDraggingLogicNode(false);
@@ -545,7 +558,6 @@ export function WorkflowCanvas({
         return;
       }
 
-      // Check if drop is within the stage's column
       const col = getColumnBounds(stage as NodeStage, canvasRef.current.width);
       if (x >= col.startX && x < col.startX + col.width) {
         const constrainedPos = constrainPositionToColumn(x - 80, y, stage as NodeStage, canvasRef.current.width);
@@ -554,7 +566,7 @@ export function WorkflowCanvas({
       setDraggingLogicNode(false);
       setHoveredEdgeId(null);
     }
-  };
+  }, [nodes, edges, onNodeDrop, onEdgeLogicAdd]);
 
   return (
     <div
@@ -566,14 +578,14 @@ export function WorkflowCanvas({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
-      onContextMenu={(e: React.MouseEvent<HTMLDivElement>) => e.preventDefault()}
+      onContextMenu={(e) => e.preventDefault()}
     >
       <canvas
         ref={canvasRef}
         className="absolute inset-0 w-full h-full z-0"
       />
 
-      {/* Nodes rendered on top of canvas (z-10) */}
+      {/* Nodes on top of canvas */}
       <div className="absolute inset-0 z-10 pointer-events-none">
         {nodes.map((node) => (
           <div key={node.id} className="pointer-events-auto">
@@ -588,12 +600,12 @@ export function WorkflowCanvas({
         ))}
       </div>
 
-      {/* Help text above canvas */}
+      {/* Help text */}
       {nodes.length === 0 && (
         <div className="absolute inset-0 z-5 flex items-center justify-center pointer-events-none">
           <div className="text-center text-gray-600">
             <p className="text-lg mb-2">Drag nodes from the library to get started</p>
-            <p className="text-sm">Right-click nodes to connect them</p>
+            <p className="text-sm">Click and drag from black dots to connect nodes</p>
           </div>
         </div>
       )}

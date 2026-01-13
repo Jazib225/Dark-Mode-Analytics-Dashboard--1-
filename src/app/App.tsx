@@ -766,7 +766,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
               }}
               className="flex items-center gap-1 sm:gap-2 hover:opacity-80 transition-opacity flex-shrink-0"
             >
-              <img src={paragonLogo} alt="Paragon" className="h-5 w-5 sm:h-7 sm:w-7 lg:h-9 lg:w-9 object-contain" />
+              <img src={paragonLogo} alt="Paragon" className="h-8 w-8 sm:h-10 sm:w-10 lg:h-12 lg:w-12 object-contain drop-shadow-lg" />
               <div className="text-xs sm:text-sm lg:text-lg xl:text-[20px] font-light tracking-tight text-gray-100 hidden sm:block">PARAGON</div>
             </button>
             {/* Navigation items with responsive sizing */}

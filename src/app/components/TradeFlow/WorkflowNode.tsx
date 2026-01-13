@@ -90,8 +90,8 @@ export function WorkflowNode({
       {/* Top handle */}
       <div
         className={`absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full hover:bg-gray-300 hover:scale-125 transition-all cursor-crosshair shadow-lg border border-gray-600 ${highlightedInputHandle
-            ? "bg-white scale-150 animate-pulse"
-            : "bg-black"
+          ? "bg-white scale-150 animate-pulse"
+          : "bg-black"
           }`}
         data-handle-type="input"
         data-handle-id="top"
