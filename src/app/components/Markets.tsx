@@ -412,8 +412,8 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
             <button
               onClick={() => setTimeFilter("24h")}
               className={`px-3 sm:px-4 py-1.5 text-xs sm:text-[14px] font-light tracking-wide rounded transition-all ${timeFilter === "24h"
-                  ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
-                  : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
+                ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
+                : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
                 }`}
             >
               24H
@@ -421,8 +421,8 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
             <button
               onClick={() => setTimeFilter("7d")}
               className={`px-3 sm:px-4 py-1.5 text-xs sm:text-[14px] font-light tracking-wide rounded transition-all ${timeFilter === "7d"
-                  ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
-                  : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
+                ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
+                : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
                 }`}
             >
               7D
@@ -430,8 +430,8 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
             <button
               onClick={() => setTimeFilter("1m")}
               className={`px-3 sm:px-4 py-1.5 text-xs sm:text-[14px] font-light tracking-wide rounded transition-all ${timeFilter === "1m"
-                  ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
-                  : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
+                ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
+                : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
                 }`}
             >
               1M

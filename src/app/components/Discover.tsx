@@ -80,7 +80,7 @@ export function Discover({ onNavigate }: DiscoverProps) {
                   <div className="absolute inset-0 flex items-center justify-center">
                     <Icon className="w-24 h-24 text-white/20 group-hover:text-white/30 transition-all duration-300" />
                   </div>
-                  
+
                   {/* Grid pattern overlay */}
                   <div className="absolute inset-0 opacity-10">
                     <div className="w-full h-full" style={{

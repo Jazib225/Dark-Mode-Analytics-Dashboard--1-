@@ -382,8 +382,8 @@ export function WalletsList({ onWalletClick, onMarketClick }: WalletsListProps) 
                       <td className="py-2.5 sm:py-3 px-3 sm:px-4">
                         <span
                           className={`font-normal px-1.5 sm:px-2 py-0.5 rounded text-[10px] sm:text-xs ${item.contractType === "Yes"
-                              ? "bg-green-500/10 text-green-400"
-                              : "bg-red-500/10 text-red-400"
+                            ? "bg-green-500/10 text-green-400"
+                            : "bg-red-500/10 text-red-400"
                             }`}
                         >
                           {item.contractType}

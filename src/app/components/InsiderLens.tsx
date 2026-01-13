@@ -112,9 +112,8 @@ export function InsiderLens({ onWalletClick }: InsiderLensProps) {
               {leaderboardData.map((trader, index) => (
                 <tr
                   key={trader.wallet}
-                  className={`border-b border-gray-800/30 hover:bg-gradient-to-r hover:from-[#111111] hover:to-transparent transition-all duration-150 cursor-pointer ${
-                    index === leaderboardData.length - 1 ? "border-b-0" : ""
-                  } ${getRankBg(trader.rank)}`}
+                  className={`border-b border-gray-800/30 hover:bg-gradient-to-r hover:from-[#111111] hover:to-transparent transition-all duration-150 cursor-pointer ${index === leaderboardData.length - 1 ? "border-b-0" : ""
+                    } ${getRankBg(trader.rank)}`}
                   onClick={() => onWalletClick(trader.wallet)}
                 >
                   <td className="py-3.5 px-5">
