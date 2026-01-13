@@ -3,87 +3,139 @@
 @import './theme.css';
 
 /* =============================================================================
-   CSS CUSTOM PROPERTIES (Design Tokens)
+   GLOBAL DESIGN TOKENS - Fluid Typography & Density-Aware Spacing
    
-   These variables enable proper layout without transform: scale() hacks.
-   Adjust density through font-size, spacing, and max-width instead.
+   Responsive, density-aware design using:
+   - clamp() for fluid scaling
+   - CSS variables (design tokens)
+   - NO transform: scale() hacks
+   - NO browser zoom tricks
    ============================================================================= */
 :root {
-  /* Header Configuration */
-  --header-height: 56px;
-  --bookmarks-bar-height: 44px;
-  --total-header-offset: calc(var(--header-height) + var(--bookmarks-bar-height));
+  /* --- Container widths --- */
+  --container-max: 1600px;
+  --container-pad: clamp(12px, 2vw, 24px);
 
-  /* Spacing Scale - Compact for density */
-  --space-1: 0.125rem;
-  --space-2: 0.25rem;
-  --space-3: 0.375rem;
-  --space-4: 0.5rem;
-  --space-5: 0.75rem;
-  --space-6: 1rem;
-  --space-7: 1.25rem;
-  --space-8: 1.5rem;
+  /* --- Header height (used to offset content) --- */
+  --header-h: clamp(48px, 6vh, 64px);
+  --bookmarks-bar-h: clamp(36px, 4vh, 44px);
+  --total-header-offset: calc(var(--header-h) + var(--bookmarks-bar-h));
 
-  /* Container widths */
-  --max-content-width: 1600px;
+  /* --- Typography scale (fluid) --- */
+  --fs-xs: clamp(10px, 0.7vw, 12px);
+  --fs-sm: clamp(11px, 0.8vw, 13px);
+  --fs-md: clamp(13px, 0.9vw, 15px);
+  --fs-lg: clamp(14px, 1vw, 16px);
+  --fs-xl: clamp(16px, 1.2vw, 20px);
+  --fs-2xl: clamp(18px, 1.4vw, 24px);
+  --fs-3xl: clamp(22px, 1.8vw, 32px);
 
-  /* Base font size - KEY for density without scaling */
-  --base-font-size: 14px;
+  /* --- Spacing (density-aware base tokens) --- */
+  --sp-1: clamp(4px, 0.4vw, 6px);
+  --sp-2: clamp(6px, 0.6vw, 10px);
+  --sp-3: clamp(10px, 0.9vw, 14px);
+  --sp-4: clamp(14px, 1.2vw, 18px);
+  --sp-5: clamp(18px, 1.6vw, 24px);
+  --sp-6: clamp(24px, 2vw, 32px);
+
+  /* --- Radius --- */
+  --r-sm: 6px;
+  --r-md: 10px;
+  --r-lg: 14px;
+  --r-xl: 18px;
+
+  /* --- Icon sizes (fluid) --- */
+  --icon-sm: clamp(12px, 1vw, 16px);
+  --icon-md: clamp(16px, 1.2vw, 20px);
+  --icon-lg: clamp(20px, 1.5vw, 24px);
+
+  /* --- Button/Input heights --- */
+  --btn-h: clamp(28px, 3vh, 36px);
+  --input-h: clamp(32px, 3.5vh, 40px);
+
+  /* Make in-page anchor navigation not hide behind header */
+  scroll-padding-top: calc(var(--header-h) + var(--sp-3));
+
+  /* Legacy compatibility aliases */
+  --header-height: var(--header-h);
+  --bookmarks-bar-height: var(--bookmarks-bar-h);
+  --max-content-width: var(--container-max);
+  --space-1: var(--sp-1);
+  --space-2: var(--sp-2);
+  --space-3: var(--sp-3);
+  --space-4: var(--sp-4);
+  --space-5: var(--sp-5);
+  --space-6: var(--sp-6);
+  --space-7: var(--sp-5);
+  --space-8: var(--sp-6);
 }
 
-/* Laptop screens (1366px - 1440px) - PRIMARY TARGET */
-@media screen and (min-width: 1024px) and (max-width: 1536px) {
+/* Density tier: Laptops (1366px - 1440px) - reduce density slightly */
+@media (max-width: 1440px) {
   :root {
-    --header-height: 52px;
-    --bookmarks-bar-height: 40px;
-    --base-font-size: 13px;
-    --max-content-width: 1400px;
+    --container-max: 1400px;
+    --container-pad: clamp(10px, 1.6vw, 20px);
+    --header-h: clamp(44px, 5.5vh, 56px);
+    --bookmarks-bar-h: clamp(32px, 3.5vh, 40px);
   }
 }
 
-/* Large desktops (1536px+) */
-@media screen and (min-width: 1536px) {
+/* Density tier: Small laptops (≤1366px) */
+@media (max-width: 1366px) {
   :root {
-    --header-height: 56px;
-    --bookmarks-bar-height: 44px;
-    --base-font-size: 14px;
-    --max-content-width: 1600px;
+    --container-max: 1200px;
+    --fs-xs: clamp(9px, 0.65vw, 11px);
+    --fs-sm: clamp(10px, 0.75vw, 12px);
+    --fs-md: clamp(12px, 0.85vw, 14px);
+    --fs-lg: clamp(13px, 0.95vw, 15px);
+    --fs-xl: clamp(15px, 1.1vw, 18px);
+    --fs-2xl: clamp(17px, 1.3vw, 22px);
   }
 }
 
-/* Tablets (768px - 1024px) */
-@media screen and (max-width: 1024px) {
+/* Density tier: Tablets (≤1024px) */
+@media (max-width: 1024px) {
   :root {
-    --header-height: 48px;
-    --bookmarks-bar-height: 38px;
-    --base-font-size: 13px;
+    --container-max: 960px;
+    --header-h: clamp(40px, 5vh, 52px);
+    --bookmarks-bar-h: clamp(30px, 3vh, 38px);
   }
 }
 
-/* Mobile (< 768px) */
-@media screen and (max-width: 768px) {
+/* Density tier: Large desktops (≥1600px) - expand density */
+@media (min-width: 1600px) {
   :root {
-    --header-height: 48px;
-    --bookmarks-bar-height: 36px;
-    --base-font-size: 13px;
+    --container-max: 1800px;
+    --fs-xs: clamp(11px, 0.7vw, 13px);
+    --fs-sm: clamp(12px, 0.8vw, 14px);
+    --fs-md: clamp(14px, 0.9vw, 16px);
+    --fs-lg: clamp(15px, 1vw, 18px);
+    --fs-xl: clamp(18px, 1.2vw, 22px);
+    --fs-2xl: clamp(22px, 1.5vw, 28px);
   }
 }
 
-/* Small mobile (< 640px) */
-@media screen and (max-width: 640px) {
+/* Density tier: Ultrawide (≥1920px) */
+@media (min-width: 1920px) {
   :root {
-    --header-height: 40px;
-    --bookmarks-bar-height: 28px;
-    --base-font-size: 12px;
+    --container-max: 1920px;
   }
 }
 
-/* Extra small mobile (< 480px) */
-@media screen and (max-width: 480px) {
+/* Mobile (≤768px) */
+@media (max-width: 768px) {
   :root {
-    --header-height: 36px;
-    --bookmarks-bar-height: 26px;
-    --base-font-size: 11px;
+    --header-h: clamp(40px, 8vh, 48px);
+    --bookmarks-bar-h: clamp(28px, 5vh, 36px);
+    --container-pad: clamp(8px, 3vw, 16px);
+  }
+}
+
+/* Small mobile (≤480px) */
+@media (max-width: 480px) {
+  :root {
+    --header-h: 40px;
+    --bookmarks-bar-h: 28px;
   }
 }
 
@@ -91,7 +143,8 @@
    GLOBAL BASE STYLES
    ============================================================================= */
 html {
-  font-size: var(--base-font-size);
+  font-size: 16px;
+  /* Base for rem calculations */
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   scroll-behavior: smooth;
@@ -102,6 +155,12 @@ body {
   overflow-x: hidden;
   max-width: 100vw;
   min-height: 100vh;
+}
+
+body {
+  margin: 0;
+  font-size: var(--fs-md);
+  line-height: 1.4;
 }
 
 /* =============================================================================
@@ -150,209 +209,86 @@ body {
 }
 
 /* =============================================================================
-   LAYOUT ARCHITECTURE (NO TRANSFORM SCALING!)
-   
-   RULES:
-   1. Header is STICKY with known height via CSS variable
-   2. Content has proper padding-top using CSS variable
-   3. Density achieved via font-size, NOT transform: scale()
-   4. Proper z-index layering
+   APP CONTAINER - Reusable centered container
    ============================================================================= */
-
-/* App container - flex column layout */
 .app-container {
+  width: 100%;
+  max-width: var(--container-max);
+  margin: 0 auto;
+  padding-left: var(--container-pad);
+  padding-right: var(--container-pad);
+  min-height: 100vh;
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
   position: relative;
 }
 
-/* Sticky Header - uses CSS variable for min-height, allows growth */
+/* =============================================================================
+   STICKY HEADER - Proper responsive header with no text cutoff
+   ============================================================================= */
 .site-header {
   position: sticky;
   top: 0;
-  left: 0;
-  right: 0;
-  min-height: var(--header-height);
   z-index: 50;
+  height: var(--header-h);
+  display: flex;
+  align-items: center;
+  backdrop-filter: blur(10px);
   background: linear-gradient(to bottom, #0d0d0d, #0a0a0a);
   border-bottom: 1px solid rgba(55, 65, 81, 0.3);
   flex-shrink: 0;
-  /* Ensure header content doesn't overflow */
-  overflow: visible;
 }
 
-/* Header navigation container */
 .header-nav {
+  width: 100%;
+  max-width: var(--container-max);
+  margin: 0 auto;
+  padding: 0 var(--container-pad);
   display: flex;
   align-items: center;
+  gap: var(--sp-3);
   height: 100%;
-  padding: 0 var(--space-3);
-  max-width: var(--max-content-width);
-  margin: 0 auto;
-  gap: var(--space-2);
+  min-width: 0;
+  /* IMPORTANT: prevents flex overflow */
 }
 
-/* Nav items container - scrollable on mobile */
+/* Left: Logo/brand - never shrinks */
+.header-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  flex: 0 0 auto;
+}
+
+/* Middle: Nav links - can scroll horizontally on smaller screens, NEVER cuts off text */
 .nav-items {
   display: flex;
   align-items: center;
+  gap: var(--sp-1);
+  flex: 1 1 auto;
+  min-width: 0;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
   -ms-overflow-style: none;
-  flex-shrink: 1;
-  min-width: 0;
-  gap: 0;
+  padding-right: var(--sp-2);
 }
 
 .nav-items::-webkit-scrollbar {
   display: none;
 }
 
-/* Hide some nav items on very small screens */
-@media screen and (max-width: 480px) {
-  .nav-items>button:nth-child(n+5) {
-    display: none;
-  }
-}
-
-@media screen and (min-width: 640px) {
-  .header-nav {
-    padding: 0 var(--space-6);
-    gap: var(--space-5);
-  }
-}
-
-@media screen and (min-width: 1024px) {
-  .header-nav {
-    padding: 0 var(--space-7);
-    gap: var(--space-6);
-  }
-}
-
-/* Main content - NO scaling, proper padding-top */
-.main-content {
-  flex: 1;
-  width: 100%;
-  max-width: var(--max-content-width);
-  margin: 0 auto;
-  padding: var(--space-5);
-  /* NO transform: scale() - uses proper CSS values */
-}
-
-@media screen and (min-width: 640px) {
-  .main-content {
-    padding: var(--space-6);
-  }
-}
-
-@media screen and (min-width: 1024px) {
-  .main-content {
-    padding: var(--space-7);
-  }
-}
-
-/* =============================================================================
-   HEADER LAYOUT HELPERS
-   ============================================================================= */
-.header-left {
-  display: flex;
-  align-items: center;
-  gap: clamp(0.5rem, 1.5vw, 1rem);
-  flex-shrink: 0;
-}
-
-.header-center {
-  display: flex;
-  align-items: center;
-  gap: clamp(0.25rem, 1vw, 0.75rem);
-  flex: 1;
-  min-width: 0;
-  /* Critical: allows flex children to shrink below content size */
-  overflow-x: auto;
-  overflow-y: hidden;
-  -ms-overflow-style: none;
-  scrollbar-width: none;
-  /* Prevent text truncation - let items scroll if needed */
-  padding-right: var(--space-2);
-}
-
-.header-center::-webkit-scrollbar {
-  display: none;
-}
-
-/* Navigation items container - responsive gaps */
-.nav-items {
-  display: flex;
-  align-items: center;
-  gap: clamp(0.125rem, 0.8vw, 0.5rem);
-  flex-shrink: 0;
-}
-
-@media screen and (min-width: 640px) {
-  .nav-items {
-    gap: clamp(0.25rem, 1vw, 0.75rem);
-  }
-}
-
-@media screen and (min-width: 1024px) {
-  .nav-items {
-    gap: clamp(0.5rem, 1.2vw, 1rem);
-  }
-}
-
-.header-right {
-  display: flex;
-  align-items: center;
-  gap: clamp(0.25rem, 0.8vw, 0.5rem);
-  flex-shrink: 0;
-  margin-left: auto;
-  padding-left: var(--space-2);
-}
-
-@media screen and (min-width: 1024px) {
-  .header-left {
-    gap: clamp(0.75rem, 2vw, 1.5rem);
-  }
-
-  .header-center {
-    gap: clamp(0.5rem, 1.5vw, 1rem);
-  }
-
-  .header-right {
-    gap: clamp(0.5rem, 1vw, 0.75rem);
-  }
-}
-
-@media screen and (min-width: 1280px) {
-  .header-left {
-    gap: 1.5rem;
-  }
-
-  .header-center {
-    gap: 1rem;
-  }
-
-  .header-right {
-    gap: 1rem;
-  }
-}
-
-/* =============================================================================
-   NAVIGATION LINK STYLES
-   Responsive font sizing using clamp() to prevent truncation
-   ============================================================================= */
+/* Nav link styles - fluid typography, never truncated */
 .nav-link {
   position: relative;
-  padding: var(--space-3) var(--space-2);
-  /* clamp(min, preferred, max) - scales smoothly */
-  font-size: clamp(0.625rem, 1.5vw, 0.875rem);
+  padding: var(--sp-2) var(--sp-2);
+  font-size: var(--fs-sm);
   font-weight: 300;
   letter-spacing: 0.02em;
   color: rgba(156, 163, 175, 1);
   transition: color 0.2s ease;
   white-space: nowrap;
+  /* Keep labels intact - NEVER truncate */
   flex-shrink: 0;
 }
 
@@ -364,63 +300,344 @@ body {
   color: rgba(243, 244, 246, 1);
 }
 
-@media screen and (min-width: 640px) {
+/* Right: Actions (search, login) - never shrinks */
+.header-actions {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-left: auto;
+}
+
+/* Responsive adjustments for header */
+@media (min-width: 640px) {
   .nav-link {
-    padding: var(--space-4) var(--space-3);
-    font-size: clamp(0.6875rem, 1.2vw, 0.8125rem);
+    padding: var(--sp-3) var(--sp-2);
+    font-size: var(--fs-md);
+  }
+
+  .nav-items {
+    gap: var(--sp-2);
   }
 }
 
-@media screen and (min-width: 1024px) {
+@media (min-width: 1024px) {
   .nav-link {
-    padding: var(--space-5) var(--space-4);
-    font-size: clamp(0.75rem, 1vw, 0.875rem);
+    padding: var(--sp-4) var(--sp-3);
+    font-size: var(--fs-md);
+  }
+
+  .nav-items {
+    gap: var(--sp-3);
+  }
+
+  .header-actions {
+    gap: var(--sp-3);
   }
 }
 
-@media screen and (min-width: 1280px) {
+@media (min-width: 1280px) {
   .nav-link {
-    padding: var(--space-5) var(--space-5);
-    font-size: 0.875rem;
+    padding: var(--sp-4) var(--sp-4);
+    font-size: var(--fs-lg);
   }
 }
 
 /* =============================================================================
-   COMPACT COMPONENT STYLES
+   MAIN CONTENT - Proper offset for sticky header
+   ============================================================================= */
+.main-content {
+  flex: 1;
+  width: 100%;
+  max-width: var(--container-max);
+  margin: 0 auto;
+  padding: var(--sp-4);
+  /* Ensure content never sits under header */
+}
+
+@media (min-width: 640px) {
+  .main-content {
+    padding: var(--sp-5);
+  }
+}
+
+@media (min-width: 1024px) {
+  .main-content {
+    padding: var(--sp-6);
+  }
+}
+
+/* =============================================================================
+   RESPONSIVE GRID LAYOUTS - Markets, Cards, Windows
    ============================================================================= */
 
-/* Cards - Reduced padding for density */
-.card-compact {
-  padding: var(--space-4);
-  border-radius: 0.5rem;
+/* Auto-fit grid for market cards */
+.market-grid {
+  display: grid;
+  gap: var(--sp-4);
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
 }
 
-@media screen and (min-width: 1024px) {
-  .card-compact {
-    padding: var(--space-5);
+/* Markets page 3-column layout - properly responsive */
+.markets-3col {
+  display: grid;
+  gap: var(--sp-4);
+  grid-template-columns: 1fr;
+}
+
+/* Tablet: 2 columns */
+@media (min-width: 800px) {
+  .markets-3col {
+    grid-template-columns: 1fr 1fr;
   }
 }
 
-/* Tables - Denser rows */
-.table-row-compact {
-  padding: var(--space-2) var(--space-3);
-}
-
-@media screen and (min-width: 1024px) {
-  .table-row-compact {
-    padding: var(--space-3) var(--space-4);
+/* Desktop: 3 columns */
+@media (min-width: 1200px) {
+  .markets-3col {
+    grid-template-columns: 1fr 1fr 1fr;
   }
 }
 
-/* Buttons - Compact sizing */
-.btn-compact {
-  padding: var(--space-2) var(--space-4);
-  font-size: 0.8125rem;
+/* Market column */
+.market-column {
+  background: linear-gradient(to bottom right, #0d0d0d, #0b0b0b);
+  border: 1px solid rgba(55, 65, 81, 0.3);
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
 }
 
-.btn-compact-sm {
-  padding: var(--space-1) var(--space-3);
-  font-size: 0.75rem;
+.market-column-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-3) var(--sp-4);
+  border-bottom: 1px solid rgba(55, 65, 81, 0.3);
+  background: linear-gradient(to bottom, #111111, #0d0d0d);
+}
+
+.market-column-header h2 {
+  font-size: var(--fs-md);
+  font-weight: 300;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  color: rgba(229, 231, 235, 1);
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+}
+
+.market-column-header span {
+  font-size: var(--fs-xs);
+  color: rgba(107, 114, 128, 1);
+}
+
+.market-column-content {
+  flex: 1;
+  padding: var(--sp-3);
+  overflow-y: auto;
+  /* Fluid column height based on viewport */
+  max-height: clamp(400px, 60vh, 700px);
+}
+
+/* =============================================================================
+   CARD STYLES - Responsive padding and typography
+   ============================================================================= */
+.card {
+  padding: var(--sp-4);
+  border-radius: var(--r-md);
+  background: linear-gradient(to bottom right, #111111, #0a0a0a);
+  border: 1px solid rgba(55, 65, 81, 0.2);
+}
+
+.card-title {
+  font-size: var(--fs-lg);
+  font-weight: 400;
+  color: rgba(229, 231, 235, 1);
+}
+
+.card-subtitle {
+  font-size: var(--fs-sm);
+  color: rgba(107, 114, 128, 1);
+}
+
+/* Market card - compact */
+.market-card {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  background: linear-gradient(to bottom right, #111111, #0a0a0a);
+  border: 1px solid rgba(55, 65, 81, 0.2);
+  border-radius: var(--r-md);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.market-card:hover {
+  background: linear-gradient(to bottom right, #151515, #0d0d0d);
+  border-color: rgba(55, 65, 81, 0.4);
+}
+
+.market-card-image {
+  width: clamp(32px, 3vw, 40px);
+  height: clamp(32px, 3vw, 40px);
+  border-radius: var(--r-md);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.market-card-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.market-card-title {
+  font-size: var(--fs-sm);
+  color: rgba(229, 231, 235, 1);
+  font-weight: 300;
+  line-height: 1.3;
+  /* Truncate with ellipsis for very long titles */
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.market-card-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  margin-top: var(--sp-1);
+}
+
+.market-card-probability {
+  font-size: var(--fs-md);
+  font-weight: 300;
+  color: #4a6fa5;
+}
+
+.market-card-volume {
+  font-size: var(--fs-xs);
+  color: rgba(107, 114, 128, 1);
+}
+
+/* =============================================================================
+   BUTTON STYLES - Responsive sizing
+   ============================================================================= */
+.btn {
+  font-size: var(--fs-sm);
+  padding: calc(var(--sp-2) - 2px) var(--sp-3);
+  border-radius: var(--r-md);
+  font-weight: 400;
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.btn-sm {
+  font-size: var(--fs-xs);
+  padding: var(--sp-1) var(--sp-2);
+  border-radius: var(--r-sm);
+}
+
+.btn-lg {
+  font-size: var(--fs-md);
+  padding: var(--sp-3) var(--sp-4);
+  border-radius: var(--r-lg);
+}
+
+/* =============================================================================
+   PANEL/SECTION STYLES
+   ============================================================================= */
+.panel {
+  padding: var(--sp-5);
+  border-radius: var(--r-lg);
+  background: linear-gradient(to bottom right, #0d0d0d, #0a0a0a);
+  border: 1px solid rgba(55, 65, 81, 0.3);
+}
+
+/* =============================================================================
+   TEXT UTILITY CLASSES - Use CSS variables
+   ============================================================================= */
+.text-xs {
+  font-size: var(--fs-xs);
+}
+
+.text-sm {
+  font-size: var(--fs-sm);
+}
+
+.text-md {
+  font-size: var(--fs-md);
+}
+
+.text-lg {
+  font-size: var(--fs-lg);
+}
+
+.text-xl {
+  font-size: var(--fs-xl);
+}
+
+.text-2xl {
+  font-size: var(--fs-2xl);
+}
+
+.text-3xl {
+  font-size: var(--fs-3xl);
+}
+
+/* =============================================================================
+   SPACING UTILITY CLASSES
+   ============================================================================= */
+.gap-1 {
+  gap: var(--sp-1);
+}
+
+.gap-2 {
+  gap: var(--sp-2);
+}
+
+.gap-3 {
+  gap: var(--sp-3);
+}
+
+.gap-4 {
+  gap: var(--sp-4);
+}
+
+.gap-5 {
+  gap: var(--sp-5);
+}
+
+.gap-6 {
+  gap: var(--sp-6);
+}
+
+.p-1 {
+  padding: var(--sp-1);
+}
+
+.p-2 {
+  padding: var(--sp-2);
+}
+
+.p-3 {
+  padding: var(--sp-3);
+}
+
+.p-4 {
+  padding: var(--sp-4);
+}
+
+.p-5 {
+  padding: var(--sp-5);
+}
+
+.p-6 {
+  padding: var(--sp-6);
 }
 
 /* =============================================================================
@@ -449,51 +666,23 @@ body {
       rgba(75, 85, 99, 0.3) 50%,
       rgba(55, 65, 81, 0.3) 100%);
   background-size: 200% 100%;
-  border-radius: 0.25rem;
+  border-radius: var(--r-sm);
 }
 
 /* =============================================================================
-   UTILITY CLASSES
+   SCROLL AREA - For fixed-height content
    ============================================================================= */
-
-/* Container with max width */
-.container-app {
-  max-width: var(--max-content-width);
-  margin: 0 auto;
-  width: 100%;
-}
-
-/* Text density utilities */
-.text-dense {
-  line-height: 1.3;
-}
-
-.text-compact {
-  line-height: 1.2;
-}
-
-/* Spacing utilities using CSS variables */
-.gap-dense {
-  gap: var(--space-2);
-}
-
-.gap-compact {
-  gap: var(--space-3);
+.scroll-area {
+  height: calc(100vh - var(--header-h) - var(--bookmarks-bar-h));
+  overflow-y: auto;
+  padding-top: var(--sp-3);
 }
 
 /* =============================================================================
-   DEPRECATED CLASSES (for backwards compatibility, do nothing)
-   These were the old scaling approach - now removed
+   DEPRECATED CLASSES (for backwards compatibility)
    ============================================================================= */
-.fixed-header {
-  /* Deprecated - use .site-header instead */
-}
-
-.content-scaler {
-  /* Deprecated - NO LONGER SCALES! */
-  /* Was: transform: scale(0.8) - REMOVED */
-}
-
+.fixed-header,
+.content-scaler,
 .main-content-area {
-  /* Deprecated - use .main-content instead */
+  /* Deprecated - no longer used */
 }

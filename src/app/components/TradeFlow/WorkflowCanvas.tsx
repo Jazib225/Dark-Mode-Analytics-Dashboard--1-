@@ -2,7 +2,6 @@ import React, { useEffect, useRef, useState, useCallback } from "react";
 import { NodeData, EdgeData, NodeStage } from "./types";
 import { WorkflowNode } from "./WorkflowNode";
 import { canConnect } from "./validators";
-import { useScreenSize } from "../../hooks/useScreenSize";
 
 interface WorkflowCanvasProps {
   nodes: NodeData[];
@@ -154,9 +153,6 @@ export function WorkflowCanvas({
 }: WorkflowCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-
-  // Dynamic screen sizing - provides responsive size configurations
-  const { sizes } = useScreenSize();
 
   // Use refs for drag state to avoid re-renders during drag (smoother experience)
   const draggingNodeRef = useRef<string | null>(null);
@@ -608,8 +604,8 @@ export function WorkflowCanvas({
       {nodes.length === 0 && (
         <div className="absolute inset-0 z-5 flex items-center justify-center pointer-events-none">
           <div className="text-center text-gray-600">
-            <p className={`${sizes.textLg} mb-2`}>Drag nodes from the library to get started</p>
-            <p className={sizes.textSm}>Click and drag from black dots to connect nodes</p>
+            <p className="text-[var(--fs-lg)] mb-2">Drag nodes from the library to get started</p>
+            <p className="text-[var(--fs-sm)]">Click and drag from black dots to connect nodes</p>
           </div>
         </div>
       )}

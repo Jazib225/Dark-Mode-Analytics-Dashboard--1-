@@ -14,7 +14,6 @@ import {
   prefetchOtherTimeframes,
   type MarketCardDTO
 } from "../services/marketDataClient";
-import { useScreenSize } from "../hooks/useScreenSize";
 
 // Format cents with proper precision like Polymarket (e.g., 0.4¢, 99.6¢)
 function formatCents(cents: number): string {
@@ -206,37 +205,37 @@ function MarketCard({ market, onClick, onBookmark, isBookmarked, showEndDate }: 
     <div
       onClick={onClick}
       onMouseEnter={() => prefetchMarketDetail(market.id)}
-      className="group flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 bg-gradient-to-br from-[#111111] to-[#0a0a0a] hover:from-[#151515] hover:to-[#0d0d0d] border border-gray-800/30 hover:border-gray-700/50 rounded-lg cursor-pointer transition-all duration-150"
+      className="market-card group"
     >
       {/* Market Image */}
       {market.image ? (
         <img
           src={market.image}
           alt=""
-          className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg object-cover flex-shrink-0"
+          className="market-card-image"
           loading="eager"
           onError={(e) => {
             (e.target as HTMLImageElement).style.display = 'none';
           }}
         />
       ) : (
-        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gray-800/50 flex-shrink-0" />
+        <div className="market-card-image bg-gray-800/50" />
       )}
 
       {/* Market Info */}
-      <div className="flex-1 min-w-0">
-        <p className="text-xs sm:text-sm text-gray-200 font-light truncate leading-tight">
+      <div className="market-card-info">
+        <p className="market-card-title">
           {market.name || market.title}
         </p>
-        <div className="flex items-center gap-2 mt-1">
-          <span className="text-sm sm:text-base font-light text-[#4a6fa5]">{probabilityDisplay}%</span>
+        <div className="market-card-meta">
+          <span className="market-card-probability">{probabilityDisplay}%</span>
           {showEndDate && market.timeUntilClose && (
-            <span className="text-[10px] sm:text-xs text-orange-400/80 bg-orange-900/20 px-1.5 py-0.5 rounded">
+            <span className="text-[var(--fs-xs)] text-orange-400/80 bg-orange-900/20 px-[var(--sp-2)] py-[var(--sp-1)] rounded-[var(--r-sm)]">
               {formatTimeUntilClose(market.timeUntilClose)}
             </span>
           )}
           {!showEndDate && market.volume && (
-            <span className="text-[10px] sm:text-xs text-gray-500">{market.volume}</span>
+            <span className="market-card-volume">{market.volume}</span>
           )}
         </div>
       </div>
@@ -249,7 +248,7 @@ function MarketCard({ market, onClick, onBookmark, isBookmarked, showEndDate }: 
         }}
         className="text-gray-600 hover:text-[#4a6fa5] transition-all duration-200 flex-shrink-0 opacity-0 group-hover:opacity-100"
       >
-        <Bookmark className={`w-4 h-4 ${isBookmarked ? "fill-current text-[#4a6fa5] opacity-100" : ""}`} />
+        <Bookmark className={`w-[var(--icon-sm)] h-[var(--icon-sm)] ${isBookmarked ? "fill-current text-[#4a6fa5] opacity-100" : ""}`} />
       </button>
     </div>
   );
@@ -286,18 +285,8 @@ export function Markets({
   initialMarketId,
   initialMarketData
 }: MarketsProps) {
-  // Dynamic screen sizing
-  const { sizes, isMobile, isTablet, height } = useScreenSize();
-
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(initialMarketId ?? null);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("24h");
-
-  // Dynamic column height based on screen
-  const columnMaxHeight = useMemo(() => {
-    if (isMobile) return Math.max(400, height - 200);
-    if (isTablet) return Math.max(500, height - 180);
-    return Math.max(600, height - 160);
-  }, [isMobile, isTablet, height]);
 
   // State for all three columns
   const [trendingMarkets, setTrendingMarkets] = useState<DisplayMarket[]>(() =>
@@ -324,11 +313,10 @@ export function Markets({
   // Refresh indicators
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Pagination state - adjust based on screen size
-  const initialLoadCount = isMobile ? 6 : isTablet ? 8 : INITIAL_LOAD;
-  const [trendingDisplayed, setTrendingDisplayed] = useState(initialLoadCount);
-  const [newDisplayed, setNewDisplayed] = useState(initialLoadCount);
-  const [resolvedDisplayed, setResolvedDisplayed] = useState(initialLoadCount);
+  // Pagination state
+  const [trendingDisplayed, setTrendingDisplayed] = useState(INITIAL_LOAD);
+  const [newDisplayed, setNewDisplayed] = useState(INITIAL_LOAD);
+  const [resolvedDisplayed, setResolvedDisplayed] = useState(INITIAL_LOAD);
 
   // Sync selectedMarketId when initialMarketId changes
   useEffect(() => {
@@ -543,24 +531,24 @@ export function Markets({
   };
 
   return (
-    <div className="w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8">
+    <div className="w-full max-w-[var(--container-max)] mx-auto px-[var(--container-pad)]">
       {/* Time Filter Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
-        <div className="flex items-center gap-2 sm:gap-3">
-          <h1 className="text-lg sm:text-xl lg:text-2xl font-light tracking-tight text-gray-100">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-[var(--sp-3)] sm:gap-0 mb-[var(--sp-4)] sm:mb-[var(--sp-5)]">
+        <div className="flex items-center gap-[var(--sp-2)] sm:gap-[var(--sp-3)]">
+          <h1 className="text-[var(--fs-xl)] sm:text-[var(--fs-2xl)] font-light tracking-tight text-gray-100">
             Markets
           </h1>
           {isRefreshing && (
-            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+            <div className="flex items-center gap-[var(--sp-1)] text-[var(--fs-xs)] text-gray-500">
               <Loader2 className="w-3 h-3 animate-spin" />
               <span className="hidden sm:inline">Updating...</span>
             </div>
           )}
         </div>
-        <div className="flex items-center gap-1 sm:gap-2">
+        <div className="flex items-center gap-[var(--sp-1)] sm:gap-[var(--sp-2)]">
           <button
             onClick={() => setTimeFilter("24h")}
-            className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-light tracking-wide rounded transition-all ${timeFilter === "24h"
+            className={`px-[var(--sp-3)] sm:px-[var(--sp-4)] py-[var(--sp-2)] text-[var(--fs-xs)] sm:text-[var(--fs-sm)] font-light tracking-wide rounded-[var(--r-md)] transition-all ${timeFilter === "24h"
               ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
               : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
               }`}
@@ -569,7 +557,7 @@ export function Markets({
           </button>
           <button
             onClick={() => setTimeFilter("7d")}
-            className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-light tracking-wide rounded transition-all ${timeFilter === "7d"
+            className={`px-[var(--sp-3)] sm:px-[var(--sp-4)] py-[var(--sp-2)] text-[var(--fs-xs)] sm:text-[var(--fs-sm)] font-light tracking-wide rounded-[var(--r-md)] transition-all ${timeFilter === "7d"
               ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
               : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
               }`}
@@ -578,7 +566,7 @@ export function Markets({
           </button>
           <button
             onClick={() => setTimeFilter("1m")}
-            className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-light tracking-wide rounded transition-all ${timeFilter === "1m"
+            className={`px-[var(--sp-3)] sm:px-[var(--sp-4)] py-[var(--sp-2)] text-[var(--fs-xs)] sm:text-[var(--fs-sm)] font-light tracking-wide rounded-[var(--r-md)] transition-all ${timeFilter === "1m"
               ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
               : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
               }`}
@@ -588,33 +576,26 @@ export function Markets({
         </div>
       </div>
 
-      {/* 3-Column Grid Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+      {/* 3-Column Grid Layout - CSS-only responsive */}
+      <div className="markets-3col">
 
         {/* Column 1: Trending Markets */}
-        <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl overflow-hidden shadow-xl shadow-black/20">
+        <div className="market-column">
           {/* Column Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800/50 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
-            <div className="flex items-center gap-2">
-              <TrendingUp className={`${sizes.iconSm <= 14 ? 'w-3.5 h-3.5' : 'w-4 h-4'} text-[#4a6fa5]`} />
-              <h2 className={`${sizes.textBase} font-light tracking-tight text-gray-200 uppercase`}>
-                Trending
-              </h2>
-            </div>
-            <span className={`${sizes.textXs} text-gray-500 font-light`}>
-              By {timeFilter} volume
-            </span>
+          <div className="market-column-header">
+            <h2>
+              <TrendingUp className="w-[var(--icon-sm)] h-[var(--icon-sm)] text-[#4a6fa5]" />
+              Trending
+            </h2>
+            <span>By {timeFilter} volume</span>
           </div>
 
           {/* Column Content */}
-          <div
-            className={`${sizes.cardPadding} space-y-2 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent`}
-            style={{ maxHeight: `${columnMaxHeight}px` }}
-          >
+          <div className="market-column-content space-y-2">
             {loadingTrending ? (
-              <ColumnSkeleton rows={isMobile ? 5 : 8} />
+              <ColumnSkeleton rows={8} />
             ) : displayedTrending.length === 0 ? (
-              <p className={`text-center text-gray-500 py-8 ${sizes.textSm}`}>No trending markets found</p>
+              <p className="text-center text-gray-500 py-8 text-[var(--fs-sm)]">No trending markets found</p>
             ) : (
               <>
                 {displayedTrending.map((market) => (
@@ -629,7 +610,7 @@ export function Markets({
                 {trendingDisplayed < trendingMarkets.length && (
                   <button
                     onClick={() => setTrendingDisplayed(prev => prev + LOAD_MORE_COUNT)}
-                    className={`w-full py-2 ${sizes.textXs} text-gray-400 hover:text-gray-200 transition-colors`}
+                    className="w-full py-2 text-[var(--fs-xs)] text-gray-400 hover:text-gray-200 transition-colors"
                   >
                     Load more ({trendingMarkets.length - trendingDisplayed} remaining)
                   </button>
@@ -640,29 +621,22 @@ export function Markets({
         </div>
 
         {/* Column 2: New Markets */}
-        <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl overflow-hidden shadow-xl shadow-black/20">
+        <div className="market-column">
           {/* Column Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800/50 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
-            <div className="flex items-center gap-2">
-              <Sparkles className={`${sizes.iconSm <= 14 ? 'w-3.5 h-3.5' : 'w-4 h-4'} text-emerald-500`} />
-              <h2 className={`${sizes.textBase} font-light tracking-tight text-gray-200 uppercase`}>
-                New Markets
-              </h2>
-            </div>
-            <span className={`${sizes.textXs} text-gray-500 font-light`}>
-              Newest first
-            </span>
+          <div className="market-column-header">
+            <h2>
+              <Sparkles className="w-[var(--icon-sm)] h-[var(--icon-sm)] text-emerald-500" />
+              New Markets
+            </h2>
+            <span>Newest first</span>
           </div>
 
           {/* Column Content */}
-          <div
-            className={`${sizes.cardPadding} space-y-2 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent`}
-            style={{ maxHeight: `${columnMaxHeight}px` }}
-          >
+          <div className="market-column-content space-y-2">
             {loadingNew ? (
-              <ColumnSkeleton rows={isMobile ? 5 : 8} />
+              <ColumnSkeleton rows={8} />
             ) : displayedNew.length === 0 ? (
-              <p className={`text-center text-gray-500 py-8 ${sizes.textSm}`}>No new markets found</p>
+              <p className="text-center text-gray-500 py-8 text-[var(--fs-sm)]">No new markets found</p>
             ) : (
               <>
                 {displayedNew.map((market) => (
@@ -677,7 +651,7 @@ export function Markets({
                 {newDisplayed < newMarkets.length && (
                   <button
                     onClick={() => setNewDisplayed(prev => prev + LOAD_MORE_COUNT)}
-                    className={`w-full py-2 ${sizes.textXs} text-gray-400 hover:text-gray-200 transition-colors`}
+                    className="w-full py-2 text-[var(--fs-xs)] text-gray-400 hover:text-gray-200 transition-colors"
                   >
                     Load more ({newMarkets.length - newDisplayed} remaining)
                   </button>
@@ -688,29 +662,22 @@ export function Markets({
         </div>
 
         {/* Column 3: Nearly Resolved Markets */}
-        <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl overflow-hidden shadow-xl shadow-black/20 lg:col-span-2 xl:col-span-1">
+        <div className="market-column">
           {/* Column Header */}
-          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800/50 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
-            <div className="flex items-center gap-2">
-              <Clock className={`${sizes.iconSm <= 14 ? 'w-3.5 h-3.5' : 'w-4 h-4'} text-orange-500`} />
-              <h2 className={`${sizes.textBase} font-light tracking-tight text-gray-200 uppercase`}>
-                Closing Soon
-              </h2>
-            </div>
-            <span className={`${sizes.textXs} text-gray-500 font-light`}>
-              Next 72h
-            </span>
+          <div className="market-column-header">
+            <h2>
+              <Clock className="w-[var(--icon-sm)] h-[var(--icon-sm)] text-orange-500" />
+              Closing Soon
+            </h2>
+            <span>Next 72h</span>
           </div>
 
           {/* Column Content */}
-          <div
-            className={`${sizes.cardPadding} space-y-2 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent`}
-            style={{ maxHeight: `${columnMaxHeight}px` }}
-          >
+          <div className="market-column-content space-y-2">
             {loadingResolved ? (
-              <ColumnSkeleton rows={isMobile ? 5 : 8} />
+              <ColumnSkeleton rows={8} />
             ) : displayedResolved.length === 0 ? (
-              <p className={`text-center text-gray-500 py-8 ${sizes.textSm}`}>No markets closing soon</p>
+              <p className="text-center text-gray-500 py-8 text-[var(--fs-sm)]">No markets closing soon</p>
             ) : (
               <>
                 {displayedResolved.map((market) => (
@@ -726,7 +693,7 @@ export function Markets({
                 {resolvedDisplayed < nearlyResolvedMarkets.length && (
                   <button
                     onClick={() => setResolvedDisplayed(prev => prev + LOAD_MORE_COUNT)}
-                    className={`w-full py-2 ${sizes.textXs} text-gray-400 hover:text-gray-200 transition-colors`}
+                    className="w-full py-2 text-[var(--fs-xs)] text-gray-400 hover:text-gray-200 transition-colors"
                   >
                     Load more ({nearlyResolvedMarkets.length - resolvedDisplayed} remaining)
                   </button>

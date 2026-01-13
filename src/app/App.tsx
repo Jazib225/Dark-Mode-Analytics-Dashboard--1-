@@ -11,7 +11,6 @@ import { LoginPage } from "./components/LoginPage";
 import { TradeFlow } from "./components/TradeFlow";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { QueryProvider } from "./providers/QueryProvider";
-import { ScreenSizeProvider } from "./context/ScreenSizeContext";
 import { Search, X, Clock, TrendingUp, Bookmark, Loader2, LogOut, User, ChevronDown } from "lucide-react";
 import paragonLogo from "../assets/paragon-logo.png";
 import { getAllActiveMarkets, searchMarkets, initializeMarketCache, instantSearch, prefetchMarketDetail } from "./services/polymarketApi";
@@ -120,7 +119,7 @@ function UserAuthSection({ onLoginClick }: { onLoginClick: () => void }) {
     return (
       <button
         onClick={onLoginClick}
-        className="px-2 py-1 sm:px-3 sm:py-1.5 lg:px-4 lg:py-2 bg-[#4a6fa5] text-white text-[10px] sm:text-xs lg:text-sm font-medium rounded-lg hover:bg-[#5a7fb5] transition-colors whitespace-nowrap flex-shrink-0"
+        className="px-[var(--sp-3)] py-[var(--sp-2)] bg-[#4a6fa5] text-white text-[var(--fs-sm)] font-medium rounded-[var(--r-md)] hover:bg-[#5a7fb5] transition-colors whitespace-nowrap flex-shrink-0"
       >
         Login
       </button>
@@ -754,145 +753,131 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
   };
 
   return (
-    <div className="dark min-h-screen bg-[#0a0a0a] text-gray-100 font-['Inter'] overflow-x-hidden app-container">
+    <div className="dark min-h-screen bg-[#0a0a0a] text-gray-100 font-['Inter'] overflow-x-hidden">
       {/* Sticky Header - Uses CSS variable for height */}
-      <header className="site-header border-b border-gray-800/50 bg-gradient-to-b from-[#0d0d0d] to-[#0a0a0a]">
-        <nav className="header-nav flex items-center h-full px-2 sm:px-3 lg:px-6">
-          <div className="flex items-center gap-1 sm:gap-2 lg:gap-6 xl:gap-8 flex-shrink-0">
+      <header className="site-header">
+        <nav className="header-nav">
+          {/* Left: Logo/Brand */}
+          <div className="header-brand">
             <button
               onClick={() => {
                 setCurrentPage("discover");
                 setSelectedWalletAddress(null);
                 setSelectedMarketId(null);
               }}
-              className="flex items-center gap-1 sm:gap-2 hover:opacity-80 transition-opacity flex-shrink-0"
+              className="flex items-center gap-[var(--sp-2)] hover:opacity-80 transition-opacity"
             >
               <img src={paragonLogo} alt="Paragon" className="h-8 w-8 sm:h-10 sm:w-10 lg:h-12 lg:w-12 object-contain drop-shadow-lg" />
-              <div className="text-xs sm:text-sm lg:text-lg xl:text-[20px] font-light tracking-tight text-gray-100 hidden sm:block">PARAGON</div>
+              <div className="text-[var(--fs-md)] sm:text-[var(--fs-lg)] lg:text-[var(--fs-xl)] font-light tracking-tight text-gray-100 hidden sm:block">PARAGON</div>
             </button>
-            {/* Navigation items with responsive sizing */}
-            <div className="nav-items flex items-center">
-              <button
-                onClick={() => {
-                  setCurrentPage("discover");
-                  setSelectedWalletAddress(null);
-                  setSelectedMarketId(null);
-                }}
-                className="relative group py-2 sm:py-3 lg:py-5 px-1 sm:px-2"
-              >
-                <span className={`text-[8px] sm:text-[10px] md:text-xs lg:text-[15px] font-light tracking-wide transition-all whitespace-nowrap ${currentPage === "discover" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
-                  }`}>
-                  DISCOVER
-                </span>
-                {/* Active/Hover indicator with animated stretching bar and triangle */}
-                <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "discover" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
-                  }`}>
-                  <div className="w-0 h-0 border-l-[3px] border-l-transparent border-r-[3px] border-r-transparent border-b-[3px] border-b-white sm:border-l-[4px] sm:border-r-[4px] sm:border-b-[4px]" />
-                  <div className={`h-[1px] sm:h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "discover" ? "w-full" : "w-0 group-hover:w-full"
-                    }`} style={{ marginTop: "-1px" }} />
-                </div>
-              </button>
-              <button
-                onClick={() => {
-                  setCurrentPage("markets");
-                  setSelectedWalletAddress(null);
-                  setSelectedMarketId(null);
-                }}
-                className="relative group py-2 sm:py-3 lg:py-5 px-1 sm:px-2"
-              >
-                <span className={`text-[8px] sm:text-[10px] md:text-xs lg:text-[15px] font-light tracking-wide transition-all whitespace-nowrap ${currentPage === "markets" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
-                  }`}>
-                  MARKETS
-                </span>
-                <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "markets" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
-                  }`}>
-                  <div className="w-0 h-0 border-l-[3px] border-l-transparent border-r-[3px] border-r-transparent border-b-[3px] border-b-white sm:border-l-[4px] sm:border-r-[4px] sm:border-b-[4px]" />
-                  <div className={`h-[1px] sm:h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "markets" ? "w-full" : "w-0 group-hover:w-full"
-                    }`} style={{ marginTop: "-1px" }} />
-                </div>
-              </button>
-              <button
-                onClick={() => {
-                  setCurrentPage("insiderlens");
-                  setSelectedWalletAddress(null);
-                  setSelectedMarketId(null);
-                }}
-                className="relative group py-2 sm:py-3 lg:py-5 px-1 sm:px-2"
-              >
-                <span className={`text-[8px] sm:text-[10px] md:text-xs lg:text-[15px] font-light tracking-wide transition-all whitespace-nowrap ${currentPage === "insiderlens" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
-                  }`}>
-                  INSIDERLENS
-                </span>
-                <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "insiderlens" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
-                  }`}>
-                  <div className="w-0 h-0 border-l-[3px] border-l-transparent border-r-[3px] border-r-transparent border-b-[3px] border-b-white sm:border-l-[4px] sm:border-r-[4px] sm:border-b-[4px]" />
-                  <div className={`h-[1px] sm:h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "insiderlens" ? "w-full" : "w-0 group-hover:w-full"
-                    }`} style={{ marginTop: "-1px" }} />
-                </div>
-              </button>
-              <button
-                onClick={() => {
-                  setCurrentPage("wallets");
-                  setSelectedWalletAddress(null);
-                  setSelectedMarketId(null);
-                }}
-                className="relative group py-2 sm:py-3 lg:py-5 px-1 sm:px-2"
-              >
-                <span className={`text-[8px] sm:text-[10px] md:text-xs lg:text-[15px] font-light tracking-wide transition-all whitespace-nowrap ${currentPage === "wallets" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
-                  }`}>
-                  WALLETS
-                </span>
-                <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "wallets" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
-                  }`}>
-                  <div className="w-0 h-0 border-l-[3px] border-l-transparent border-r-[3px] border-r-transparent border-b-[3px] border-b-white sm:border-l-[4px] sm:border-r-[4px] sm:border-b-[4px]" />
-                  <div className={`h-[1px] sm:h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "wallets" ? "w-full" : "w-0 group-hover:w-full"
-                    }`} style={{ marginTop: "-1px" }} />
-                </div>
-              </button>
-              <button
-                onClick={() => {
-                  setCurrentPage("tradeflow");
-                  setSelectedWalletAddress(null);
-                  setSelectedMarketId(null);
-                }}
-                className="relative group py-2 sm:py-3 lg:py-5 px-1 sm:px-2"
-              >
-                <span className={`text-[8px] sm:text-[10px] md:text-xs lg:text-[15px] font-light tracking-wide transition-all whitespace-nowrap ${currentPage === "tradeflow" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
-                  }`}>
-                  TRADEFLOW
-                </span>
-                <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "tradeflow" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
-                  }`}>
-                  <div className="w-0 h-0 border-l-[3px] border-l-transparent border-r-[3px] border-r-transparent border-b-[3px] border-b-white sm:border-l-[4px] sm:border-r-[4px] sm:border-b-[4px]" />
-                  <div className={`h-[1px] sm:h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "tradeflow" ? "w-full" : "w-0 group-hover:w-full"
-                    }`} style={{ marginTop: "-1px" }} />
-                </div>
-              </button>
-              <button
-                onClick={() => {
-                  setCurrentPage("portfolio");
-                  setSelectedWalletAddress(null);
-                  setSelectedMarketId(null);
-                }}
-                className="relative group py-2 sm:py-3 lg:py-5 px-1 sm:px-2"
-              >
-                <span className={`text-[8px] sm:text-[10px] md:text-xs lg:text-[15px] font-light tracking-wide transition-all whitespace-nowrap ${currentPage === "portfolio" ? "text-gray-100" : "text-gray-400 group-hover:text-gray-200"
-                  }`}>
-                  PORTFOLIO
-                </span>
-                <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "portfolio" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
-                  }`}>
-                  <div className="w-0 h-0 border-l-[3px] border-l-transparent border-r-[3px] border-r-transparent border-b-[3px] border-b-white sm:border-l-[4px] sm:border-r-[4px] sm:border-b-[4px]" />
-                  <div className={`h-[1px] sm:h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "portfolio" ? "w-full" : "w-0 group-hover:w-full"
-                    }`} style={{ marginTop: "-1px" }} />
-                </div>
-              </button>
-            </div>
           </div>
-          <div className="ml-auto flex items-center gap-1 sm:gap-2 lg:gap-3 flex-shrink-0">
-            {/* Search Bar - smaller on mobile */}
+
+          {/* Middle: Navigation items - never truncated, scrolls horizontally if needed */}
+          <div className="nav-items">
+            <button
+              onClick={() => {
+                setCurrentPage("discover");
+                setSelectedWalletAddress(null);
+                setSelectedMarketId(null);
+              }}
+              className={`nav-link ${currentPage === "discover" ? "active" : ""}`}
+            >
+              <span className="whitespace-nowrap">DISCOVER</span>
+              {/* Active indicator */}
+              <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "discover" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
+                }`}>
+                <div className="w-0 h-0 border-l-[3px] border-l-transparent border-r-[3px] border-r-transparent border-b-[3px] border-b-white" />
+                <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "discover" ? "w-full" : "w-0"
+                  }`} style={{ marginTop: "-1px" }} />
+              </div>
+            </button>
+            <button
+              onClick={() => {
+                setCurrentPage("markets");
+                setSelectedWalletAddress(null);
+                setSelectedMarketId(null);
+              }}
+              className={`nav-link ${currentPage === "markets" ? "active" : ""}`}
+            >
+              <span className="whitespace-nowrap">MARKETS</span>
+              <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "markets" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
+                }`}>
+                <div className="w-0 h-0 border-l-[3px] border-l-transparent border-r-[3px] border-r-transparent border-b-[3px] border-b-white" />
+                <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "markets" ? "w-full" : "w-0"
+                  }`} style={{ marginTop: "-1px" }} />
+              </div>
+            </button>
+            <button
+              onClick={() => {
+                setCurrentPage("insiderlens");
+                setSelectedWalletAddress(null);
+                setSelectedMarketId(null);
+              }}
+              className={`nav-link ${currentPage === "insiderlens" ? "active" : ""}`}
+            >
+              <span className="whitespace-nowrap">INSIDERLENS</span>
+              <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "insiderlens" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
+                }`}>
+                <div className="w-0 h-0 border-l-[3px] border-l-transparent border-r-[3px] border-r-transparent border-b-[3px] border-b-white" />
+                <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "insiderlens" ? "w-full" : "w-0"
+                  }`} style={{ marginTop: "-1px" }} />
+              </div>
+            </button>
+            <button
+              onClick={() => {
+                setCurrentPage("wallets");
+                setSelectedWalletAddress(null);
+                setSelectedMarketId(null);
+              }}
+              className={`nav-link ${currentPage === "wallets" ? "active" : ""}`}
+            >
+              <span className="whitespace-nowrap">WALLETS</span>
+              <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "wallets" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
+                }`}>
+                <div className="w-0 h-0 border-l-[3px] border-l-transparent border-r-[3px] border-r-transparent border-b-[3px] border-b-white" />
+                <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "wallets" ? "w-full" : "w-0"
+                  }`} style={{ marginTop: "-1px" }} />
+              </div>
+            </button>
+            <button
+              onClick={() => {
+                setCurrentPage("tradeflow");
+                setSelectedWalletAddress(null);
+                setSelectedMarketId(null);
+              }}
+              className={`nav-link ${currentPage === "tradeflow" ? "active" : ""}`}
+            >
+              <span className="whitespace-nowrap">TRADEFLOW</span>
+              <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "tradeflow" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
+                }`}>
+                <div className="w-0 h-0 border-l-[3px] border-l-transparent border-r-[3px] border-r-transparent border-b-[3px] border-b-white" />
+                <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "tradeflow" ? "w-full" : "w-0"
+                  }`} style={{ marginTop: "-1px" }} />
+              </div>
+            </button>
+            <button
+              onClick={() => {
+                setCurrentPage("portfolio");
+                setSelectedWalletAddress(null);
+                setSelectedMarketId(null);
+              }}
+              className={`nav-link ${currentPage === "portfolio" ? "active" : ""}`}
+            >
+              <span className="whitespace-nowrap">PORTFOLIO</span>
+              <div className={`absolute bottom-0 left-0 right-0 flex flex-col items-center transition-opacity duration-200 ${currentPage === "portfolio" ? "opacity-100" : "opacity-0 group-hover:opacity-70"
+                }`}>
+                <div className="w-0 h-0 border-l-[3px] border-l-transparent border-r-[3px] border-r-transparent border-b-[3px] border-b-white" />
+                <div className={`h-[2px] bg-white transition-all duration-300 ease-out ${currentPage === "portfolio" ? "w-full" : "w-0"
+                  }`} style={{ marginTop: "-1px" }} />
+              </div>
+            </button>
+          </div>
+
+          {/* Right: Actions (search, login) */}
+          <div className="header-actions">
+            {/* Search Bar - responsive width */}
             <div ref={searchRef} className="relative">
-              <Search className="absolute left-1.5 sm:left-2 lg:left-3 top-1/2 -translate-y-1/2 w-3 h-3 sm:w-3.5 sm:h-3.5 text-gray-500 z-10" />
+              <Search className="absolute left-[var(--sp-2)] top-1/2 -translate-y-1/2 w-[var(--icon-sm)] h-[var(--icon-sm)] text-gray-500 z-10" />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -901,9 +886,9 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                 onFocus={() => setIsSearchFocused(true)}
                 onKeyDown={handleSearchKeyDown}
                 placeholder="Search..."
-                className={`w-[80px] sm:w-[140px] md:w-[200px] lg:w-[280px] xl:w-[350px] bg-[#0d0d0d] border border-gray-800/50 pl-6 sm:pl-8 lg:pl-10 pr-6 sm:pr-8 py-1 sm:py-1.5 lg:py-2 text-[10px] sm:text-xs lg:text-[14px] text-gray-200 placeholder-gray-500 focus:outline-none focus:border-gray-600/50 transition-all ${isSearchFocused && (searchHistory.length > 0 || searchQuery.trim() || isSearching)
-                  ? "rounded-t-lg rounded-b-none border-b-transparent"
-                  : "rounded-lg"
+                className={`w-[100px] sm:w-[160px] md:w-[200px] lg:w-[280px] xl:w-[350px] bg-[#0d0d0d] border border-gray-800/50 pl-[calc(var(--sp-2)+var(--icon-sm)+var(--sp-1))] pr-[calc(var(--sp-2)+var(--icon-sm))] py-[var(--sp-2)] text-[var(--fs-sm)] text-gray-200 placeholder-gray-500 focus:outline-none focus:border-gray-600/50 transition-all ${isSearchFocused && (searchHistory.length > 0 || searchQuery.trim() || isSearching)
+                  ? "rounded-t-[var(--r-md)] rounded-b-none border-b-transparent"
+                  : "rounded-[var(--r-md)]"
                   }`}
               />
               {searchQuery && (
@@ -913,9 +898,9 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                     setSearchResults([]);
                     searchInputRef.current?.focus();
                   }}
-                  className="absolute right-1.5 sm:right-2 lg:right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors z-10"
+                  className="absolute right-[var(--sp-2)] top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors z-10"
                 >
-                  <X className="w-3 h-3 sm:w-3.5 sm:h-3.5" />
+                  <X className="w-[var(--icon-sm)] h-[var(--icon-sm)]" />
                 </button>
               )}
 
@@ -1050,8 +1035,8 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
         }}
       />
 
-      {/* Main Content - NO scaling wrapper, uses proper CSS layout */}
-      <main className="main-content p-3 sm:p-4 md:p-5 lg:p-6">
+      {/* Main Content - uses CSS design tokens for responsive sizing */}
+      <main className="main-content">
         {selectedWalletAddress ? (
           <WalletProfile walletAddress={selectedWalletAddress} onClose={() => {
             // Go back properly instead of just closing
@@ -1169,15 +1154,14 @@ function AppWithAuth() {
   return <AppContent showLoginPage={showLoginPage} setShowLoginPage={setShowLoginPage} />;
 }
 
-// Main App component wrapped with AuthProvider, QueryProvider, and ScreenSizeProvider
+// Main App component wrapped with AuthProvider and QueryProvider
+// Responsive design is handled via CSS custom properties (no JS hook needed)
 export default function App() {
   return (
-    <ScreenSizeProvider showLoadingScreen={true} loadingDelay={200}>
-      <QueryProvider>
-        <AuthProvider>
-          <AppWithAuth />
-        </AuthProvider>
-      </QueryProvider>
-    </ScreenSizeProvider>
+    <QueryProvider>
+      <AuthProvider>
+        <AppWithAuth />
+      </AuthProvider>
+    </QueryProvider>
   );
 }

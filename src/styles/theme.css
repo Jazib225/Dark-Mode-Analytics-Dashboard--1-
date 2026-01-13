@@ -131,58 +131,60 @@
   /**
   * Default typography styles for HTML elements (h1-h4, p, label, button, input).
   * These are in @layer base, so Tailwind utility classes (like text-sm, text-lg) automatically override them.
+  * Uses CSS custom properties from index.css for fluid, responsive typography.
   */
 
   html {
-    font-size: var(--font-size);
+    font-size: 16px;
   }
 
   h1 {
-    font-size: var(--text-2xl);
+    font-size: var(--fs-2xl);
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: 1.35;
   }
 
   h2 {
-    font-size: var(--text-xl);
+    font-size: var(--fs-xl);
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: 1.35;
   }
 
   h3 {
-    font-size: var(--text-lg);
+    font-size: var(--fs-lg);
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: 1.35;
   }
 
   h4 {
-    font-size: var(--text-base);
+    font-size: var(--fs-md);
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: 1.35;
   }
 
   label {
-    font-size: var(--text-base);
+    font-size: var(--fs-md);
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: 1.35;
   }
 
   button {
-    font-size: var(--text-base);
+    font-size: var(--fs-sm);
     font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    line-height: 1.35;
   }
 
   input {
-    font-size: var(--text-base);
+    font-size: var(--fs-md);
     font-weight: var(--font-weight-normal);
-    line-height: 1.5;
+    line-height: 1.35;
   }
 
   @keyframes fade-in {
     from {
       opacity: 0;
     }
+
     to {
       opacity: 1;
     }
@@ -194,10 +196,14 @@
 
   /* Hide scrollbar but keep scrolling functionality */
   .scrollbar-hide {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
+    -ms-overflow-style: none;
+    /* IE and Edge */
+    scrollbar-width: none;
+    /* Firefox */
   }
+
   .scrollbar-hide::-webkit-scrollbar {
-    display: none;  /* Chrome, Safari and Opera */
+    display: none;
+    /* Chrome, Safari and Opera */
   }
 }
