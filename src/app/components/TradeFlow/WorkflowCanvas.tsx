@@ -39,16 +39,30 @@ function getColumnBounds(stage: NodeStage, canvasWidth: number): { startX: numbe
   };
 }
 
-// Node dimensions - MUST match WorkflowNode CSS exactly
-const NODE_WIDTH = 160;  // w-40 = 160px
-const NODE_HEIGHT = 80;  // h-20 = 80px
+// Node dimensions - dynamically calculated to match CSS clamp() values
+// CSS: width: clamp(140px, 10vw, 180px); height: clamp(64px, 5vh, 88px);
+function getNodeDimensions(): { width: number; height: number } {
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+
+  // clamp(140px, 10vw, 180px) for width
+  const widthVw = vw * 0.10;
+  const width = Math.max(140, Math.min(widthVw, 180));
+
+  // clamp(64px, 5vh, 88px) for height
+  const heightVh = vh * 0.05;
+  const height = Math.max(64, Math.min(heightVh, 88));
+
+  return { width, height };
+}
 
 function getNodeRect(node: NodeData): Rect {
+  const { width, height } = getNodeDimensions();
   return {
     x: node.position.x,
     y: node.position.y,
-    width: NODE_WIDTH,
-    height: NODE_HEIGHT,
+    width,
+    height,
   };
 }
 
@@ -58,7 +72,8 @@ function pointInRect(x: number, y: number, rect: Rect): boolean {
 
 function constrainPositionToColumn(x: number, y: number, stage: NodeStage, canvasWidth: number): { x: number; y: number } {
   const col = getColumnBounds(stage, canvasWidth);
-  const constrainedX = Math.max(col.startX, Math.min(x, col.startX + col.width - NODE_WIDTH));
+  const { width: nodeWidth } = getNodeDimensions();
+  const constrainedX = Math.max(col.startX, Math.min(x, col.startX + col.width - nodeWidth));
   const constrainedY = Math.max(60, y);
   return { x: constrainedX, y: constrainedY };
 }
@@ -78,24 +93,20 @@ function distanceToLineSegment(px: number, py: number, x1: number, y1: number, x
 // Get the exact pixel position of a handle on a node
 // This MUST match where the CSS positions the black dots
 function getHandlePosition(nodePos: { x: number; y: number }, handleId: string): { x: number; y: number } {
-  // The node is positioned at nodePos.x, nodePos.y with size NODE_WIDTH x NODE_HEIGHT
-  // CSS handles are positioned at the edge centers:
-  // - top: top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 -> center of top edge
-  // - right: right-0 top-1/2 translate-x-1/2 -translate-y-1/2 -> center of right edge
-  // - bottom: bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 -> center of bottom edge
-  // - left: left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 -> center of left edge
-
+  const { width, height } = getNodeDimensions();
+  // The node is positioned at nodePos.x, nodePos.y with dynamic size
+  // CSS handles are positioned at the edge centers with transform
   switch (handleId) {
     case "top":
-      return { x: nodePos.x + NODE_WIDTH / 2, y: nodePos.y };
+      return { x: nodePos.x + width / 2, y: nodePos.y };
     case "right":
-      return { x: nodePos.x + NODE_WIDTH, y: nodePos.y + NODE_HEIGHT / 2 };
+      return { x: nodePos.x + width, y: nodePos.y + height / 2 };
     case "bottom":
-      return { x: nodePos.x + NODE_WIDTH / 2, y: nodePos.y + NODE_HEIGHT };
+      return { x: nodePos.x + width / 2, y: nodePos.y + height };
     case "left":
-      return { x: nodePos.x, y: nodePos.y + NODE_HEIGHT / 2 };
+      return { x: nodePos.x, y: nodePos.y + height / 2 };
     default:
-      return { x: nodePos.x + NODE_WIDTH, y: nodePos.y + NODE_HEIGHT / 2 };
+      return { x: nodePos.x + width, y: nodePos.y + height / 2 };
   }
 }
 
@@ -119,8 +130,9 @@ function findNearestHandle(nodePos: { x: number; y: number }, mouseX: number, mo
 
 // Determine the best handles to connect two nodes based on their relative positions
 function getBestHandles(sourcePos: { x: number; y: number }, targetPos: { x: number; y: number }): { sourceHandle: string; targetHandle: string } {
-  const dx = (targetPos.x + NODE_WIDTH / 2) - (sourcePos.x + NODE_WIDTH / 2);
-  const dy = (targetPos.y + NODE_HEIGHT / 2) - (sourcePos.y + NODE_HEIGHT / 2);
+  const { width, height } = getNodeDimensions();
+  const dx = (targetPos.x + width / 2) - (sourcePos.x + width / 2);
+  const dy = (targetPos.y + height / 2) - (sourcePos.y + height / 2);
 
   if (Math.abs(dx) > Math.abs(dy)) {
     // Horizontal connection
@@ -560,7 +572,8 @@ export function WorkflowCanvas({
 
       const col = getColumnBounds(stage as NodeStage, canvasRef.current.width);
       if (x >= col.startX && x < col.startX + col.width) {
-        const constrainedPos = constrainPositionToColumn(x - 80, y, stage as NodeStage, canvasRef.current.width);
+        const { width: nodeWidth } = getNodeDimensions();
+        const constrainedPos = constrainPositionToColumn(x - nodeWidth / 2, y, stage as NodeStage, canvasRef.current.width);
         onNodeDrop(nodeType, stage as NodeStage, constrainedPos);
       }
       setDraggingLogicNode(false);
@@ -571,7 +584,7 @@ export function WorkflowCanvas({
   return (
     <div
       ref={containerRef}
-      className="flex-1 w-full h-full bg-[#0a0a0a] relative overflow-hidden cursor-default"
+      className="tradeflow-canvas"
       onMouseMove={handleMouseMove}
       onMouseDown={handleMouseDown}
       onMouseUp={handleMouseUp}
@@ -582,11 +595,11 @@ export function WorkflowCanvas({
     >
       <canvas
         ref={canvasRef}
-        className="absolute inset-0 w-full h-full z-0"
+        className="tradeflow-canvas-layer"
       />
 
       {/* Nodes on top of canvas */}
-      <div className="absolute inset-0 z-10 pointer-events-none">
+      <div className="tradeflow-nodes-layer">
         {nodes.map((node) => (
           <div key={node.id} className="pointer-events-auto">
             <WorkflowNode
@@ -602,10 +615,10 @@ export function WorkflowCanvas({
 
       {/* Help text */}
       {nodes.length === 0 && (
-        <div className="absolute inset-0 z-5 flex items-center justify-center pointer-events-none">
-          <div className="text-center text-gray-600">
-            <p className="text-[var(--fs-lg)] mb-2">Drag nodes from the library to get started</p>
-            <p className="text-[var(--fs-sm)]">Click and drag from black dots to connect nodes</p>
+        <div className="tradeflow-help-text">
+          <div className="text-center">
+            <p style={{ fontSize: 'var(--fs-lg)', marginBottom: 'var(--sp-2)' }}>Drag nodes from the library to get started</p>
+            <p style={{ fontSize: 'var(--fs-sm)' }}>Click and drag from black dots to connect nodes</p>
           </div>
         </div>
       )}

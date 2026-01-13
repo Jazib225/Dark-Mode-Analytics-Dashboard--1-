@@ -178,7 +178,7 @@ export function TradeFlow() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-[#0a0a0a]">
+    <div className="tradeflow-container">
       {/* Top toolbar */}
       <div className="tradeflow-toolbar">
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-[var(--sp-3)] w-full">
@@ -375,7 +375,7 @@ export function TradeFlow() {
       )}
 
       {/* Main layout - canvas fills entire remaining space without scrolling */}
-      <div className="flex flex-1 w-full h-full overflow-hidden bg-[#0a0a0a]">
+      <div className="tradeflow-main">
         <NodeLibrary onDragStart={handleNodeLibraryDragStart} />
 
         <WorkflowCanvas
