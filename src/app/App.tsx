@@ -11,6 +11,7 @@ import { LoginPage } from "./components/LoginPage";
 import { TradeFlow } from "./components/TradeFlow";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import { QueryProvider } from "./providers/QueryProvider";
+import { ScreenSizeProvider } from "./context/ScreenSizeContext";
 import { Search, X, Clock, TrendingUp, Bookmark, Loader2, LogOut, User, ChevronDown } from "lucide-react";
 import paragonLogo from "../assets/paragon-logo.png";
 import { getAllActiveMarkets, searchMarkets, initializeMarketCache, instantSearch, prefetchMarketDetail } from "./services/polymarketApi";
@@ -1168,13 +1169,15 @@ function AppWithAuth() {
   return <AppContent showLoginPage={showLoginPage} setShowLoginPage={setShowLoginPage} />;
 }
 
-// Main App component wrapped with AuthProvider and QueryProvider
+// Main App component wrapped with AuthProvider, QueryProvider, and ScreenSizeProvider
 export default function App() {
   return (
-    <QueryProvider>
-      <AuthProvider>
-        <AppWithAuth />
-      </AuthProvider>
-    </QueryProvider>
+    <ScreenSizeProvider showLoadingScreen={true} loadingDelay={200}>
+      <QueryProvider>
+        <AuthProvider>
+          <AppWithAuth />
+        </AuthProvider>
+      </QueryProvider>
+    </ScreenSizeProvider>
   );
 }

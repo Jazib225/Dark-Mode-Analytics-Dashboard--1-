@@ -14,6 +14,7 @@ import {
   prefetchOtherTimeframes,
   type MarketCardDTO
 } from "../services/marketDataClient";
+import { useScreenSize } from "../hooks/useScreenSize";
 
 // Format cents with proper precision like Polymarket (e.g., 0.4¢, 99.6¢)
 function formatCents(cents: number): string {
@@ -285,8 +286,18 @@ export function Markets({
   initialMarketId,
   initialMarketData
 }: MarketsProps) {
+  // Dynamic screen sizing
+  const { sizes, isMobile, isTablet, height } = useScreenSize();
+
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(initialMarketId ?? null);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("24h");
+
+  // Dynamic column height based on screen
+  const columnMaxHeight = useMemo(() => {
+    if (isMobile) return Math.max(400, height - 200);
+    if (isTablet) return Math.max(500, height - 180);
+    return Math.max(600, height - 160);
+  }, [isMobile, isTablet, height]);
 
   // State for all three columns
   const [trendingMarkets, setTrendingMarkets] = useState<DisplayMarket[]>(() =>
@@ -313,10 +324,11 @@ export function Markets({
   // Refresh indicators
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  // Pagination state
-  const [trendingDisplayed, setTrendingDisplayed] = useState(INITIAL_LOAD);
-  const [newDisplayed, setNewDisplayed] = useState(INITIAL_LOAD);
-  const [resolvedDisplayed, setResolvedDisplayed] = useState(INITIAL_LOAD);
+  // Pagination state - adjust based on screen size
+  const initialLoadCount = isMobile ? 6 : isTablet ? 8 : INITIAL_LOAD;
+  const [trendingDisplayed, setTrendingDisplayed] = useState(initialLoadCount);
+  const [newDisplayed, setNewDisplayed] = useState(initialLoadCount);
+  const [resolvedDisplayed, setResolvedDisplayed] = useState(initialLoadCount);
 
   // Sync selectedMarketId when initialMarketId changes
   useEffect(() => {
@@ -549,8 +561,8 @@ export function Markets({
           <button
             onClick={() => setTimeFilter("24h")}
             className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-light tracking-wide rounded transition-all ${timeFilter === "24h"
-                ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
-                : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
+              ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
+              : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
               }`}
           >
             24H
@@ -558,8 +570,8 @@ export function Markets({
           <button
             onClick={() => setTimeFilter("7d")}
             className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-light tracking-wide rounded transition-all ${timeFilter === "7d"
-                ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
-                : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
+              ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
+              : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
               }`}
           >
             7D
@@ -567,8 +579,8 @@ export function Markets({
           <button
             onClick={() => setTimeFilter("1m")}
             className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-light tracking-wide rounded transition-all ${timeFilter === "1m"
-                ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
-                : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
+              ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
+              : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
               }`}
           >
             1M
@@ -584,22 +596,25 @@ export function Markets({
           {/* Column Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800/50 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
             <div className="flex items-center gap-2">
-              <TrendingUp className="w-4 h-4 text-[#4a6fa5]" />
-              <h2 className="text-sm sm:text-base font-light tracking-tight text-gray-200 uppercase">
+              <TrendingUp className={`${sizes.iconSm <= 14 ? 'w-3.5 h-3.5' : 'w-4 h-4'} text-[#4a6fa5]`} />
+              <h2 className={`${sizes.textBase} font-light tracking-tight text-gray-200 uppercase`}>
                 Trending
               </h2>
             </div>
-            <span className="text-[10px] sm:text-xs text-gray-500 font-light">
+            <span className={`${sizes.textXs} text-gray-500 font-light`}>
               By {timeFilter} volume
             </span>
           </div>
 
           {/* Column Content */}
-          <div className="p-3 sm:p-4 space-y-2 max-h-[600px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
+          <div
+            className={`${sizes.cardPadding} space-y-2 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent`}
+            style={{ maxHeight: `${columnMaxHeight}px` }}
+          >
             {loadingTrending ? (
-              <ColumnSkeleton rows={8} />
+              <ColumnSkeleton rows={isMobile ? 5 : 8} />
             ) : displayedTrending.length === 0 ? (
-              <p className="text-center text-gray-500 py-8 text-sm">No trending markets found</p>
+              <p className={`text-center text-gray-500 py-8 ${sizes.textSm}`}>No trending markets found</p>
             ) : (
               <>
                 {displayedTrending.map((market) => (
@@ -614,7 +629,7 @@ export function Markets({
                 {trendingDisplayed < trendingMarkets.length && (
                   <button
                     onClick={() => setTrendingDisplayed(prev => prev + LOAD_MORE_COUNT)}
-                    className="w-full py-2 text-xs sm:text-sm text-gray-400 hover:text-gray-200 transition-colors"
+                    className={`w-full py-2 ${sizes.textXs} text-gray-400 hover:text-gray-200 transition-colors`}
                   >
                     Load more ({trendingMarkets.length - trendingDisplayed} remaining)
                   </button>
@@ -629,22 +644,25 @@ export function Markets({
           {/* Column Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800/50 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
             <div className="flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-emerald-500" />
-              <h2 className="text-sm sm:text-base font-light tracking-tight text-gray-200 uppercase">
+              <Sparkles className={`${sizes.iconSm <= 14 ? 'w-3.5 h-3.5' : 'w-4 h-4'} text-emerald-500`} />
+              <h2 className={`${sizes.textBase} font-light tracking-tight text-gray-200 uppercase`}>
                 New Markets
               </h2>
             </div>
-            <span className="text-[10px] sm:text-xs text-gray-500 font-light">
+            <span className={`${sizes.textXs} text-gray-500 font-light`}>
               Newest first
             </span>
           </div>
 
           {/* Column Content */}
-          <div className="p-3 sm:p-4 space-y-2 max-h-[600px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
+          <div
+            className={`${sizes.cardPadding} space-y-2 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent`}
+            style={{ maxHeight: `${columnMaxHeight}px` }}
+          >
             {loadingNew ? (
-              <ColumnSkeleton rows={8} />
+              <ColumnSkeleton rows={isMobile ? 5 : 8} />
             ) : displayedNew.length === 0 ? (
-              <p className="text-center text-gray-500 py-8 text-sm">No new markets found</p>
+              <p className={`text-center text-gray-500 py-8 ${sizes.textSm}`}>No new markets found</p>
             ) : (
               <>
                 {displayedNew.map((market) => (
@@ -659,7 +677,7 @@ export function Markets({
                 {newDisplayed < newMarkets.length && (
                   <button
                     onClick={() => setNewDisplayed(prev => prev + LOAD_MORE_COUNT)}
-                    className="w-full py-2 text-xs sm:text-sm text-gray-400 hover:text-gray-200 transition-colors"
+                    className={`w-full py-2 ${sizes.textXs} text-gray-400 hover:text-gray-200 transition-colors`}
                   >
                     Load more ({newMarkets.length - newDisplayed} remaining)
                   </button>
@@ -674,22 +692,25 @@ export function Markets({
           {/* Column Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800/50 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
             <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-orange-500" />
-              <h2 className="text-sm sm:text-base font-light tracking-tight text-gray-200 uppercase">
+              <Clock className={`${sizes.iconSm <= 14 ? 'w-3.5 h-3.5' : 'w-4 h-4'} text-orange-500`} />
+              <h2 className={`${sizes.textBase} font-light tracking-tight text-gray-200 uppercase`}>
                 Closing Soon
               </h2>
             </div>
-            <span className="text-[10px] sm:text-xs text-gray-500 font-light">
+            <span className={`${sizes.textXs} text-gray-500 font-light`}>
               Next 72h
             </span>
           </div>
 
           {/* Column Content */}
-          <div className="p-3 sm:p-4 space-y-2 max-h-[600px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
+          <div
+            className={`${sizes.cardPadding} space-y-2 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent`}
+            style={{ maxHeight: `${columnMaxHeight}px` }}
+          >
             {loadingResolved ? (
-              <ColumnSkeleton rows={8} />
+              <ColumnSkeleton rows={isMobile ? 5 : 8} />
             ) : displayedResolved.length === 0 ? (
-              <p className="text-center text-gray-500 py-8 text-sm">No markets closing soon</p>
+              <p className={`text-center text-gray-500 py-8 ${sizes.textSm}`}>No markets closing soon</p>
             ) : (
               <>
                 {displayedResolved.map((market) => (
@@ -705,7 +726,7 @@ export function Markets({
                 {resolvedDisplayed < nearlyResolvedMarkets.length && (
                   <button
                     onClick={() => setResolvedDisplayed(prev => prev + LOAD_MORE_COUNT)}
-                    className="w-full py-2 text-xs sm:text-sm text-gray-400 hover:text-gray-200 transition-colors"
+                    className={`w-full py-2 ${sizes.textXs} text-gray-400 hover:text-gray-200 transition-colors`}
                   >
                     Load more ({nearlyResolvedMarkets.length - resolvedDisplayed} remaining)
                   </button>
