@@ -534,14 +534,14 @@ export function MarketDetail({
     : "0";
 
   return (
-    <div className="max-w-[1800px] mx-auto">
+    <div className="w-full max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8">
       {/* Back Button */}
       <button
         onClick={onBack}
-        className="flex items-center gap-2 text-gray-500 hover:text-gray-300 transition-colors mb-6"
+        className="flex items-center gap-2 text-gray-500 hover:text-gray-300 transition-colors mb-4 sm:mb-6"
       >
         <ArrowLeft className="w-4 h-4" />
-        <span className="text-sm font-light">Back to Markets</span>
+        <span className="text-xs sm:text-sm font-light">Back to Markets</span>
       </button>
 
       {/* Loading State - Show skeleton only when we have NO data at all (not even shell) */}
@@ -549,37 +549,37 @@ export function MarketDetail({
 
       {/* Error State */}
       {error && !marketShell && !marketData && (
-        <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-4 mb-6">
-          <p className="text-red-400">{error}</p>
+        <div className="bg-red-900/20 border border-red-500/30 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
+          <p className="text-red-400 text-sm">{error}</p>
         </div>
       )}
 
       {/* Main Split Layout - Show as soon as we have ANY data (shell, cached, or fresh) */}
       {(marketShell || marketData) && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6 lg:gap-8">
           {/* LEFT SIDE - Market Info & Chart */}
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Market Header */}
-            <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl p-6 shadow-xl shadow-black/20">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-start gap-4 flex-1 pr-4">
+            <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl p-4 sm:p-6 shadow-xl shadow-black/20">
+              <div className="flex items-start justify-between mb-3 sm:mb-4">
+                <div className="flex items-start gap-3 sm:gap-4 flex-1 pr-4">
                   {(marketData?.image || marketShell?.image) ? (
                     <img
                       src={marketData?.image || marketShell?.image || ''}
                       alt=""
-                      className="w-14 h-14 rounded-xl object-cover flex-shrink-0"
+                      className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl object-cover flex-shrink-0"
                       onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
                     />
                   ) : (
-                    <div className="w-14 h-14 rounded-xl bg-gray-800/50 flex-shrink-0" />
+                    <div className="w-10 h-10 sm:w-14 sm:h-14 rounded-xl bg-gray-800/50 flex-shrink-0" />
                   )}
                   <div className="flex-1">
-                    <h1 className="text-xl font-light tracking-tight text-gray-100 leading-relaxed">
+                    <h1 className="text-base sm:text-lg lg:text-xl font-light tracking-tight text-gray-100 leading-relaxed">
                       {marketData?.name || marketShell?.title || market.name}
                     </h1>
                     {/* Subtle Phase 2 loading indicator */}
                     {phase2Loading && (
-                      <div className="flex items-center gap-2 mt-1 text-xs text-gray-500">
+                      <div className="flex items-center gap-2 mt-1 text-[10px] sm:text-xs text-gray-500">
                         <Loader2 className="w-3 h-3 animate-spin" />
                         <span>Loading details...</span>
                       </div>
@@ -590,14 +590,14 @@ export function MarketDetail({
                   onClick={toggleBookmark}
                   className="text-gray-600 hover:text-[#4a6fa5] transition-all duration-200 flex-shrink-0"
                 >
-                  <Bookmark className={`w-5 h-5 ${isBookmarked ? "fill-current text-[#4a6fa5]" : ""}`} />
+                  <Bookmark className={`w-4 h-4 sm:w-5 sm:h-5 ${isBookmarked ? "fill-current text-[#4a6fa5]" : ""}`} />
                 </button>
               </div>
 
               {/* Market Stats */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-6">
-                <div className="bg-gradient-to-br from-[#111111] to-[#0a0a0a] rounded-lg p-4 border border-gray-800/30">
-                  <div className="flex items-center gap-2 text-gray-500 text-xs mb-1">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-4 mt-4 sm:mt-6">
+                <div className="bg-gradient-to-br from-[#111111] to-[#0a0a0a] rounded-lg p-3 sm:p-4 border border-gray-800/30">
+                  <div className="flex items-center gap-2 text-gray-500 text-[10px] sm:text-xs mb-1">
                     <Activity className="w-3 h-3" />
                     <span>Probability</span>
                   </div>

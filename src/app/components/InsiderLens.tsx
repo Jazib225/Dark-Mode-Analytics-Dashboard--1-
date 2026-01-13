@@ -34,69 +34,69 @@ const getRankBg = (rank: number) => {
 
 export function InsiderLens({ onWalletClick }: InsiderLensProps) {
   return (
-    <div className="max-w-[1800px] mx-auto space-y-6">
+    <div className="w-full max-w-[1800px] mx-auto space-y-4 sm:space-y-6 px-4 sm:px-6 lg:px-8">
       {/* Header Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl p-5 shadow-xl shadow-black/20">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
-              <Trophy className="w-5 h-5 text-yellow-400" />
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+        <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl p-4 sm:p-5 shadow-xl shadow-black/20">
+          <div className="flex items-center gap-2 sm:gap-3 mb-2">
+            <div className="p-1.5 sm:p-2 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+              <Trophy className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-400" />
             </div>
-            <span className="text-[14px] text-gray-400 font-light uppercase tracking-wide">Top Performer</span>
+            <span className="text-xs sm:text-[14px] text-gray-400 font-light uppercase tracking-wide">Top Performer</span>
           </div>
-          <div className="text-[24px] font-light text-gray-100">Alpha Hunter</div>
-          <div className="text-[14px] text-green-500 font-light mt-1">+$847,293 PnL</div>
+          <div className="text-lg sm:text-xl lg:text-[24px] font-light text-gray-100">Alpha Hunter</div>
+          <div className="text-xs sm:text-[14px] text-green-500 font-light mt-1">+$847,293 PnL</div>
         </div>
 
-        <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl p-5 shadow-xl shadow-black/20">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-lg bg-[#4a6fa5]/10 border border-[#4a6fa5]/20">
-              <Users className="w-5 h-5 text-[#4a6fa5]" />
+        <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl p-4 sm:p-5 shadow-xl shadow-black/20">
+          <div className="flex items-center gap-2 sm:gap-3 mb-2">
+            <div className="p-1.5 sm:p-2 rounded-lg bg-[#4a6fa5]/10 border border-[#4a6fa5]/20">
+              <Users className="w-4 h-4 sm:w-5 sm:h-5 text-[#4a6fa5]" />
             </div>
-            <span className="text-[14px] text-gray-400 font-light uppercase tracking-wide">Active Traders</span>
+            <span className="text-xs sm:text-[14px] text-gray-400 font-light uppercase tracking-wide">Active Traders</span>
           </div>
-          <div className="text-[24px] font-light text-gray-100">2,847</div>
-          <div className="text-[14px] text-gray-500 font-light mt-1">Last 24 hours</div>
+          <div className="text-lg sm:text-xl lg:text-[24px] font-light text-gray-100">2,847</div>
+          <div className="text-xs sm:text-[14px] text-gray-500 font-light mt-1">Last 24 hours</div>
         </div>
 
-        <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl p-5 shadow-xl shadow-black/20">
-          <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-lg bg-green-500/10 border border-green-500/20">
-              <Target className="w-5 h-5 text-green-500" />
+        <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl p-4 sm:p-5 shadow-xl shadow-black/20 sm:col-span-2 lg:col-span-1">
+          <div className="flex items-center gap-2 sm:gap-3 mb-2">
+            <div className="p-1.5 sm:p-2 rounded-lg bg-green-500/10 border border-green-500/20">
+              <Target className="w-4 h-4 sm:w-5 sm:h-5 text-green-500" />
             </div>
-            <span className="text-[14px] text-gray-400 font-light uppercase tracking-wide">Avg Win Rate</span>
+            <span className="text-xs sm:text-[14px] text-gray-400 font-light uppercase tracking-wide">Avg Win Rate</span>
           </div>
-          <div className="text-[24px] font-light text-gray-100">73.4%</div>
-          <div className="text-[14px] text-gray-500 font-light mt-1">Top 100 traders</div>
+          <div className="text-lg sm:text-xl lg:text-[24px] font-light text-gray-100">73.4%</div>
+          <div className="text-xs sm:text-[14px] text-gray-500 font-light mt-1">Top 100 traders</div>
         </div>
       </div>
 
       {/* Leaderboard */}
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <h2 className="text-[19px] font-light tracking-tight text-gray-200 uppercase">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <h2 className="text-base sm:text-lg lg:text-[19px] font-light tracking-tight text-gray-200 uppercase">
               Leaderboard
             </h2>
-            <span className="text-[13px] text-gray-500 font-light px-2 py-1 bg-gray-800/50 rounded">
+            <span className="text-[11px] sm:text-[13px] text-gray-500 font-light px-2 py-1 bg-gray-800/50 rounded">
               Updated hourly
             </span>
           </div>
-          <div className="flex items-center gap-2">
-            <button className="px-4 py-1.5 text-[14px] font-light tracking-wide rounded transition-all bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm">
+          <div className="flex items-center gap-1 sm:gap-2">
+            <button className="px-3 sm:px-4 py-1.5 text-xs sm:text-[14px] font-light tracking-wide rounded transition-all bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm">
               All Time
             </button>
-            <button className="px-4 py-1.5 text-[14px] font-light tracking-wide rounded transition-all bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50">
+            <button className="px-3 sm:px-4 py-1.5 text-xs sm:text-[14px] font-light tracking-wide rounded transition-all bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50">
               Monthly
             </button>
-            <button className="px-4 py-1.5 text-[14px] font-light tracking-wide rounded transition-all bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50">
+            <button className="px-3 sm:px-4 py-1.5 text-xs sm:text-[14px] font-light tracking-wide rounded transition-all bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50">
               Weekly
             </button>
           </div>
         </div>
 
-        <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl overflow-hidden shadow-xl shadow-black/20">
-          <table className="w-full text-[14px]">
+        <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl overflow-hidden shadow-xl shadow-black/20 overflow-x-auto">
+          <table className="w-full text-xs sm:text-[14px] min-w-[600px]">
             <thead>
               <tr className="border-b border-gray-800/50 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
                 <th className="text-left py-4 px-5 text-gray-400 font-light tracking-wide uppercase w-16">Rank</th>
@@ -149,8 +149,8 @@ export function InsiderLens({ onWalletClick }: InsiderLensProps) {
         </div>
 
         {/* Load More */}
-        <div className="flex justify-center mt-6">
-          <button className="px-8 py-3 bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 rounded-lg text-[15px] font-light text-gray-200 hover:text-gray-100 hover:border-gray-600/50 transition-all flex items-center gap-2">
+        <div className="flex justify-center mt-4 sm:mt-6">
+          <button className="px-6 sm:px-8 py-2.5 sm:py-3 bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 rounded-lg text-sm sm:text-[15px] font-light text-gray-200 hover:text-gray-100 hover:border-gray-600/50 transition-all flex items-center gap-2">
             <TrendingUp className="w-4 h-4" />
             View Full Leaderboard
           </button>

@@ -166,22 +166,22 @@ export function WalletsList({ onWalletClick, onMarketClick }: WalletsListProps) 
   }, []);
 
   return (
-    <div className="max-w-[1800px] mx-auto">
-      {/* 50/50 Split Layout */}
-      <div className="grid grid-cols-2 gap-6">
+    <div className="w-full max-w-[1800px] mx-auto px-4 sm:px-6 lg:px-8">
+      {/* 50/50 Split Layout - stacks on mobile */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
         {/* Left Side - Wallets */}
-        <div className="space-y-4">
-          <h2 className="text-[17px] font-light tracking-tight text-gray-300 uppercase">Tracked Wallets</h2>
+        <div className="space-y-3 sm:space-y-4">
+          <h2 className="text-sm sm:text-base lg:text-[17px] font-light tracking-tight text-gray-300 uppercase">Tracked Wallets</h2>
 
           {/* Add New Wallet */}
-          <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl p-4 shadow-xl shadow-black/20">
-            <div className="flex flex-col gap-3">
+          <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl p-3 sm:p-4 shadow-xl shadow-black/20">
+            <div className="flex flex-col gap-2 sm:gap-3">
               <input
                 type="text"
                 value={newWalletAddress}
                 onChange={(e) => setNewWalletAddress(e.target.value)}
                 placeholder="Wallet address..."
-                className="bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-800/50 rounded px-3 py-2 text-[13px] text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-700/50 font-light shadow-inner"
+                className="bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-800/50 rounded px-3 py-2 text-xs sm:text-[13px] text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-700/50 font-light shadow-inner"
               />
               <div className="flex gap-2">
                 <input
@@ -189,11 +189,11 @@ export function WalletsList({ onWalletClick, onMarketClick }: WalletsListProps) 
                   value={newWalletLabel}
                   onChange={(e) => setNewWalletLabel(e.target.value)}
                   placeholder="Label (optional)..."
-                  className="flex-1 bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-800/50 rounded px-3 py-2 text-[13px] text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-700/50 font-light shadow-inner"
+                  className="flex-1 bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-800/50 rounded px-3 py-2 text-xs sm:text-[13px] text-gray-300 placeholder-gray-600 focus:outline-none focus:border-gray-700/50 font-light shadow-inner"
                 />
                 <button
                   onClick={addWallet}
-                  className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 rounded text-[13px] font-light text-gray-300 hover:border-gray-600/50 transition-all shadow-sm"
+                  className="flex items-center gap-1.5 px-3 sm:px-4 py-2 bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 rounded text-xs sm:text-[13px] font-light text-gray-300 hover:border-gray-600/50 transition-all shadow-sm"
                 >
                   <Plus className="w-3 h-3" />
                   Add
@@ -320,9 +320,9 @@ export function WalletsList({ onWalletClick, onMarketClick }: WalletsListProps) 
         </div>
 
         {/* Right Side - Live Feed */}
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           <div className="flex items-center gap-2">
-            <h2 className="text-[17px] font-light tracking-tight text-gray-300 uppercase">Live Activity Feed</h2>
+            <h2 className="text-sm sm:text-base lg:text-[17px] font-light tracking-tight text-gray-300 uppercase">Live Activity Feed</h2>
             <span className="relative flex h-2 w-2">
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
@@ -331,7 +331,7 @@ export function WalletsList({ onWalletClick, onMarketClick }: WalletsListProps) 
 
           <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl overflow-hidden shadow-xl shadow-black/20">
             <div className="overflow-x-auto">
-              <table className="w-full text-[13px] min-w-[600px]">
+              <table className="w-full text-xs sm:text-[13px] min-w-[500px]">
                 <thead>
                   <tr className="border-b border-gray-800/50 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
                     <th className="text-left py-2.5 sm:py-3 px-3 sm:px-4 text-gray-500 font-light tracking-wide uppercase text-[11px] sm:text-xs">Time</th>

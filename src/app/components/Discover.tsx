@@ -54,17 +54,17 @@ export function Discover({ onNavigate }: DiscoverProps) {
   };
 
   return (
-    <div className="max-w-[1400px] mx-auto">
-      <div className="mb-8">
-        <h1 className="text-[28px] font-light tracking-tight text-gray-100 mb-2">
+    <div className="w-full max-w-[1400px] mx-auto px-4 sm:px-6 lg:px-8">
+      <div className="mb-6 sm:mb-8">
+        <h1 className="text-xl sm:text-2xl lg:text-[28px] font-light tracking-tight text-gray-100 mb-2">
           Welcome to Paragon
         </h1>
-        <p className="text-[16px] text-gray-400 font-light">
+        <p className="text-sm sm:text-base lg:text-[16px] text-gray-400 font-light">
           Your gateway to prediction market analytics and insights
         </p>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8 items-start">
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6 lg:gap-8 items-start">
         {pages.map((page) => {
           const Icon = page.icon;
           return (
@@ -75,7 +75,7 @@ export function Discover({ onNavigate }: DiscoverProps) {
             >
               <div className="border-2 border-white/20 hover:border-white/40 rounded-xl overflow-hidden transition-all duration-300 hover:shadow-lg hover:shadow-white/5">
                 {/* Preview Image Area */}
-                <div className={`h-[280px] bg-gradient-to-br ${page.previewBg} relative overflow-hidden`}>
+                <div className={`h-[180px] sm:h-[220px] lg:h-[280px] bg-gradient-to-br ${page.previewBg} relative overflow-hidden`}>
                   {/* Placeholder preview content */}
                   <div className="absolute inset-0 flex items-center justify-center">
                     <Icon className="w-24 h-24 text-white/20 group-hover:text-white/30 transition-all duration-300" />
@@ -165,16 +165,16 @@ export function Discover({ onNavigate }: DiscoverProps) {
                 </div>
 
                 {/* Content Area */}
-                <div className="p-6 bg-gradient-to-b from-[#0d0d0d] to-[#0a0a0a]">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="p-3 rounded-lg bg-white/5 border border-white/10">
-                      <Icon className="w-6 h-6 text-gray-300" />
+                <div className="p-4 sm:p-5 lg:p-6 bg-gradient-to-b from-[#0d0d0d] to-[#0a0a0a]">
+                  <div className="flex items-center gap-2 sm:gap-3 mb-3 sm:mb-4">
+                    <div className="p-2 sm:p-3 rounded-lg bg-white/5 border border-white/10">
+                      <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-gray-300" />
                     </div>
-                    <h3 className="text-[22px] font-medium text-gray-100 tracking-tight">
+                    <h3 className="text-lg sm:text-xl lg:text-[22px] font-medium text-gray-100 tracking-tight">
                       {page.title}
                     </h3>
                   </div>
-                  <p className="text-[15px] text-gray-400 font-light leading-relaxed">
+                  <p className="text-sm sm:text-[15px] text-gray-400 font-light leading-relaxed">
                     {page.description}
                   </p>
                 </div>

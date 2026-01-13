@@ -180,9 +180,9 @@ export function TradeFlow() {
   return (
     <div className="flex flex-col h-screen bg-[#0a0a0a]">
       {/* Top toolbar */}
-      <div className="bg-[#1a1a1a] border-b border-gray-800 px-6 py-4">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
+      <div className="bg-[#1a1a1a] border-b border-gray-800 px-3 sm:px-4 lg:px-6 py-3 sm:py-4">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-3 sm:mb-4">
+          <div className="flex items-center gap-2 sm:gap-3">
             {isEditingTitle ? (
               <input
                 autoFocus
@@ -193,60 +193,60 @@ export function TradeFlow() {
                 onKeyDown={(e) => {
                   if (e.key === "Enter") setIsEditingTitle(false);
                 }}
-                className="px-3 py-1 bg-gray-800 border border-gray-600 rounded text-gray-100 text-lg font-bold"
+                className="px-2 sm:px-3 py-1 bg-gray-800 border border-gray-600 rounded text-gray-100 text-base sm:text-lg font-bold w-full sm:w-auto"
               />
             ) : (
               <h1
                 onClick={() => setIsEditingTitle(true)}
-                className="text-2xl font-bold text-gray-100 cursor-pointer hover:text-gray-300 transition-colors"
+                className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-100 cursor-pointer hover:text-gray-300 transition-colors truncate"
               >
                 {workflow.title}
               </h1>
             )}
-            {isUnsaved && <span className="text-xs px-2 py-1 bg-yellow-900/40 border border-yellow-700 rounded text-yellow-300">Unsaved</span>}
+            {isUnsaved && <span className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-1 bg-yellow-900/40 border border-yellow-700 rounded text-yellow-300 whitespace-nowrap">Unsaved</span>}
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap">
             {successMessage && (
-              <div className="flex items-center gap-2 px-4 py-2 bg-green-900/40 border border-green-700 rounded-lg text-green-300 text-sm">
-                <CheckCircle className="w-4 h-4" />
+              <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 bg-green-900/40 border border-green-700 rounded-lg text-green-300 text-[10px] sm:text-sm">
+                <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />
                 {successMessage}
               </div>
             )}
 
             <button
               onClick={() => setShowOpenModal(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-900/40 hover:bg-blue-900/60 border border-blue-700 rounded-lg text-blue-300 text-sm transition-colors"
+              className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 bg-blue-900/40 hover:bg-blue-900/60 border border-blue-700 rounded-lg text-blue-300 text-[10px] sm:text-sm transition-colors"
             >
               Open
             </button>
 
             <button
               onClick={handleNew}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-gray-300 text-sm transition-colors"
+              className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-gray-300 text-[10px] sm:text-sm transition-colors"
             >
               New
             </button>
 
             <button
               onClick={handleValidate}
-              className="flex items-center gap-2 px-4 py-2 bg-blue-900/40 hover:bg-blue-900/60 border border-blue-700 rounded-lg text-blue-300 text-sm transition-colors"
+              className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 bg-blue-900/40 hover:bg-blue-900/60 border border-blue-700 rounded-lg text-blue-300 text-[10px] sm:text-sm transition-colors"
             >
-              <CheckCircle className="w-4 h-4" />
-              Validate
+              <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">Validate</span>
             </button>
 
             <button
               onClick={handleSave}
-              className="flex items-center gap-2 px-4 py-2 bg-green-900/40 hover:bg-green-900/60 border border-green-700 rounded-lg text-green-300 text-sm transition-colors"
+              className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 bg-green-900/40 hover:bg-green-900/60 border border-green-700 rounded-lg text-green-300 text-[10px] sm:text-sm transition-colors"
             >
-              <Save className="w-4 h-4" />
-              Save
+              <Save className="w-3 h-3 sm:w-4 sm:h-4" />
+              <span className="hidden sm:inline">Save</span>
             </button>
 
             <button
               onClick={() => setShowClearConfirm(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-red-900/40 hover:bg-red-900/60 border border-red-700 rounded-lg text-red-300 text-sm transition-colors"
+              className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 bg-red-900/40 hover:bg-red-900/60 border border-red-700 rounded-lg text-red-300 text-[10px] sm:text-sm transition-colors"
             >
               <Trash2 className="w-4 h-4" />
               Clear
@@ -390,12 +390,12 @@ export function TradeFlow() {
       </div>
 
       {/* Status bar */}
-      <div className="bg-[#1a1a1a] border-t border-gray-800 px-6 py-3 text-sm text-gray-500 flex justify-between">
+      <div className="bg-[#1a1a1a] border-t border-gray-800 px-3 sm:px-4 lg:px-6 py-2 sm:py-3 text-[10px] sm:text-xs lg:text-sm text-gray-500 flex justify-between">
         <div>
           {workflow.nodes.length} {workflow.nodes.length === 1 ? "node" : "nodes"} • {workflow.edges.length}{" "}
           {workflow.edges.length === 1 ? "connection" : "connections"}
         </div>
-        <div>Last saved: {new Date(workflow.lastSavedAt).toLocaleTimeString()}</div>
+        <div className="hidden sm:block">Last saved: {new Date(workflow.lastSavedAt).toLocaleTimeString()}</div>
       </div>
     </div>
   );

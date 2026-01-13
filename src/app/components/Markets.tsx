@@ -393,25 +393,25 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
   }
 
   return (
-    <div className="max-w-[1800px] mx-auto space-y-8">
+    <div className="w-full max-w-[1800px] mx-auto space-y-4 sm:space-y-6 lg:space-y-8 px-4 sm:px-6 lg:px-8">
       {/* Trending Markets */}
       <div>
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center gap-3">
-            <h2 className="text-[19px] font-light tracking-tight text-gray-200 uppercase">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-3 sm:mb-4">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <h2 className="text-base sm:text-lg lg:text-[19px] font-light tracking-tight text-gray-200 uppercase">
               Trending Markets
             </h2>
             {isRefreshing && (
-              <div className="flex items-center gap-1.5 text-[14px] text-gray-500">
+              <div className="flex items-center gap-1.5 text-xs sm:text-[14px] text-gray-500">
                 <Loader2 className="w-3 h-3 animate-spin" />
-                <span>Updating...</span>
+                <span className="hidden sm:inline">Updating...</span>
               </div>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1 sm:gap-2">
             <button
               onClick={() => setTimeFilter("24h")}
-              className={`px-4 py-1.5 text-[14px] font-light tracking-wide rounded transition-all ${timeFilter === "24h"
+              className={`px-3 sm:px-4 py-1.5 text-xs sm:text-[14px] font-light tracking-wide rounded transition-all ${timeFilter === "24h"
                   ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
                   : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
                 }`}
@@ -420,7 +420,7 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
             </button>
             <button
               onClick={() => setTimeFilter("7d")}
-              className={`px-4 py-1.5 text-[14px] font-light tracking-wide rounded transition-all ${timeFilter === "7d"
+              className={`px-3 sm:px-4 py-1.5 text-xs sm:text-[14px] font-light tracking-wide rounded transition-all ${timeFilter === "7d"
                   ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
                   : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
                 }`}
@@ -429,7 +429,7 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
             </button>
             <button
               onClick={() => setTimeFilter("1m")}
-              className={`px-4 py-1.5 text-[14px] font-light tracking-wide rounded transition-all ${timeFilter === "1m"
+              className={`px-3 sm:px-4 py-1.5 text-xs sm:text-[14px] font-light tracking-wide rounded transition-all ${timeFilter === "1m"
                   ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
                   : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
                 }`}
@@ -440,7 +440,7 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
         </div>
         <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl overflow-hidden shadow-xl shadow-black/20">
           <div className="overflow-x-auto">
-            <table className="w-full text-[14px] min-w-[600px]">
+            <table className="w-full text-xs sm:text-[14px] min-w-[500px]">
               <thead>
                 <tr className="border-b border-gray-800/50 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
                   <th className="text-left py-3 sm:py-4 px-3 sm:px-5 text-gray-400 font-light tracking-wide uppercase text-xs sm:text-sm">
@@ -578,11 +578,11 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
 
         {/* Load More Button */}
         {!loading && hasMoreMarkets && (
-          <div className="flex justify-center mt-6">
+          <div className="flex justify-center mt-4 sm:mt-6">
             <button
               onClick={handleLoadMore}
               disabled={loadingMore}
-              className="px-8 py-3 bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 rounded-lg text-[15px] font-light text-gray-200 hover:text-gray-100 hover:border-gray-600/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+              className="px-6 sm:px-8 py-2.5 sm:py-3 bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 rounded-lg text-sm sm:text-[15px] font-light text-gray-200 hover:text-gray-100 hover:border-gray-600/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               {loadingMore ? (
                 <>
@@ -592,7 +592,7 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
               ) : (
                 <>
                   Load More Markets
-                  <span className="text-gray-400 text-[13px]">
+                  <span className="text-gray-400 text-[11px] sm:text-[13px]">
                     ({allMarkets.length - displayedCount} remaining)
                   </span>
                 </>
@@ -603,7 +603,7 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
 
         {/* All loaded indicator */}
         {!loading && !hasMoreMarkets && allMarkets.length > INITIAL_LOAD && (
-          <div className="text-center mt-4 text-gray-500 text-[14px]">
+          <div className="text-center mt-3 sm:mt-4 text-gray-500 text-xs sm:text-[14px]">
             All {allMarkets.length} markets loaded
           </div>
         )}

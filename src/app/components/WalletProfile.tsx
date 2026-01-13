@@ -83,10 +83,10 @@ const connections = [
 
 export function WalletProfile({ walletAddress, onClose }: WalletProfileProps) {
   return (
-    <div className="max-w-[1800px] mx-auto space-y-8">
+    <div className="w-full max-w-[1800px] mx-auto space-y-4 sm:space-y-6 lg:space-y-8 px-4 sm:px-6 lg:px-8">
       {/* Wallet Header */}
-      <div className="flex items-start justify-between">
-        <div className="flex items-start gap-4">
+      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+        <div className="flex items-start gap-3 sm:gap-4">
           <button
             onClick={onClose}
             className="mt-1 text-gray-500 hover:text-gray-300 transition-colors"
@@ -94,42 +94,42 @@ export function WalletProfile({ walletAddress, onClose }: WalletProfileProps) {
             <ArrowLeft className="w-4 h-4" />
           </button>
           <div>
-            <h1 className="text-2xl font-light tracking-tight text-gray-100 mb-3 font-mono">
+            <h1 className="text-lg sm:text-xl lg:text-2xl font-light tracking-tight text-gray-100 mb-2 sm:mb-3 font-mono break-all">
               {walletAddress}
             </h1>
-            <div className="flex items-center gap-8 text-xs">
+            <div className="grid grid-cols-2 sm:flex sm:items-center gap-3 sm:gap-8 text-[10px] sm:text-xs">
               <div>
                 <div className="text-gray-500 mb-1 font-light uppercase tracking-wide">
                   Total PnL
                 </div>
-                <div className="text-green-500 font-normal text-sm">+$147,293</div>
+                <div className="text-green-500 font-normal text-xs sm:text-sm">+$147,293</div>
               </div>
               <div>
                 <div className="text-gray-500 mb-1 font-light uppercase tracking-wide">
                   Win Rate
                 </div>
-                <div className="text-gray-300 font-normal text-sm">78.3%</div>
+                <div className="text-gray-300 font-normal text-xs sm:text-sm">78.3%</div>
               </div>
               <div>
                 <div className="text-gray-500 mb-1 font-light uppercase tracking-wide">
                   Total Volume
                 </div>
-                <div className="text-gray-300 font-normal text-sm">$1,284,920</div>
+                <div className="text-gray-300 font-normal text-xs sm:text-sm">$1,284,920</div>
               </div>
               <div>
                 <div className="text-gray-500 mb-1 font-light uppercase tracking-wide">
                   Markets Traded
                 </div>
-                <div className="text-gray-300 font-normal text-sm">47</div>
+                <div className="text-gray-300 font-normal text-xs sm:text-sm">47</div>
               </div>
             </div>
           </div>
         </div>
-        <div className="flex gap-2">
-          <button className="px-5 py-2 bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 rounded text-xs font-light text-gray-300 hover:border-gray-600/50 transition-all shadow-sm">
+        <div className="flex gap-2 self-start sm:self-auto">
+          <button className="px-4 sm:px-5 py-2 bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 rounded text-[10px] sm:text-xs font-light text-gray-300 hover:border-gray-600/50 transition-all shadow-sm">
             Watch
           </button>
-          <button className="px-5 py-2 bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 rounded text-xs font-light text-gray-300 hover:border-gray-600/50 transition-all shadow-sm">
+          <button className="px-4 sm:px-5 py-2 bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 rounded text-[10px] sm:text-xs font-light text-gray-300 hover:border-gray-600/50 transition-all shadow-sm">
             Copy
           </button>
         </div>
@@ -137,11 +137,11 @@ export function WalletProfile({ walletAddress, onClose }: WalletProfileProps) {
 
       {/* PnL Chart */}
       <div>
-        <h3 className="text-lg font-light tracking-tight text-gray-300 mb-4 uppercase">
+        <h3 className="text-base sm:text-lg font-light tracking-tight text-gray-300 mb-3 sm:mb-4 uppercase">
           PnL Chart
         </h3>
-        <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl p-6 shadow-xl shadow-black/20">
-          <ResponsiveContainer width="100%" height={240}>
+        <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl p-4 sm:p-6 shadow-xl shadow-black/20">
+          <ResponsiveContainer width="100%" height={180} className="sm:!h-[240px]">
             <LineChart data={pnlData}>
               <XAxis
                 dataKey="date"
@@ -179,11 +179,11 @@ export function WalletProfile({ walletAddress, onClose }: WalletProfileProps) {
 
       {/* Trade History */}
       <div>
-        <h3 className="text-lg font-light tracking-tight text-gray-300 mb-4 uppercase">
+        <h3 className="text-base sm:text-lg font-light tracking-tight text-gray-300 mb-3 sm:mb-4 uppercase">
           Trade History
         </h3>
         <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl overflow-hidden shadow-xl shadow-black/20 overflow-x-auto">
-          <table className="w-full text-xs min-w-[550px]">
+          <table className="w-full text-[10px] sm:text-xs min-w-[450px]">
             <thead>
               <tr className="border-b border-gray-800/50 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
                 <th className="text-left py-3 sm:py-4 px-3 sm:px-5 text-gray-500 font-light tracking-wide uppercase text-[10px] sm:text-xs">
@@ -243,31 +243,31 @@ export function WalletProfile({ walletAddress, onClose }: WalletProfileProps) {
 
       {/* Wallet Connection Graph */}
       <div>
-        <h3 className="text-lg font-light tracking-tight text-gray-300 mb-4 uppercase">
+        <h3 className="text-base sm:text-lg font-light tracking-tight text-gray-300 mb-3 sm:mb-4 uppercase">
           Wallet Connections
         </h3>
-        <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl p-8 shadow-xl shadow-black/20">
+        <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl p-4 sm:p-6 lg:p-8 shadow-xl shadow-black/20">
           {/* Simplified connection visualization */}
-          <div className="flex items-center justify-center gap-12">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-12">
             <div className="text-center">
-              <div className="w-20 h-20 rounded-full border-2 border-[#4a6fa5] bg-gradient-to-br from-[#1a1a2e] to-[#0d0d0d] flex items-center justify-center mb-3 shadow-lg">
-                <span className="text-xs text-gray-300 font-mono font-light">
+              <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full border-2 border-[#4a6fa5] bg-gradient-to-br from-[#1a1a2e] to-[#0d0d0d] flex items-center justify-center mb-2 sm:mb-3 shadow-lg">
+                <span className="text-[10px] sm:text-xs text-gray-300 font-mono font-light">
                   {walletAddress.slice(0, 6)}
                 </span>
               </div>
-              <div className="text-xs text-gray-500 font-light uppercase tracking-wide">
+              <div className="text-[10px] sm:text-xs text-gray-500 font-light uppercase tracking-wide">
                 Current
               </div>
             </div>
-            <div className="flex-1 grid grid-cols-4 gap-6">
+            <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-4 sm:gap-6">
               {connections.map((conn, index) => (
                 <div key={index} className="text-center">
-                  <div className="w-14 h-14 rounded-full border border-gray-700/50 bg-gradient-to-br from-[#151515] to-[#0a0a0a] flex items-center justify-center mb-2 relative shadow-md">
-                    <span className="text-[11px] text-gray-500 font-mono">{conn.wallet}</span>
-                    <div className="absolute -left-10 top-1/2 w-10 h-[1px] bg-gradient-to-r from-gray-800 to-transparent"></div>
+                  <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-full border border-gray-700/50 bg-gradient-to-br from-[#151515] to-[#0a0a0a] flex items-center justify-center mb-2 relative shadow-md mx-auto">
+                    <span className="text-[9px] sm:text-[11px] text-gray-500 font-mono">{conn.wallet}</span>
+                    <div className="hidden sm:block absolute -left-10 top-1/2 w-10 h-[1px] bg-gradient-to-r from-gray-800 to-transparent"></div>
                   </div>
-                  <div className="text-[11px] text-gray-600 font-light">{conn.transfers} txs</div>
-                  <div className="text-[11px] text-gray-500 font-light">{conn.volume}</div>
+                  <div className="text-[10px] sm:text-[11px] text-gray-600 font-light">{conn.transfers} txs</div>
+                  <div className="text-[10px] sm:text-[11px] text-gray-500 font-light">{conn.volume}</div>
                 </div>
               ))}
             </div>

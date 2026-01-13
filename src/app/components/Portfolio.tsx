@@ -107,24 +107,24 @@ export function Portfolio() {
   };
 
   return (
-    <div className="max-w-[1800px] mx-auto space-y-6">
+    <div className="w-full max-w-[1800px] mx-auto space-y-4 sm:space-y-6 px-4 sm:px-6 lg:px-8">
       {/* Balances */}
-      <div className="grid grid-cols-4 gap-4">
-        <div className="bg-[#0d0d0d] border border-gray-800 p-4">
-          <div className="text-xs text-gray-500 mb-2">Total Balance</div>
-          <div className="text-xl text-gray-100">{formatBalance(totalBalance)}</div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+        <div className="bg-[#0d0d0d] border border-gray-800 p-3 sm:p-4">
+          <div className="text-[10px] sm:text-xs text-gray-500 mb-1 sm:mb-2">Total Balance</div>
+          <div className="text-base sm:text-lg lg:text-xl text-gray-100">{formatBalance(totalBalance)}</div>
         </div>
-        <div className="bg-[#0d0d0d] border border-gray-800 p-4">
-          <div className="text-xs text-gray-500 mb-2">In Positions</div>
-          <div className="text-xl text-gray-100">{formatBalance(inPositions)}</div>
+        <div className="bg-[#0d0d0d] border border-gray-800 p-3 sm:p-4">
+          <div className="text-[10px] sm:text-xs text-gray-500 mb-1 sm:mb-2">In Positions</div>
+          <div className="text-base sm:text-lg lg:text-xl text-gray-100">{formatBalance(inPositions)}</div>
         </div>
-        <div className="bg-[#0d0d0d] border border-gray-800 p-4">
-          <div className="text-xs text-gray-500 mb-2">Available</div>
-          <div className="text-xl text-gray-100">{formatBalance(availableBalance)}</div>
+        <div className="bg-[#0d0d0d] border border-gray-800 p-3 sm:p-4">
+          <div className="text-[10px] sm:text-xs text-gray-500 mb-1 sm:mb-2">Available</div>
+          <div className="text-base sm:text-lg lg:text-xl text-gray-100">{formatBalance(availableBalance)}</div>
         </div>
-        <div className="bg-[#0d0d0d] border border-gray-800 p-4">
-          <div className="text-xs text-gray-500 mb-2">Total PnL</div>
-          <div className={`text-xl ${totalPnL >= 0 ? "text-green-500" : "text-red-500"}`}>
+        <div className="bg-[#0d0d0d] border border-gray-800 p-3 sm:p-4">
+          <div className="text-[10px] sm:text-xs text-gray-500 mb-1 sm:mb-2">Total PnL</div>
+          <div className={`text-base sm:text-lg lg:text-xl ${totalPnL >= 0 ? "text-green-500" : "text-red-500"}`}>
             {totalPnL >= 0 ? "+" : ""}{formatBalance(totalPnL)}
           </div>
         </div>
@@ -132,17 +132,17 @@ export function Portfolio() {
 
       {/* PnL History Graph - Moved above positions */}
       <div>
-        <div className="flex items-center justify-between mb-3">
-          <h3 className="text-sm text-gray-500 uppercase tracking-wider">PnL History</h3>
+        <div className="flex items-center justify-between mb-2 sm:mb-3">
+          <h3 className="text-xs sm:text-sm text-gray-500 uppercase tracking-wider">PnL History</h3>
           <button
             onClick={() => setShowPnLCalendar(true)}
-            className="px-3 py-1 bg-[#0d0d0d] border border-gray-800 text-xs text-gray-400 hover:border-gray-700 transition-colors"
+            className="px-2 sm:px-3 py-1 bg-[#0d0d0d] border border-gray-800 text-[10px] sm:text-xs text-gray-400 hover:border-gray-700 transition-colors"
           >
             PnL Calendar
           </button>
         </div>
-        <div className="bg-[#0d0d0d] border border-gray-800 p-4">
-          <ResponsiveContainer width="100%" height={200}>
+        <div className="bg-[#0d0d0d] border border-gray-800 p-3 sm:p-4">
+          <ResponsiveContainer width="100%" height={150} className="sm:!h-[200px]">
             <LineChart data={pnlData}>
               <XAxis
                 dataKey="date"
@@ -172,24 +172,24 @@ export function Portfolio() {
 
       {/* Tabbed Section: Open Positions / PnL History / Top Trades */}
       <div>
-        <div className="flex items-center gap-4 mb-3">
+        <div className="flex items-center gap-2 sm:gap-4 mb-2 sm:mb-3 overflow-x-auto">
           <button
             onClick={() => setActiveTab("positions")}
-            className={`text-sm uppercase tracking-wider transition-colors ${activeTab === "positions" ? "text-gray-100" : "text-gray-500 hover:text-gray-300"
+            className={`text-xs sm:text-sm uppercase tracking-wider transition-colors whitespace-nowrap ${activeTab === "positions" ? "text-gray-100" : "text-gray-500 hover:text-gray-300"
               }`}
           >
             Open Positions
           </button>
           <button
             onClick={() => setActiveTab("pnlHistory")}
-            className={`text-sm uppercase tracking-wider transition-colors ${activeTab === "pnlHistory" ? "text-gray-100" : "text-gray-500 hover:text-gray-300"
+            className={`text-xs sm:text-sm uppercase tracking-wider transition-colors whitespace-nowrap ${activeTab === "pnlHistory" ? "text-gray-100" : "text-gray-500 hover:text-gray-300"
               }`}
           >
             PnL History
           </button>
           <button
             onClick={() => setActiveTab("topTrades")}
-            className={`text-sm uppercase tracking-wider transition-colors ${activeTab === "topTrades" ? "text-gray-100" : "text-gray-500 hover:text-gray-300"
+            className={`text-xs sm:text-sm uppercase tracking-wider transition-colors whitespace-nowrap ${activeTab === "topTrades" ? "text-gray-100" : "text-gray-500 hover:text-gray-300"
               }`}
           >
             Top Trades
