@@ -107,52 +107,52 @@ export function Portfolio() {
   };
 
   return (
-    <div className="w-full max-w-[1800px] mx-auto space-y-4 sm:space-y-6 px-4 sm:px-6 lg:px-8">
+    <div className="main-content" style={{ maxWidth: '1800px' }}>
       {/* Balances */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-        <div className="bg-[#0d0d0d] border border-gray-800 p-3 sm:p-4">
-          <div className="text-[10px] sm:text-xs text-gray-500 mb-1 sm:mb-2">Total Balance</div>
-          <div className="text-base sm:text-lg lg:text-xl text-gray-100">{formatBalance(totalBalance)}</div>
+      <div className="portfolio-grid">
+        <div className="portfolio-card">
+          <div className="portfolio-card-label">Total Balance</div>
+          <div className="portfolio-card-value">{formatBalance(totalBalance)}</div>
         </div>
-        <div className="bg-[#0d0d0d] border border-gray-800 p-3 sm:p-4">
-          <div className="text-[10px] sm:text-xs text-gray-500 mb-1 sm:mb-2">In Positions</div>
-          <div className="text-base sm:text-lg lg:text-xl text-gray-100">{formatBalance(inPositions)}</div>
+        <div className="portfolio-card">
+          <div className="portfolio-card-label">In Positions</div>
+          <div className="portfolio-card-value">{formatBalance(inPositions)}</div>
         </div>
-        <div className="bg-[#0d0d0d] border border-gray-800 p-3 sm:p-4">
-          <div className="text-[10px] sm:text-xs text-gray-500 mb-1 sm:mb-2">Available</div>
-          <div className="text-base sm:text-lg lg:text-xl text-gray-100">{formatBalance(availableBalance)}</div>
+        <div className="portfolio-card">
+          <div className="portfolio-card-label">Available</div>
+          <div className="portfolio-card-value">{formatBalance(availableBalance)}</div>
         </div>
-        <div className="bg-[#0d0d0d] border border-gray-800 p-3 sm:p-4">
-          <div className="text-[10px] sm:text-xs text-gray-500 mb-1 sm:mb-2">Total PnL</div>
-          <div className={`text-base sm:text-lg lg:text-xl ${totalPnL >= 0 ? "text-green-500" : "text-red-500"}`}>
+        <div className="portfolio-card">
+          <div className="portfolio-card-label">Total PnL</div>
+          <div className="portfolio-card-value" style={{ color: totalPnL >= 0 ? 'rgb(34, 197, 94)' : 'rgb(239, 68, 68)' }}>
             {totalPnL >= 0 ? "+" : ""}{formatBalance(totalPnL)}
           </div>
         </div>
       </div>
 
       {/* PnL History Graph - Moved above positions */}
-      <div>
-        <div className="flex items-center justify-between mb-2 sm:mb-3">
-          <h3 className="text-xs sm:text-sm text-gray-500 uppercase tracking-wider">PnL History</h3>
+      <div style={{ marginTop: 'var(--sp-5)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--sp-3)' }}>
+          <h3 style={{ fontSize: 'var(--fs-sm)', color: 'rgb(107, 114, 128)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>PnL History</h3>
           <button
             onClick={() => setShowPnLCalendar(true)}
-            className="px-2 sm:px-3 py-1 bg-[#0d0d0d] border border-gray-800 text-[10px] sm:text-xs text-gray-400 hover:border-gray-700 transition-colors"
+            style={{ padding: 'var(--sp-2) var(--sp-3)', background: '#0d0d0d', border: '1px solid rgba(55, 65, 81, 0.3)', fontSize: 'var(--fs-xs)', color: 'rgb(156, 163, 175)', borderRadius: 'var(--r-sm)' }}
           >
             PnL Calendar
           </button>
         </div>
-        <div className="bg-[#0d0d0d] border border-gray-800 p-3 sm:p-4">
-          <ResponsiveContainer width="100%" height={150} className="sm:!h-[200px]">
+        <div style={{ background: '#0d0d0d', border: '1px solid rgba(55, 65, 81, 0.3)', padding: 'var(--sp-4)' }}>
+          <ResponsiveContainer width="100%" height={180}>
             <LineChart data={pnlData}>
               <XAxis
                 dataKey="date"
                 stroke="#3a3a3a"
-                tick={{ fill: "#666", fontSize: 10 }}
+                tick={{ fill: "#666", fontSize: 'var(--fs-xs)' }}
                 axisLine={false}
               />
               <YAxis
                 stroke="#3a3a3a"
-                tick={{ fill: "#666", fontSize: 10 }}
+                tick={{ fill: "#666", fontSize: 'var(--fs-xs)' }}
                 axisLine={false}
               />
               <Tooltip
@@ -160,7 +160,7 @@ export function Portfolio() {
                   backgroundColor: "#0d0d0d",
                   border: "1px solid #3a3a3a",
                   borderRadius: 0,
-                  fontSize: 11,
+                  fontSize: 'var(--fs-xs)',
                 }}
                 labelStyle={{ color: "#999" }}
               />
@@ -171,26 +171,23 @@ export function Portfolio() {
       </div>
 
       {/* Tabbed Section: Open Positions / PnL History / Top Trades */}
-      <div>
-        <div className="flex items-center gap-2 sm:gap-4 mb-2 sm:mb-3 overflow-x-auto">
+      <div style={{ marginTop: 'var(--sp-5)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-4)', marginBottom: 'var(--sp-3)', overflowX: 'auto' }}>
           <button
             onClick={() => setActiveTab("positions")}
-            className={`text-xs sm:text-sm uppercase tracking-wider transition-colors whitespace-nowrap ${activeTab === "positions" ? "text-gray-100" : "text-gray-500 hover:text-gray-300"
-              }`}
+            style={{ fontSize: 'var(--fs-sm)', textTransform: 'uppercase', letterSpacing: '0.05em', color: activeTab === "positions" ? 'rgb(243, 244, 246)' : 'rgb(107, 114, 128)', transition: 'color 0.15s', whiteSpace: 'nowrap' }}
           >
             Open Positions
           </button>
           <button
             onClick={() => setActiveTab("pnlHistory")}
-            className={`text-xs sm:text-sm uppercase tracking-wider transition-colors whitespace-nowrap ${activeTab === "pnlHistory" ? "text-gray-100" : "text-gray-500 hover:text-gray-300"
-              }`}
+            style={{ fontSize: 'var(--fs-sm)', textTransform: 'uppercase', letterSpacing: '0.05em', color: activeTab === "pnlHistory" ? 'rgb(243, 244, 246)' : 'rgb(107, 114, 128)', transition: 'color 0.15s', whiteSpace: 'nowrap' }}
           >
             PnL History
           </button>
           <button
             onClick={() => setActiveTab("topTrades")}
-            className={`text-xs sm:text-sm uppercase tracking-wider transition-colors whitespace-nowrap ${activeTab === "topTrades" ? "text-gray-100" : "text-gray-500 hover:text-gray-300"
-              }`}
+            style={{ fontSize: 'var(--fs-sm)', textTransform: 'uppercase', letterSpacing: '0.05em', color: activeTab === "topTrades" ? 'rgb(243, 244, 246)' : 'rgb(107, 114, 128)', transition: 'color 0.15s', whiteSpace: 'nowrap' }}
           >
             Top Trades
           </button>

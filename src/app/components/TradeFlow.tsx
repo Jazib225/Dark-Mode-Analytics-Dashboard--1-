@@ -180,9 +180,9 @@ export function TradeFlow() {
   return (
     <div className="flex flex-col h-screen bg-[#0a0a0a]">
       {/* Top toolbar */}
-      <div className="bg-[#1a1a1a] border-b border-gray-800 px-3 sm:px-4 lg:px-6 py-3 sm:py-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-3 sm:mb-4">
-          <div className="flex items-center gap-2 sm:gap-3">
+      <div className="tradeflow-toolbar">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-[var(--sp-3)] w-full">
+          <div className="flex items-center gap-[var(--sp-2)] min-w-0">
             {isEditingTitle ? (
               <input
                 autoFocus
@@ -193,62 +193,66 @@ export function TradeFlow() {
                 onKeyDown={(e) => {
                   if (e.key === "Enter") setIsEditingTitle(false);
                 }}
-                className="px-2 sm:px-3 py-1 bg-gray-800 border border-gray-600 rounded text-gray-100 text-base sm:text-lg font-bold w-full sm:w-auto"
+                className="tradeflow-input w-full sm:w-auto"
+                style={{ fontSize: 'var(--fs-lg)', fontWeight: 700 }}
               />
             ) : (
               <h1
                 onClick={() => setIsEditingTitle(true)}
-                className="text-lg sm:text-xl lg:text-2xl font-bold text-gray-100 cursor-pointer hover:text-gray-300 transition-colors truncate"
+                className="tradeflow-title-input cursor-pointer hover:text-gray-300 transition-colors truncate"
+                style={{ fontSize: 'var(--fs-xl)' }}
               >
                 {workflow.title}
               </h1>
             )}
-            {isUnsaved && <span className="text-[10px] sm:text-xs px-1.5 sm:px-2 py-1 bg-yellow-900/40 border border-yellow-700 rounded text-yellow-300 whitespace-nowrap">Unsaved</span>}
+            {isUnsaved && <span className="tradeflow-error" style={{ background: 'rgba(113, 63, 18, 0.4)', borderColor: 'rgba(161, 98, 7, 0.5)', color: 'rgb(253, 224, 71)' }}>Unsaved</span>}
           </div>
 
-          <div className="flex items-center gap-2 sm:gap-3 flex-wrap sm:flex-nowrap">
+          <div className="flex items-center gap-[var(--sp-2)] flex-wrap sm:flex-nowrap">
             {successMessage && (
-              <div className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 bg-green-900/40 border border-green-700 rounded-lg text-green-300 text-[10px] sm:text-sm">
-                <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+              <div className="tradeflow-btn tradeflow-btn-primary">
+                <CheckCircle style={{ width: 'var(--icon-sm)', height: 'var(--icon-sm)' }} />
                 {successMessage}
               </div>
             )}
 
             <button
               onClick={() => setShowOpenModal(true)}
-              className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 bg-blue-900/40 hover:bg-blue-900/60 border border-blue-700 rounded-lg text-blue-300 text-[10px] sm:text-sm transition-colors"
+              className="tradeflow-btn tradeflow-btn-default"
+              style={{ background: 'rgba(30, 58, 138, 0.4)', borderColor: 'rgba(29, 78, 216, 0.5)', color: 'rgb(147, 197, 253)' }}
             >
               Open
             </button>
 
             <button
               onClick={handleNew}
-              className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-gray-300 text-[10px] sm:text-sm transition-colors"
+              className="tradeflow-btn tradeflow-btn-default"
             >
               New
             </button>
 
             <button
               onClick={handleValidate}
-              className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 bg-blue-900/40 hover:bg-blue-900/60 border border-blue-700 rounded-lg text-blue-300 text-[10px] sm:text-sm transition-colors"
+              className="tradeflow-btn tradeflow-btn-default"
+              style={{ background: 'rgba(30, 58, 138, 0.4)', borderColor: 'rgba(29, 78, 216, 0.5)', color: 'rgb(147, 197, 253)' }}
             >
-              <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4" />
+              <CheckCircle style={{ width: 'var(--icon-sm)', height: 'var(--icon-sm)' }} />
               <span className="hidden sm:inline">Validate</span>
             </button>
 
             <button
               onClick={handleSave}
-              className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 bg-green-900/40 hover:bg-green-900/60 border border-green-700 rounded-lg text-green-300 text-[10px] sm:text-sm transition-colors"
+              className="tradeflow-btn tradeflow-btn-primary"
             >
-              <Save className="w-3 h-3 sm:w-4 sm:h-4" />
+              <Save style={{ width: 'var(--icon-sm)', height: 'var(--icon-sm)' }} />
               <span className="hidden sm:inline">Save</span>
             </button>
 
             <button
               onClick={() => setShowClearConfirm(true)}
-              className="flex items-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-1.5 sm:py-2 bg-red-900/40 hover:bg-red-900/60 border border-red-700 rounded-lg text-red-300 text-[10px] sm:text-sm transition-colors"
+              className="tradeflow-btn tradeflow-btn-danger"
             >
-              <Trash2 className="w-4 h-4" />
+              <Trash2 style={{ width: 'var(--icon-sm)', height: 'var(--icon-sm)' }} />
               Clear
             </button>
           </div>
@@ -256,13 +260,13 @@ export function TradeFlow() {
 
         {/* Validation errors */}
         {validationErrors.length > 0 && (
-          <div className="mt-4 flex gap-2 flex-wrap">
+          <div className="mt-[var(--sp-3)] flex gap-[var(--sp-2)] flex-wrap">
             {validationErrors.slice(0, 3).map((error: string, idx: number) => (
               <div
                 key={idx}
-                className="flex items-center gap-2 px-3 py-1.5 bg-orange-900/40 border border-orange-700 rounded-lg text-orange-300 text-xs"
+                className="tradeflow-error"
               >
-                <AlertCircle className="w-3 h-3" />
+                <AlertCircle style={{ width: 'var(--icon-xs)', height: 'var(--icon-xs)' }} />
                 {error}
               </div>
             ))}
@@ -272,18 +276,18 @@ export function TradeFlow() {
 
       {/* Open workflow modal */}
       {showOpenModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6 max-w-md max-h-96 overflow-y-auto">
-            <h2 className="text-lg font-semibold text-gray-100 mb-4">My Workflows</h2>
+        <div className="tradeflow-modal-overlay">
+          <div className="tradeflow-modal" style={{ maxWidth: 'clamp(280px, 90vw, 450px)', maxHeight: '24rem' }}>
+            <h2 className="tradeflow-modal-title">My Workflows</h2>
             {allWorkflows.length === 0 ? (
-              <p className="text-gray-400 text-sm">No saved workflows yet.</p>
+              <p className="tradeflow-modal-text">No saved workflows yet.</p>
             ) : (
-              <div className="space-y-2">
+              <div className="space-y-[var(--sp-2)]">
                 {allWorkflows.map((wf) => (
-                  <div key={wf.id} className="flex items-center justify-between p-3 bg-gray-800/50 rounded-lg hover:bg-gray-800 transition-colors">
+                  <div key={wf.id} className="flex items-center justify-between p-[var(--sp-3)] bg-gray-800/50 rounded-[var(--r-md)] hover:bg-gray-800 transition-colors">
                     <div className="flex-1 cursor-pointer" onClick={() => handleOpenWorkflow(wf.id)}>
-                      <p className="text-gray-100 font-medium">{wf.title}</p>
-                      <p className="text-xs text-gray-500">
+                      <p className="text-gray-100 font-medium" style={{ fontSize: 'var(--fs-sm)' }}>{wf.title}</p>
+                      <p style={{ fontSize: 'var(--fs-xs)', color: 'rgb(107, 114, 128)' }}>
                         {new Date(wf.lastSavedAt).toLocaleDateString()} {new Date(wf.lastSavedAt).toLocaleTimeString()}
                       </p>
                     </div>
@@ -292,7 +296,8 @@ export function TradeFlow() {
                         handleDeleteWorkflow(wf.id);
                         setAllWorkflows(getAllWorkflows());
                       }}
-                      className="px-2 py-1 text-xs bg-red-900/40 hover:bg-red-900/60 border border-red-700 rounded text-red-300 transition-colors"
+                      className="tradeflow-btn tradeflow-btn-danger"
+                      style={{ padding: 'var(--sp-1) var(--sp-2)', fontSize: 'var(--fs-xs)' }}
                     >
                       Delete
                     </button>
@@ -300,10 +305,10 @@ export function TradeFlow() {
                 ))}
               </div>
             )}
-            <div className="mt-4 flex gap-3 justify-end">
+            <div className="tradeflow-modal-actions" style={{ marginTop: 'var(--sp-4)' }}>
               <button
                 onClick={() => setShowOpenModal(false)}
-                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-gray-300 transition-colors"
+                className="tradeflow-btn tradeflow-btn-default"
               >
                 Close
               </button>
@@ -314,14 +319,14 @@ export function TradeFlow() {
 
       {/* New workflow confirmation modal */}
       {showNewConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6 max-w-sm">
-            <h2 className="text-lg font-semibold text-gray-100 mb-4">Unsaved Changes</h2>
-            <p className="text-gray-400 text-sm mb-6">You have unsaved changes. Save before starting a new workflow?</p>
-            <div className="flex gap-3 justify-end">
+        <div className="tradeflow-modal-overlay">
+          <div className="tradeflow-modal">
+            <h2 className="tradeflow-modal-title">Unsaved Changes</h2>
+            <p className="tradeflow-modal-text">You have unsaved changes. Save before starting a new workflow?</p>
+            <div className="tradeflow-modal-actions">
               <button
                 onClick={() => setShowNewConfirm(false)}
-                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-gray-300 transition-colors"
+                className="tradeflow-btn tradeflow-btn-default"
               >
                 Cancel
               </button>
@@ -330,13 +335,13 @@ export function TradeFlow() {
                   handleSave();
                   createNewWorkflow();
                 }}
-                className="px-4 py-2 bg-green-900/40 hover:bg-green-900/60 border border-green-700 rounded-lg text-green-300 transition-colors"
+                className="tradeflow-btn tradeflow-btn-primary"
               >
                 Save & New
               </button>
               <button
                 onClick={createNewWorkflow}
-                className="px-4 py-2 bg-red-900/40 hover:bg-red-900/60 border border-red-700 rounded-lg text-red-300 transition-colors"
+                className="tradeflow-btn tradeflow-btn-danger"
               >
                 Discard
               </button>
@@ -347,20 +352,20 @@ export function TradeFlow() {
 
       {/* Clear confirmation modal */}
       {showClearConfirm && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-[#1a1a1a] border border-gray-800 rounded-lg p-6 max-w-sm">
-            <h2 className="text-lg font-semibold text-gray-100 mb-4">Clear Canvas?</h2>
-            <p className="text-gray-400 text-sm mb-6">This will delete all nodes and connections. This action cannot be undone.</p>
-            <div className="flex gap-3 justify-end">
+        <div className="tradeflow-modal-overlay">
+          <div className="tradeflow-modal">
+            <h2 className="tradeflow-modal-title">Clear Canvas?</h2>
+            <p className="tradeflow-modal-text">This will delete all nodes and connections. This action cannot be undone.</p>
+            <div className="tradeflow-modal-actions">
               <button
                 onClick={() => setShowClearConfirm(false)}
-                className="px-4 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded-lg text-gray-300 transition-colors"
+                className="tradeflow-btn tradeflow-btn-default"
               >
                 Cancel
               </button>
               <button
                 onClick={handleClear}
-                className="px-4 py-2 bg-red-900/40 hover:bg-red-900/60 border border-red-700 rounded-lg text-red-300 transition-colors"
+                className="tradeflow-btn tradeflow-btn-danger"
               >
                 Clear
               </button>
@@ -390,7 +395,7 @@ export function TradeFlow() {
       </div>
 
       {/* Status bar */}
-      <div className="bg-[#1a1a1a] border-t border-gray-800 px-3 sm:px-4 lg:px-6 py-2 sm:py-3 text-[10px] sm:text-xs lg:text-sm text-gray-500 flex justify-between">
+      <div className="tradeflow-statusbar">
         <div>
           {workflow.nodes.length} {workflow.nodes.length === 1 ? "node" : "nodes"} • {workflow.edges.length}{" "}
           {workflow.edges.length === 1 ? "connection" : "connections"}

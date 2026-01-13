@@ -33,24 +33,22 @@ export function NodeLibrary({ onDragStart }: NodeLibraryProps) {
   const [expandedStage, setExpandedStage] = useState<string | null>("market");
 
   return (
-    <div className="w-64 bg-[#1a1a1a] border-r border-gray-800 flex flex-col h-full overflow-hidden">
-      <div className="p-4 border-b border-gray-800">
-        <h2 className="text-lg font-semibold text-gray-100">Node Library</h2>
+    <div className="tradeflow-sidebar">
+      <div className="tradeflow-sidebar-header">
+        <h2>Node Library</h2>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="tradeflow-sidebar-content">
         {Object.entries(stageNodes).map(([stage, nodes]) => (
-          <div key={stage} className="mb-4">
+          <div key={stage} className="node-section">
             <button
               onClick={() => setExpandedStage(expandedStage === stage ? null : stage)}
-              className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-800/50 transition-colors text-gray-100 font-medium"
+              className="node-section-button"
             >
               <Plus
-                className={`w-4 h-4 transition-transform ${
-                  expandedStage === stage ? "rotate-45" : ""
-                }`}
+                className={`node-section-icon ${expandedStage === stage ? "expanded" : ""}`}
               />
-              <span className="text-sm capitalize">
+              <span>
                 {stage === "market"
                   ? "Market Type"
                   : stage === "entry"
@@ -66,7 +64,14 @@ export function NodeLibrary({ onDragStart }: NodeLibraryProps) {
             </button>
 
             {expandedStage === stage && (
-              <div className={`ml-4 mt-2 ${stage === "logic" ? "flex justify-center gap-4" : "space-y-2"}`}>
+              <div className="node-section-expanded" style={{
+                marginLeft: 'var(--sp-3)',
+                marginTop: 'var(--sp-2)',
+                ...(stage === "logic"
+                  ? { display: 'flex', justifyContent: 'center', gap: 'var(--sp-4)' }
+                  : { display: 'flex', flexDirection: 'column', gap: 'var(--sp-2)' }
+                )
+              }}>
                 {nodes.map((nodeType) => {
                   const isLogic = stage === "logic";
                   return isLogic ? (
@@ -77,15 +82,7 @@ export function NodeLibrary({ onDragStart }: NodeLibraryProps) {
                       className="cursor-grab active:cursor-grabbing transition-all"
                       title={nodeType === "and" ? "AND Logic" : "OR Logic"}
                     >
-                      <div
-                        className="px-3 py-1.5 rounded-full flex items-center justify-center font-bold text-white border-2 border-gray-500 hover:scale-110 transition-transform hover:border-gray-300 text-sm"
-                        style={{
-                          background:
-                            nodeType === "and"
-                              ? "linear-gradient(135deg, #4f46e5 0%, #6366f1 100%)"
-                              : "linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%)",
-                        }}
-                      >
+                      <div className={`logic-node ${nodeType}`}>
                         {nodeType === "and" ? "AND" : "OR"}
                       </div>
                     </div>
@@ -94,9 +91,9 @@ export function NodeLibrary({ onDragStart }: NodeLibraryProps) {
                       key={nodeType}
                       draggable
                       onDragStart={(e: React.DragEvent<HTMLDivElement>) => onDragStart(e, nodeType as NodeType, stage)}
-                      className="p-3 bg-gray-800/40 hover:bg-gray-700/50 rounded-lg border border-gray-700/50 cursor-grab active:cursor-grabbing transition-colors"
+                      className="node-card"
                     >
-                      <div className="text-sm font-medium text-gray-100 capitalize">
+                      <div className="node-card-title">
                         {nodeType === "add"
                           ? "Add"
                           : nodeType === "subtract"
@@ -111,7 +108,7 @@ export function NodeLibrary({ onDragStart }: NodeLibraryProps) {
                                     ? "Take Profit"
                                     : nodeType}
                       </div>
-                      <div className="text-xs text-gray-500 mt-1">
+                      <div className="node-card-desc">
                         {nodeDescriptions[nodeType as NodeType]}
                       </div>
                     </div>

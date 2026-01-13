@@ -209,6 +209,159 @@ body {
 }
 
 /* =============================================================================
+   HEADER SEARCH INPUT - Fluid responsive search field
+   ============================================================================= */
+.header-search-wrapper {
+  position: relative;
+}
+
+.header-search-input {
+  width: clamp(100px, 20vw, 350px);
+  background: #0d0d0d;
+  border: 1px solid rgba(75, 85, 99, 0.3);
+  padding: var(--sp-2) var(--sp-3);
+  padding-left: calc(var(--sp-2) + var(--icon-sm) + var(--sp-1));
+  padding-right: calc(var(--sp-2) + var(--icon-sm));
+  font-size: var(--fs-sm);
+  color: rgba(243, 244, 246, 1);
+  border-radius: var(--r-md);
+  transition: all 0.15s ease;
+}
+
+.header-search-input::placeholder {
+  color: rgba(107, 114, 128, 1);
+}
+
+.header-search-input:focus {
+  outline: none;
+  border-color: rgba(107, 114, 128, 0.5);
+}
+
+.header-search-input.dropdown-open {
+  border-radius: var(--r-md) var(--r-md) 0 0;
+  border-bottom-color: transparent;
+}
+
+.header-search-icon {
+  position: absolute;
+  left: var(--sp-2);
+  top: 50%;
+  transform: translateY(-50%);
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  color: rgba(107, 114, 128, 1);
+  pointer-events: none;
+}
+
+.header-search-clear {
+  position: absolute;
+  right: var(--sp-2);
+  top: 50%;
+  transform: translateY(-50%);
+  color: rgba(107, 114, 128, 1);
+  transition: color 0.15s ease;
+}
+
+.header-search-clear:hover {
+  color: rgba(209, 213, 219, 1);
+}
+
+.header-search-clear svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
+.header-search-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: #0d0d0d;
+  border: 1px solid rgba(75, 85, 99, 0.3);
+  border-top: none;
+  border-radius: 0 0 var(--r-md) var(--r-md);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  max-height: clamp(200px, 50vh, 400px);
+  overflow-y: auto;
+  z-index: 50;
+}
+
+.search-dropdown-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-2) var(--sp-4);
+  border-bottom: 1px solid rgba(55, 65, 81, 0.3);
+}
+
+.search-dropdown-header span {
+  font-size: var(--fs-xs);
+  color: rgba(156, 163, 175, 1);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.search-dropdown-header button {
+  font-size: var(--fs-xs);
+  color: rgba(107, 114, 128, 1);
+  transition: color 0.15s ease;
+}
+
+.search-dropdown-header button:hover {
+  color: rgba(209, 213, 219, 1);
+}
+
+.search-dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.search-dropdown-item:hover {
+  background: rgba(30, 30, 30, 1);
+}
+
+.search-dropdown-item svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  color: rgba(107, 114, 128, 1);
+  flex-shrink: 0;
+}
+
+.search-dropdown-item-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.search-dropdown-item-name {
+  font-size: var(--fs-sm);
+  color: rgba(243, 244, 246, 1);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.search-dropdown-item-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  font-size: var(--fs-xs);
+  color: rgba(107, 114, 128, 1);
+  margin-top: var(--sp-1);
+}
+
+.search-dropdown-item-meta .prob {
+  color: #4a6fa5;
+}
+
+.search-dropdown-item-meta .volume {
+  color: rgba(34, 197, 94, 1);
+}
+
+/* =============================================================================
    APP CONTAINER - Reusable centered container
    ============================================================================= */
 .app-container {
@@ -676,6 +829,651 @@ body {
   height: calc(100vh - var(--header-h) - var(--bookmarks-bar-h));
   overflow-y: auto;
   padding-top: var(--sp-3);
+}
+
+/* =============================================================================
+   TRADEFLOW COMPONENTS - Fluid sizing for workflow builder
+   ============================================================================= */
+
+/* TradeFlow sidebar (Node Library) */
+.tradeflow-sidebar {
+  width: clamp(200px, 16vw, 280px);
+  background: #1a1a1a;
+  border-right: 1px solid rgba(55, 65, 81, 0.3);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.tradeflow-sidebar-header {
+  padding: var(--sp-4);
+  border-bottom: 1px solid rgba(55, 65, 81, 0.3);
+}
+
+.tradeflow-sidebar-header h2 {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: rgba(243, 244, 246, 1);
+}
+
+.tradeflow-sidebar-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-3);
+}
+
+/* Node Library section */
+.node-section {
+  margin-bottom: var(--sp-4);
+}
+
+.node-section-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--r-md);
+  transition: background 0.15s ease;
+  color: rgba(243, 244, 246, 1);
+  font-weight: 500;
+  font-size: var(--fs-sm);
+}
+
+.node-section-button:hover {
+  background: rgba(55, 65, 81, 0.3);
+}
+
+.node-section-icon {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+  transition: transform 0.2s ease;
+}
+
+.node-section-icon.expanded {
+  transform: rotate(45deg);
+}
+
+/* Draggable node cards in library */
+.node-card {
+  padding: var(--sp-3);
+  background: rgba(55, 65, 81, 0.25);
+  border: 1px solid rgba(75, 85, 99, 0.3);
+  border-radius: var(--r-md);
+  cursor: grab;
+  transition: all 0.15s ease;
+}
+
+.node-card:hover {
+  background: rgba(55, 65, 81, 0.4);
+}
+
+.node-card:active {
+  cursor: grabbing;
+}
+
+.node-card-title {
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: rgba(243, 244, 246, 1);
+  text-transform: capitalize;
+}
+
+.node-card-desc {
+  font-size: var(--fs-xs);
+  color: rgba(107, 114, 128, 1);
+  margin-top: var(--sp-1);
+}
+
+/* Logic nodes (AND/OR buttons) */
+.logic-node {
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: 9999px;
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: white;
+  border: 2px solid rgba(107, 114, 128, 1);
+  cursor: grab;
+  transition: all 0.15s ease;
+}
+
+.logic-node:hover {
+  transform: scale(1.1);
+  border-color: rgba(156, 163, 175, 1);
+}
+
+.logic-node.and {
+  background: linear-gradient(135deg, #4f46e5 0%, #6366f1 100%);
+}
+
+.logic-node.or {
+  background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
+}
+
+/* TradeFlow inspector panel */
+.tradeflow-inspector {
+  width: clamp(240px, 20vw, 320px);
+  background: #1a1a1a;
+  border-left: 1px solid rgba(55, 65, 81, 0.3);
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  overflow: hidden;
+}
+
+.tradeflow-inspector-header {
+  padding: var(--sp-4);
+  border-bottom: 1px solid rgba(55, 65, 81, 0.3);
+}
+
+.tradeflow-inspector-header h2 {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: rgba(243, 244, 246, 1);
+}
+
+.tradeflow-inspector-subtitle {
+  font-size: var(--fs-sm);
+  color: rgba(107, 114, 128, 1);
+  margin-top: var(--sp-1);
+  text-transform: capitalize;
+}
+
+.tradeflow-inspector-content {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--sp-4);
+}
+
+/* TradeFlow form fields */
+.tradeflow-field {
+  margin-bottom: var(--sp-4);
+}
+
+.tradeflow-label {
+  display: block;
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  color: rgba(209, 213, 219, 1);
+  margin-bottom: var(--sp-2);
+}
+
+.tradeflow-input,
+.tradeflow-select {
+  width: 100%;
+  padding: var(--sp-2) var(--sp-3);
+  background: rgba(55, 65, 81, 0.4);
+  border: 1px solid rgba(75, 85, 99, 0.5);
+  border-radius: var(--r-md);
+  color: rgba(243, 244, 246, 1);
+  font-size: var(--fs-sm);
+  transition: border-color 0.15s ease;
+}
+
+.tradeflow-input:focus,
+.tradeflow-select:focus {
+  outline: none;
+  border-color: #4a6fa5;
+}
+
+/* Workflow nodes on canvas */
+.workflow-node {
+  position: absolute;
+  width: clamp(140px, 10vw, 180px);
+  height: clamp(64px, 5vh, 88px);
+  border-radius: var(--r-md);
+  border-width: 2px;
+  padding: var(--sp-3);
+  cursor: grab;
+  transition: all 0.15s ease;
+}
+
+.workflow-node:active {
+  cursor: grabbing;
+}
+
+.workflow-node.selected {
+  box-shadow: 0 0 0 2px white;
+}
+
+.workflow-node-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: var(--sp-1);
+}
+
+.workflow-node-title {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: rgba(243, 244, 246, 1);
+}
+
+.workflow-node-delete {
+  color: rgba(156, 163, 175, 1);
+  transition: color 0.15s ease;
+}
+
+.workflow-node-delete:hover {
+  color: #f87171;
+}
+
+.workflow-node-delete svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
+.workflow-node-data {
+  font-size: var(--fs-xs);
+  color: rgba(209, 213, 219, 1);
+}
+
+/* Node connection handles */
+.node-handle {
+  position: absolute;
+  width: clamp(12px, 1vw, 16px);
+  height: clamp(12px, 1vw, 16px);
+  border-radius: 9999px;
+  background: black;
+  border: 1px solid rgba(75, 85, 99, 1);
+  cursor: crosshair;
+  transition: all 0.15s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+.node-handle:hover {
+  background: rgba(209, 213, 219, 1);
+  transform: scale(1.25);
+}
+
+.node-handle.highlighted {
+  background: white;
+  transform: scale(1.5);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+@keyframes pulse {
+
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.6;
+  }
+}
+
+/* TradeFlow toolbar */
+.tradeflow-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-3) var(--sp-4);
+  background: linear-gradient(to bottom, #1a1a1a, #151515);
+  border-bottom: 1px solid rgba(55, 65, 81, 0.3);
+}
+
+@media (min-width: 640px) {
+  .tradeflow-toolbar {
+    gap: var(--sp-3);
+    padding: var(--sp-4) var(--sp-5);
+  }
+}
+
+.tradeflow-title-input {
+  font-size: var(--fs-xl);
+  font-weight: 700;
+  background: transparent;
+  border: none;
+  color: rgba(243, 244, 246, 1);
+  min-width: 0;
+  flex: 0 1 auto;
+}
+
+.tradeflow-title-input:focus {
+  outline: none;
+}
+
+.tradeflow-title-input::placeholder {
+  color: rgba(107, 114, 128, 1);
+}
+
+.tradeflow-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-1);
+  padding: var(--sp-2) var(--sp-3);
+  font-size: var(--fs-sm);
+  font-weight: 500;
+  border-radius: var(--r-md);
+  transition: all 0.15s ease;
+  white-space: nowrap;
+}
+
+.tradeflow-btn svg {
+  width: var(--icon-sm);
+  height: var(--icon-sm);
+}
+
+.tradeflow-btn-default {
+  background: rgba(55, 65, 81, 0.4);
+  border: 1px solid rgba(75, 85, 99, 0.5);
+  color: rgba(209, 213, 219, 1);
+}
+
+.tradeflow-btn-default:hover {
+  background: rgba(55, 65, 81, 0.6);
+}
+
+.tradeflow-btn-primary {
+  background: rgba(22, 101, 52, 0.4);
+  border: 1px solid rgba(34, 197, 94, 0.5);
+  color: rgba(134, 239, 172, 1);
+}
+
+.tradeflow-btn-primary:hover {
+  background: rgba(22, 101, 52, 0.6);
+}
+
+.tradeflow-btn-danger {
+  background: rgba(127, 29, 29, 0.4);
+  border: 1px solid rgba(185, 28, 28, 0.5);
+  color: rgba(252, 165, 165, 1);
+}
+
+.tradeflow-btn-danger:hover {
+  background: rgba(127, 29, 29, 0.6);
+}
+
+/* TradeFlow status bar */
+.tradeflow-statusbar {
+  display: flex;
+  justify-content: space-between;
+  padding: var(--sp-2) var(--sp-4);
+  background: #1a1a1a;
+  border-top: 1px solid rgba(55, 65, 81, 0.3);
+  font-size: var(--fs-xs);
+  color: rgba(107, 114, 128, 1);
+}
+
+/* TradeFlow validation errors */
+.tradeflow-error {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--sp-2);
+  padding: var(--sp-2) var(--sp-3);
+  background: rgba(124, 45, 18, 0.4);
+  border: 1px solid rgba(194, 65, 12, 0.5);
+  border-radius: var(--r-md);
+  font-size: var(--fs-xs);
+  color: rgba(253, 186, 116, 1);
+}
+
+.tradeflow-error svg {
+  width: var(--icon-xs);
+  height: var(--icon-xs);
+}
+
+/* TradeFlow modal */
+.tradeflow-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 50;
+}
+
+.tradeflow-modal {
+  background: #1a1a1a;
+  border: 1px solid rgba(55, 65, 81, 0.3);
+  border-radius: var(--r-lg);
+  padding: var(--sp-5);
+  max-width: clamp(280px, 90vw, 400px);
+  max-height: 90vh;
+  overflow-y: auto;
+}
+
+.tradeflow-modal-title {
+  font-size: var(--fs-lg);
+  font-weight: 600;
+  color: rgba(243, 244, 246, 1);
+  margin-bottom: var(--sp-4);
+}
+
+.tradeflow-modal-text {
+  font-size: var(--fs-sm);
+  color: rgba(156, 163, 175, 1);
+  margin-bottom: var(--sp-5);
+}
+
+.tradeflow-modal-actions {
+  display: flex;
+  gap: var(--sp-3);
+  justify-content: flex-end;
+}
+
+/* =============================================================================
+   DISCOVER PAGE - Card grid
+   ============================================================================= */
+.discover-grid {
+  display: grid;
+  gap: var(--sp-4);
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 768px) {
+  .discover-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--sp-5);
+  }
+}
+
+@media (min-width: 1280px) {
+  .discover-grid {
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--sp-6);
+  }
+}
+
+.discover-card {
+  cursor: pointer;
+}
+
+.discover-card-preview {
+  height: clamp(160px, 18vw, 280px);
+  position: relative;
+  overflow: hidden;
+}
+
+.discover-card-content {
+  padding: var(--sp-4);
+  background: linear-gradient(to bottom, #0d0d0d, #0a0a0a);
+}
+
+@media (min-width: 640px) {
+  .discover-card-content {
+    padding: var(--sp-5);
+  }
+}
+
+.discover-card-icon {
+  padding: var(--sp-2);
+  border-radius: var(--r-md);
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.discover-card-icon svg {
+  width: var(--icon-md);
+  height: var(--icon-md);
+  color: rgba(209, 213, 219, 1);
+}
+
+@media (min-width: 640px) {
+  .discover-card-icon {
+    padding: var(--sp-3);
+  }
+
+  .discover-card-icon svg {
+    width: var(--icon-lg);
+    height: var(--icon-lg);
+  }
+}
+
+.discover-card-title {
+  font-size: var(--fs-lg);
+  font-weight: 500;
+  color: rgba(243, 244, 246, 1);
+  letter-spacing: -0.01em;
+}
+
+@media (min-width: 640px) {
+  .discover-card-title {
+    font-size: var(--fs-xl);
+  }
+}
+
+@media (min-width: 1024px) {
+  .discover-card-title {
+    font-size: var(--fs-2xl);
+  }
+}
+
+.discover-card-desc {
+  font-size: var(--fs-sm);
+  color: rgba(156, 163, 175, 1);
+  font-weight: 300;
+  line-height: 1.5;
+}
+
+/* =============================================================================
+   PORTFOLIO PAGE - Balance cards and tables
+   ============================================================================= */
+.portfolio-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--sp-3);
+}
+
+@media (min-width: 1024px) {
+  .portfolio-grid {
+    grid-template-columns: repeat(4, 1fr);
+    gap: var(--sp-4);
+  }
+}
+
+.portfolio-card {
+  background: #0d0d0d;
+  border: 1px solid rgba(55, 65, 81, 0.3);
+  padding: var(--sp-3);
+}
+
+@media (min-width: 640px) {
+  .portfolio-card {
+    padding: var(--sp-4);
+  }
+}
+
+.portfolio-card-label {
+  font-size: var(--fs-xs);
+  color: rgba(107, 114, 128, 1);
+  margin-bottom: var(--sp-1);
+}
+
+@media (min-width: 640px) {
+  .portfolio-card-label {
+    margin-bottom: var(--sp-2);
+  }
+}
+
+.portfolio-card-value {
+  font-size: var(--fs-lg);
+  color: rgba(243, 244, 246, 1);
+}
+
+@media (min-width: 640px) {
+  .portfolio-card-value {
+    font-size: var(--fs-xl);
+  }
+}
+
+@media (min-width: 1024px) {
+  .portfolio-card-value {
+    font-size: var(--fs-2xl);
+  }
+}
+
+/* =============================================================================
+   BOOKMARKS BAR
+   ============================================================================= */
+.bookmarks-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-4);
+  padding: var(--sp-2) var(--sp-5);
+  overflow-x: auto;
+  border-bottom: 1px solid rgba(55, 65, 81, 0.3);
+  background: linear-gradient(to bottom, #0d0d0d, #0a0a0a);
+}
+
+.bookmarks-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.bookmarks-bar {
+  scrollbar-width: none;
+}
+
+.bookmark-icon {
+  width: var(--icon-md);
+  height: var(--icon-md);
+  color: rgba(156, 163, 175, 1);
+  flex-shrink: 0;
+}
+
+.bookmark-item {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  background: linear-gradient(to bottom right, #1a1a1a, #0d0d0d);
+  border: 1px solid rgba(75, 85, 99, 0.3);
+  border-radius: var(--r-sm);
+  transition: all 0.15s ease;
+}
+
+.bookmark-item:hover {
+  border-color: rgba(107, 114, 128, 0.5);
+}
+
+.bookmark-item-image {
+  width: clamp(20px, 1.5vw, 24px);
+  height: clamp(20px, 1.5vw, 24px);
+  border-radius: var(--r-sm);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.bookmark-item-name {
+  font-size: var(--fs-sm);
+  color: rgba(209, 213, 219, 1);
+  font-weight: 300;
+  max-width: clamp(120px, 12vw, 200px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.bookmark-item-prob {
+  font-size: var(--fs-sm);
+  color: #4a6fa5;
+  font-weight: 400;
 }
 
 /* =============================================================================

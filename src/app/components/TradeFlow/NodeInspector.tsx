@@ -9,9 +9,13 @@ interface NodeInspectorProps {
 export function NodeInspector({ node, onDataChange }: NodeInspectorProps) {
   if (!node) {
     return (
-      <div className="w-80 bg-[#1a1a1a] border-l border-gray-800 flex flex-col h-full overflow-hidden p-4">
-        <h2 className="text-lg font-semibold text-gray-100 mb-4">Node Inspector</h2>
-        <div className="text-center text-gray-500 mt-8">Select a node to edit</div>
+      <div className="tradeflow-inspector">
+        <div className="tradeflow-inspector-header">
+          <h2>Node Inspector</h2>
+        </div>
+        <div className="tradeflow-inspector-content">
+          <div className="text-center" style={{ color: 'rgb(107, 114, 128)', marginTop: 'var(--sp-6)' }}>Select a node to edit</div>
+        </div>
       </div>
     );
   }
@@ -19,10 +23,10 @@ export function NodeInspector({ node, onDataChange }: NodeInspectorProps) {
   const data = node.data as any;
 
   return (
-    <div className="w-80 bg-[#1a1a1a] border-l border-gray-800 flex flex-col h-full overflow-hidden">
-      <div className="p-4 border-b border-gray-800">
-        <h2 className="text-lg font-semibold text-gray-100">Node Inspector</h2>
-        <p className="text-sm text-gray-500 mt-1 capitalize">
+    <div className="tradeflow-inspector">
+      <div className="tradeflow-inspector-header">
+        <h2>Node Inspector</h2>
+        <p className="tradeflow-inspector-subtitle">
           {node.type === "and"
             ? "AND"
             : node.type === "or"
@@ -35,15 +39,15 @@ export function NodeInspector({ node, onDataChange }: NodeInspectorProps) {
         </p>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-4">
+      <div className="tradeflow-inspector-content">
         {node.type === "market" && (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Market Type</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
+            <div className="tradeflow-field">
+              <label className="tradeflow-label">Market Type</label>
               <select
                 value={data.marketType || "All"}
                 onChange={(e) => onDataChange({ ...data, marketType: e.target.value })}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-100 text-sm focus:outline-none focus:border-blue-600"
+                className="tradeflow-select"
               >
                 <option>All</option>
                 <option>Sports</option>
@@ -53,47 +57,47 @@ export function NodeInspector({ node, onDataChange }: NodeInspectorProps) {
               </select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Search Keyword</label>
+            <div className="tradeflow-field">
+              <label className="tradeflow-label">Search Keyword</label>
               <input
                 type="text"
                 value={data.searchKeyword || ""}
                 onChange={(e) => onDataChange({ ...data, searchKeyword: e.target.value })}
                 placeholder="Optional..."
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-100 text-sm focus:outline-none focus:border-blue-600"
+                className="tradeflow-input"
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Min Liquidity ($)</label>
+            <div className="tradeflow-field">
+              <label className="tradeflow-label">Min Liquidity ($)</label>
               <input
                 type="number"
                 value={data.minLiquidity || 0}
                 onChange={(e) => onDataChange({ ...data, minLiquidity: Number(e.target.value) })}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-100 text-sm focus:outline-none focus:border-blue-600"
+                className="tradeflow-input"
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Min Volume ($)</label>
+            <div className="tradeflow-field">
+              <label className="tradeflow-label">Min Volume ($)</label>
               <input
                 type="number"
                 value={data.minVolume || 0}
                 onChange={(e) => onDataChange({ ...data, minVolume: Number(e.target.value) })}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-100 text-sm focus:outline-none focus:border-blue-600"
+                className="tradeflow-input"
               />
             </div>
           </div>
         )}
 
         {(node.type === "entry" || node.type === "exit") && (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Field</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
+            <div className="tradeflow-field">
+              <label className="tradeflow-label">Field</label>
               <select
                 value={data.field || "price"}
                 onChange={(e) => onDataChange({ ...data, field: e.target.value })}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-100 text-sm focus:outline-none focus:border-blue-600"
+                className="tradeflow-select"
               >
                 <option value="price">Price</option>
                 <option value="spread">Spread</option>
@@ -106,12 +110,12 @@ export function NodeInspector({ node, onDataChange }: NodeInspectorProps) {
               </select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Operator</label>
+            <div className="tradeflow-field">
+              <label className="tradeflow-label">Operator</label>
               <select
                 value={data.operator || ">"}
                 onChange={(e) => onDataChange({ ...data, operator: e.target.value })}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-100 text-sm focus:outline-none focus:border-blue-600"
+                className="tradeflow-select"
               >
                 <option value=">">&gt;</option>
                 <option value="<">&lt;</option>
@@ -122,62 +126,62 @@ export function NodeInspector({ node, onDataChange }: NodeInspectorProps) {
               </select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Value</label>
+            <div className="tradeflow-field">
+              <label className="tradeflow-label">Value</label>
               <input
                 type="text"
                 value={data.value || ""}
                 onChange={(e) => onDataChange({ ...data, value: e.target.value })}
                 placeholder="e.g., 0.65"
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-100 text-sm focus:outline-none focus:border-blue-600"
+                className="tradeflow-input"
               />
             </div>
 
             {node.type === "exit" && (
-              <div className="flex items-center gap-2 p-2 bg-gray-800/40 rounded-lg">
+              <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--sp-2)', padding: 'var(--sp-2)', background: 'rgba(55, 65, 81, 0.4)', borderRadius: 'var(--r-md)' }}>
                 <input
                   type="checkbox"
                   checked={data.trailingStop || false}
                   onChange={(e) => onDataChange({ ...data, trailingStop: e.target.checked })}
-                  className="w-4 h-4 cursor-pointer"
+                  style={{ width: 'var(--icon-sm)', height: 'var(--icon-sm)', cursor: 'pointer' }}
                 />
-                <label className="text-sm text-gray-300">Trailing Stop</label>
+                <label style={{ fontSize: 'var(--fs-sm)', color: 'rgb(209, 213, 219)' }}>Trailing Stop</label>
               </div>
             )}
           </div>
         )}
 
         {node.type === "profit" && (
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Type</label>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--sp-4)' }}>
+            <div className="tradeflow-field">
+              <label className="tradeflow-label">Type</label>
               <select
                 value={data.type || "percentage"}
                 onChange={(e) => onDataChange({ ...data, type: e.target.value })}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-100 text-sm focus:outline-none focus:border-blue-600"
+                className="tradeflow-select"
               >
                 <option value="percentage">Percentage (%)</option>
                 <option value="threshold">Price/Probability Threshold</option>
               </select>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Target Value</label>
+            <div className="tradeflow-field">
+              <label className="tradeflow-label">Target Value</label>
               <input
                 type="number"
                 value={data.value || ""}
                 onChange={(e) => onDataChange({ ...data, value: Number(e.target.value) })}
                 placeholder={data.type === "percentage" ? "e.g., 10" : "e.g., 0.85"}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-100 text-sm focus:outline-none focus:border-blue-600"
+                className="tradeflow-input"
               />
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">Partial Profit</label>
+            <div className="tradeflow-field">
+              <label className="tradeflow-label">Partial Profit</label>
               <select
                 value={data.partial || "100%"}
                 onChange={(e) => onDataChange({ ...data, partial: e.target.value })}
-                className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-gray-100 text-sm focus:outline-none focus:border-blue-600"
+                className="tradeflow-select"
               >
                 <option value="25%">Take 25%</option>
                 <option value="50%">Take 50%</option>
@@ -188,8 +192,8 @@ export function NodeInspector({ node, onDataChange }: NodeInspectorProps) {
         )}
 
         {(node.type === "and" || node.type === "or") && (
-          <div className="p-4 bg-gray-800/40 rounded-lg">
-            <p className="text-sm text-gray-300">
+          <div style={{ padding: 'var(--sp-4)', background: 'rgba(55, 65, 81, 0.4)', borderRadius: 'var(--r-md)' }}>
+            <p style={{ fontSize: 'var(--fs-sm)', color: 'rgb(209, 213, 219)' }}>
               {node.type === "and"
                 ? "Connects multiple conditions with AND logic. All conditions must be true."
                 : "Connects multiple conditions with OR logic. Any condition can be true."}
@@ -198,8 +202,8 @@ export function NodeInspector({ node, onDataChange }: NodeInspectorProps) {
         )}
 
         {["add", "subtract", "multiply", "divide"].includes(node.type) && (
-          <div className="p-4 bg-gray-800/40 rounded-lg">
-            <p className="text-sm text-gray-300">
+          <div style={{ padding: 'var(--sp-4)', background: 'rgba(55, 65, 81, 0.4)', borderRadius: 'var(--r-md)' }}>
+            <p style={{ fontSize: 'var(--fs-sm)', color: 'rgb(209, 213, 219)' }}>
               Math operator: {node.type === "add" ? "+" : node.type === "subtract" ? "−" : node.type === "multiply" ? "×" : "÷"}
             </p>
           </div>

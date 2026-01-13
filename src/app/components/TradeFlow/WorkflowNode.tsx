@@ -60,8 +60,7 @@ export function WorkflowNode({
 
   return (
     <div
-      className={`absolute w-40 h-20 rounded-lg border-2 p-4 cursor-grab active:cursor-grabbing transition-all ${baseColor} ${isSelected ? "ring-2 ring-white shadow-lg" : "hover:shadow-md"
-        }`}
+      className={`workflow-node border-2 ${baseColor} ${isSelected ? "selected" : "hover:shadow-md"}`}
       style={{
         left: `${node.position.x}px`,
         top: `${node.position.y}px`,
@@ -70,29 +69,25 @@ export function WorkflowNode({
       data-node-id={node.id}
       onClick={() => onSelect(node.id)}
     >
-      <div className="flex items-start justify-between mb-2">
-        <div className="text-sm font-semibold text-gray-100">{label}</div>
+      <div className="workflow-node-header">
+        <div className="workflow-node-title">{label}</div>
         <button
           onClick={(e: React.MouseEvent<HTMLButtonElement>) => {
             e.stopPropagation();
             onDelete(node.id);
           }}
-          className="text-gray-400 hover:text-red-400 transition-colors"
+          className="workflow-node-delete"
         >
-          <Trash2 className="w-4 h-4" />
+          <Trash2 />
         </button>
       </div>
-      {displayData && <div className="text-xs text-gray-300">{displayData}</div>}
+      {displayData && <div className="workflow-node-data">{displayData}</div>}
 
-      {/* Four connection handles - top, right, bottom, left - all black dots */}
-      {/* Larger hit area for easier clicking (w-4 h-4 = 16px) */}
-
+      {/* Four connection handles - top, right, bottom, left */}
       {/* Top handle */}
       <div
-        className={`absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full hover:bg-gray-300 hover:scale-125 transition-all cursor-crosshair shadow-lg border border-gray-600 ${highlightedInputHandle
-          ? "bg-white scale-150 animate-pulse"
-          : "bg-black"
-          }`}
+        className={`node-handle ${highlightedInputHandle ? "highlighted" : ""}`}
+        style={{ top: 0, left: '50%', transform: 'translate(-50%, -50%)' }}
         data-handle-type="input"
         data-handle-id="top"
         data-node-id={node.id}
@@ -101,7 +96,8 @@ export function WorkflowNode({
 
       {/* Right handle */}
       <div
-        className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-4 h-4 bg-black rounded-full hover:bg-gray-300 hover:scale-125 transition-all cursor-crosshair shadow-lg border border-gray-600"
+        className="node-handle"
+        style={{ right: 0, top: '50%', transform: 'translate(50%, -50%)' }}
         data-handle-type="output"
         data-handle-id="right"
         data-node-id={node.id}
@@ -110,7 +106,8 @@ export function WorkflowNode({
 
       {/* Bottom handle */}
       <div
-        className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-4 h-4 bg-black rounded-full hover:bg-gray-300 hover:scale-125 transition-all cursor-crosshair shadow-lg border border-gray-600"
+        className="node-handle"
+        style={{ bottom: 0, left: '50%', transform: 'translate(-50%, 50%)' }}
         data-handle-type="output"
         data-handle-id="bottom"
         data-node-id={node.id}
@@ -119,8 +116,8 @@ export function WorkflowNode({
 
       {/* Left handle */}
       <div
-        className={`absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full hover:bg-gray-300 hover:scale-125 transition-all cursor-crosshair shadow-lg border border-gray-600 ${highlightedInputHandle ? "bg-white scale-150" : "bg-black"
-          }`}
+        className={`node-handle ${highlightedInputHandle ? "highlighted" : ""}`}
+        style={{ left: 0, top: '50%', transform: 'translate(-50%, -50%)' }}
         data-handle-type="input"
         data-handle-id="left"
         data-node-id={node.id}

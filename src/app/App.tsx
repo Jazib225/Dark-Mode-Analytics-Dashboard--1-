@@ -876,8 +876,8 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
           {/* Right: Actions (search, login) */}
           <div className="header-actions">
             {/* Search Bar - responsive width */}
-            <div ref={searchRef} className="relative">
-              <Search className="absolute left-[var(--sp-2)] top-1/2 -translate-y-1/2 w-[var(--icon-sm)] h-[var(--icon-sm)] text-gray-500 z-10" />
+            <div ref={searchRef} className="header-search-wrapper">
+              <Search className="header-search-icon" />
               <input
                 ref={searchInputRef}
                 type="text"
@@ -886,10 +886,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                 onFocus={() => setIsSearchFocused(true)}
                 onKeyDown={handleSearchKeyDown}
                 placeholder="Search..."
-                className={`w-[100px] sm:w-[160px] md:w-[200px] lg:w-[280px] xl:w-[350px] bg-[#0d0d0d] border border-gray-800/50 pl-[calc(var(--sp-2)+var(--icon-sm)+var(--sp-1))] pr-[calc(var(--sp-2)+var(--icon-sm))] py-[var(--sp-2)] text-[var(--fs-sm)] text-gray-200 placeholder-gray-500 focus:outline-none focus:border-gray-600/50 transition-all ${isSearchFocused && (searchHistory.length > 0 || searchQuery.trim() || isSearching)
-                  ? "rounded-t-[var(--r-md)] rounded-b-none border-b-transparent"
-                  : "rounded-[var(--r-md)]"
-                  }`}
+                className={`header-search-input ${isSearchFocused && (searchHistory.length > 0 || searchQuery.trim() || isSearching) ? "dropdown-open" : ""}`}
               />
               {searchQuery && (
                 <button
@@ -898,46 +895,42 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                     setSearchResults([]);
                     searchInputRef.current?.focus();
                   }}
-                  className="absolute right-[var(--sp-2)] top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300 transition-colors z-10"
+                  className="header-search-clear"
                 >
-                  <X className="w-[var(--icon-sm)] h-[var(--icon-sm)]" />
+                  <X />
                 </button>
               )}
 
               {/* Search Dropdown */}
               {isSearchFocused && (searchHistory.length > 0 || searchQuery.trim() || isSearching) && (
-                <div className="absolute top-full left-0 right-0 bg-[#0d0d0d] border border-gray-800/50 border-t-0 rounded-b-lg shadow-xl shadow-black/30 z-50 max-h-[300px] sm:max-h-[400px] overflow-y-auto">
+                <div className="header-search-dropdown">
                   {/* History */}
                   {!searchQuery.trim() && searchHistory.length > 0 && (
                     <div>
-                      <div className="flex items-center justify-between px-4 py-2 border-b border-gray-800/30">
-                        <span className="text-[13px] text-gray-400 uppercase tracking-wide">Recently Searched</span>
-                        <button
-                          onClick={clearSearchHistory}
-                          className="text-[13px] text-gray-500 hover:text-gray-300 transition-colors"
-                        >
-                          Clear all
-                        </button>
+                      <div className="search-dropdown-header">
+                        <span>Recently Searched</span>
+                        <button onClick={clearSearchHistory}>Clear all</button>
                       </div>
                       {searchHistory.map((item) => (
                         <div
                           key={item.id}
                           onClick={() => handleHistorySelect(item)}
-                          className="flex items-center gap-3 px-4 py-3 hover:bg-[#111111] cursor-pointer group transition-all"
+                          className="search-dropdown-item group"
                         >
-                          <Clock className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <div className="text-[14px] text-gray-200 truncate">{item.name}</div>
-                            <div className="flex items-center gap-4 text-[13px] text-gray-500 mt-0.5">
-                              <span className="text-[#4a6fa5]">{formatProbability(item.probability)}%</span>
-                              <span className="text-green-500">{item.volume}</span>
+                          <Clock />
+                          <div className="search-dropdown-item-text">
+                            <div className="search-dropdown-item-name">{item.name}</div>
+                            <div className="search-dropdown-item-meta">
+                              <span className="prob">{formatProbability(item.probability)}%</span>
+                              <span className="volume">{item.volume}</span>
                             </div>
                           </div>
                           <button
                             onClick={(e) => removeFromHistory(item.id, e)}
-                            className="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-gray-300 transition-all"
+                            style={{ opacity: 0, transition: 'opacity 0.15s' }}
+                            className="group-hover:opacity-100"
                           >
-                            <X className="w-3.5 h-3.5" />
+                            <X style={{ width: 'var(--icon-xs)', height: 'var(--icon-xs)' }} />
                           </button>
                         </div>
                       ))}
@@ -946,33 +939,31 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
 
                   {/* Loading */}
                   {searchQuery.trim() && isSearching && (
-                    <div className="px-4 py-6 text-center">
-                      <Loader2 className="w-5 h-5 animate-spin mx-auto mb-2 text-gray-400" />
-                      <p className="text-[14px] text-gray-400">Searching markets...</p>
+                    <div style={{ padding: 'var(--sp-5)', textAlign: 'center' }}>
+                      <Loader2 style={{ width: 'var(--icon-md)', height: 'var(--icon-md)', margin: '0 auto var(--sp-2)', color: 'rgb(156, 163, 175)' }} className="animate-spin" />
+                      <p style={{ fontSize: 'var(--fs-sm)', color: 'rgb(156, 163, 175)' }}>Searching markets...</p>
                     </div>
                   )}
 
                   {/* Results */}
                   {searchQuery.trim() && !isSearching && searchResults.length > 0 && (
                     <div>
-                      <div className="px-4 py-2 border-b border-gray-800/30">
-                        <span className="text-[12px] text-gray-400 uppercase tracking-wide">
-                          {searchResults.length} market{searchResults.length !== 1 ? "s" : ""} found
-                        </span>
+                      <div className="search-dropdown-header">
+                        <span>{searchResults.length} market{searchResults.length !== 1 ? "s" : ""} found</span>
                       </div>
                       {searchResults.map((market) => (
                         <div
                           key={market.id}
                           onClick={() => handleSearchMarketSelect(market)}
                           onMouseEnter={() => prefetchMarketDetail(market.id)}
-                          className="flex items-center gap-3 px-4 py-3 hover:bg-[#111111] cursor-pointer transition-all"
+                          className="search-dropdown-item"
                         >
-                          <TrendingUp className="w-4 h-4 text-gray-500 flex-shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <div className="text-[14px] text-gray-200 truncate">{market.name || market.title}</div>
-                            <div className="flex items-center gap-4 text-[13px] text-gray-500 mt-0.5">
-                              <span className="text-[#4a6fa5]">{formatProbability(Number(market.probability))}%</span>
-                              <span className="text-green-500">{market.volume}</span>
+                          <TrendingUp />
+                          <div className="search-dropdown-item-text">
+                            <div className="search-dropdown-item-name">{market.name || market.title}</div>
+                            <div className="search-dropdown-item-meta">
+                              <span className="prob">{formatProbability(Number(market.probability))}%</span>
+                              <span className="volume">{market.volume}</span>
                             </div>
                           </div>
                           <button
@@ -985,11 +976,11 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
                                 image: market.image || null,
                               });
                             }}
-                            className="text-gray-500 hover:text-[#4a6fa5] transition-all"
+                            style={{ color: 'rgb(107, 114, 128)', transition: 'color 0.15s' }}
                           >
                             <Bookmark
-                              className={`w-3.5 h-3.5 ${isBookmarked(market.id) ? "fill-current text-[#4a6fa5]" : ""
-                                }`}
+                              style={{ width: 'var(--icon-xs)', height: 'var(--icon-xs)' }}
+                              className={isBookmarked(market.id) ? "fill-current text-[#4a6fa5]" : ""}
                             />
                           </button>
                         </div>
@@ -999,10 +990,10 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
 
                   {/* No results */}
                   {searchQuery.trim() && !isSearching && searchResults.length === 0 && (
-                    <div className="px-4 py-8 text-center">
-                      <Search className="w-8 h-8 text-gray-600 mx-auto mb-3" />
-                      <p className="text-[14px] text-gray-400">No markets found for "{searchQuery}"</p>
-                      <p className="text-[13px] text-gray-500 mt-1">Try a different search term</p>
+                    <div style={{ padding: 'var(--sp-6)', textAlign: 'center' }}>
+                      <Search style={{ width: 'var(--icon-lg)', height: 'var(--icon-lg)', margin: '0 auto var(--sp-3)', color: 'rgb(75, 85, 99)' }} />
+                      <p style={{ fontSize: 'var(--fs-sm)', color: 'rgb(156, 163, 175)' }}>No markets found for "{searchQuery}"</p>
+                      <p style={{ fontSize: 'var(--fs-xs)', color: 'rgb(107, 114, 128)', marginTop: 'var(--sp-1)' }}>Try a different search term</p>
                     </div>
                   )}
                 </div>
@@ -1016,7 +1007,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
               rel="noopener noreferrer"
               className="text-white hover:text-gray-300 transition-colors hidden md:block"
             >
-              <svg className="w-4 h-4 lg:w-5 lg:h-5" viewBox="0 0 24 24" fill="currentColor">
+              <svg style={{ width: 'var(--icon-sm)', height: 'var(--icon-sm)' }} viewBox="0 0 24 24" fill="currentColor">
                 <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z" />
               </svg>
             </a>
