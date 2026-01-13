@@ -2538,3 +2538,345 @@ export async function getAllMarketDataParallel(marketId: string): Promise<AllMar
 // Alias for backwards compatibility with hooks
 export const getPriceHistory = getMarketPriceHistory;
 export const getRecentTradesById = getMarketTrades;
+
+// =============================================================================
+// NEW MARKETS - Sorted by creation time (newest first)
+// =============================================================================
+
+/**
+ * Cache for new markets
+ */
+const newMarketsCache = {
+  data: null as any[] | null,
+  timestamp: 0,
+};
+const NEW_MARKETS_CACHE_DURATION_MS = 30 * 1000; // 30 seconds cache
+
+/**
+ * Get newest markets sorted by createdAt timestamp (descending)
+ * Uses Gamma API /markets endpoint with order=createdAt,desc
+ * 
+ * Sort Logic:
+ * - Primary: createdAt timestamp descending (newest first)
+ * - Only active markets (closed=false, active=true)
+ * - Must have a valid question/title
+ * 
+ * @param limit Max number of markets to return
+ */
+export async function getNewMarkets(limit = 30): Promise<any[]> {
+  try {
+    // Check cache first
+    if (newMarketsCache.data && Date.now() - newMarketsCache.timestamp < NEW_MARKETS_CACHE_DURATION_MS) {
+      console.log(`Using cached new markets: ${newMarketsCache.data.length} markets`);
+      return newMarketsCache.data.slice(0, limit);
+    }
+
+    console.log("Fetching new markets from Gamma API...");
+    
+    // Fetch from Gamma API with descending order by creation time
+    // Note: Gamma API supports order parameter for sorting
+    const response = await fetchWithTimeout(
+      gammaUrl("/markets", {
+        limit: "100",
+        closed: "false",
+        active: "true",
+        order: "createdAt",
+        ascending: "false"
+      }),
+      15000
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    const markets = Array.isArray(data) ? data : (data?.data || data?.markets || []);
+
+    // Filter for valid markets and sort by createdAt (newest first)
+    const newMarkets = markets
+      .filter((m: any) => {
+        const hasTitle = m.question || m.title;
+        const isActive = m.active !== false && m.closed !== true;
+        return hasTitle && isActive;
+      })
+      .sort((a: any, b: any) => {
+        // Sort by createdAt descending (newest first)
+        const dateA = new Date(a.createdAt || 0).getTime();
+        const dateB = new Date(b.createdAt || 0).getTime();
+        return dateB - dateA;
+      })
+      .slice(0, 100)
+      .map((m: any) => {
+        // Parse outcome prices for probability
+        let yesPrice = 0.5;
+        let noPrice = 0.5;
+        if (m.outcomePrices) {
+          try {
+            const prices = typeof m.outcomePrices === 'string'
+              ? JSON.parse(m.outcomePrices)
+              : m.outcomePrices;
+            if (Array.isArray(prices) && prices.length > 0) {
+              const parsed = parseFloat(String(prices[0]));
+              if (!isNaN(parsed) && parsed >= 0 && parsed <= 1) {
+                yesPrice = parsed;
+                noPrice = prices.length > 1 ? parseFloat(String(prices[1])) : (1 - yesPrice);
+              }
+            }
+          } catch (e) { /* ignore parse errors */ }
+        }
+
+        return {
+          id: m.id || m.conditionId,
+          title: m.question || m.title,
+          name: m.question || m.title,
+          slug: m.slug,
+          probability: yesPrice * 100,
+          yesPriceCents: yesPrice * 100,
+          noPriceCents: noPrice * 100,
+          volumeUsd: parseFloat(String(m.volumeNum || m.volume || 0)),
+          volume24hr: parseFloat(String(m.volume24hr || 0)),
+          volume: formatVolumeHelper(parseFloat(String(m.volumeNum || m.volume || 0))),
+          image: m.image || null,
+          createdAt: m.createdAt,
+          endDate: m.endDate,
+        };
+      });
+
+    // Cache the results
+    newMarketsCache.data = newMarkets;
+    newMarketsCache.timestamp = Date.now();
+
+    console.log(`Fetched ${newMarkets.length} new markets`);
+    return newMarkets.slice(0, limit);
+
+  } catch (error) {
+    console.error("Failed to fetch new markets:", error);
+    // Return cached data if available, even if expired
+    if (newMarketsCache.data) {
+      return newMarketsCache.data.slice(0, limit);
+    }
+    return [];
+  }
+}
+
+// =============================================================================
+// NEARLY RESOLVED MARKETS - Markets closing soon
+// =============================================================================
+
+/**
+ * Cache for nearly resolved markets
+ */
+const nearlyResolvedCache = {
+  data: null as any[] | null,
+  timestamp: 0,
+};
+const NEARLY_RESOLVED_CACHE_DURATION_MS = 30 * 1000; // 30 seconds cache
+
+/**
+ * Get markets that are nearly resolved (closing soon)
+ * 
+ * Resolution Heuristic:
+ * - Uses endDate field from Gamma API
+ * - Filters for markets with endDate within the next 72 hours (configurable)
+ * - Only includes active markets (not already closed/resolved)
+ * - Sorted by endDate ascending (soonest first)
+ * 
+ * Note: If a market lacks an endDate, it's excluded from this list.
+ * The endDate represents when the market is scheduled to close/resolve.
+ * 
+ * @param hoursAhead How many hours ahead to look (default 72 hours = 3 days)
+ * @param limit Max number of markets to return
+ */
+export async function getNearlyResolvedMarkets(hoursAhead = 72, limit = 30): Promise<any[]> {
+  try {
+    // Check cache first
+    if (nearlyResolvedCache.data && Date.now() - nearlyResolvedCache.timestamp < NEARLY_RESOLVED_CACHE_DURATION_MS) {
+      console.log(`Using cached nearly resolved markets: ${nearlyResolvedCache.data.length} markets`);
+      return nearlyResolvedCache.data.slice(0, limit);
+    }
+
+    console.log("Fetching nearly resolved markets from Gamma API...");
+    
+    // Calculate the cutoff time (now + hoursAhead)
+    const now = Date.now();
+    const cutoffTime = now + (hoursAhead * 60 * 60 * 1000);
+
+    // First try to use the global cache if available (faster)
+    if (globalMarketCache.markets.length > 0) {
+      console.log("Using global cache for nearly resolved markets");
+      
+      const nearlyResolved = globalMarketCache.markets
+        .filter(m => {
+          if (!m.endDate || m.closed) return false;
+          const endTime = new Date(m.endDate).getTime();
+          // Must be in the future but within our window
+          return endTime > now && endTime <= cutoffTime;
+        })
+        .sort((a, b) => {
+          const endA = new Date(a.endDate || 0).getTime();
+          const endB = new Date(b.endDate || 0).getTime();
+          return endA - endB; // Soonest first
+        })
+        .slice(0, 100)
+        .map(m => ({
+          id: m.id,
+          title: m.title,
+          name: m.title,
+          slug: m.slug,
+          probability: m.probability,
+          yesPriceCents: m.probability,
+          noPriceCents: 100 - m.probability,
+          volumeUsd: m.volumeUsd,
+          volume24hr: m.volume24hr,
+          volume: formatVolumeHelper(m.volumeUsd),
+          image: m.image || null,
+          createdAt: m.createdAt,
+          endDate: m.endDate,
+          timeUntilClose: new Date(m.endDate).getTime() - now,
+        }));
+
+      // Cache the results
+      nearlyResolvedCache.data = nearlyResolved;
+      nearlyResolvedCache.timestamp = Date.now();
+
+      console.log(`Found ${nearlyResolved.length} nearly resolved markets from cache`);
+      return nearlyResolved.slice(0, limit);
+    }
+
+    // Fallback: Fetch from API
+    const response = await fetchWithTimeout(
+      gammaUrl("/markets", {
+        limit: "500",
+        closed: "false",
+        active: "true"
+      }),
+      15000
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+
+    const data = await response.json();
+    const markets = Array.isArray(data) ? data : (data?.data || data?.markets || []);
+
+    // Filter for markets with endDate in our time window
+    const nearlyResolved = markets
+      .filter((m: any) => {
+        if (!m.endDate || m.closed === true) return false;
+        const hasTitle = m.question || m.title;
+        if (!hasTitle) return false;
+        
+        const endTime = new Date(m.endDate).getTime();
+        // Validate the date is valid
+        if (isNaN(endTime)) return false;
+        // Must be in the future but within our window
+        return endTime > now && endTime <= cutoffTime;
+      })
+      .sort((a: any, b: any) => {
+        const endA = new Date(a.endDate).getTime();
+        const endB = new Date(b.endDate).getTime();
+        return endA - endB; // Soonest first
+      })
+      .slice(0, 100)
+      .map((m: any) => {
+        // Parse outcome prices for probability
+        let yesPrice = 0.5;
+        let noPrice = 0.5;
+        if (m.outcomePrices) {
+          try {
+            const prices = typeof m.outcomePrices === 'string'
+              ? JSON.parse(m.outcomePrices)
+              : m.outcomePrices;
+            if (Array.isArray(prices) && prices.length > 0) {
+              const parsed = parseFloat(String(prices[0]));
+              if (!isNaN(parsed) && parsed >= 0 && parsed <= 1) {
+                yesPrice = parsed;
+                noPrice = prices.length > 1 ? parseFloat(String(prices[1])) : (1 - yesPrice);
+              }
+            }
+          } catch (e) { /* ignore parse errors */ }
+        }
+
+        const endTime = new Date(m.endDate).getTime();
+        return {
+          id: m.id || m.conditionId,
+          title: m.question || m.title,
+          name: m.question || m.title,
+          slug: m.slug,
+          probability: yesPrice * 100,
+          yesPriceCents: yesPrice * 100,
+          noPriceCents: noPrice * 100,
+          volumeUsd: parseFloat(String(m.volumeNum || m.volume || 0)),
+          volume24hr: parseFloat(String(m.volume24hr || 0)),
+          volume: formatVolumeHelper(parseFloat(String(m.volumeNum || m.volume || 0))),
+          image: m.image || null,
+          createdAt: m.createdAt,
+          endDate: m.endDate,
+          timeUntilClose: endTime - now,
+        };
+      });
+
+    // Cache the results
+    nearlyResolvedCache.data = nearlyResolved;
+    nearlyResolvedCache.timestamp = Date.now();
+
+    console.log(`Fetched ${nearlyResolved.length} nearly resolved markets`);
+    return nearlyResolved.slice(0, limit);
+
+  } catch (error) {
+    console.error("Failed to fetch nearly resolved markets:", error);
+    // Return cached data if available, even if expired
+    if (nearlyResolvedCache.data) {
+      return nearlyResolvedCache.data.slice(0, limit);
+    }
+    return [];
+  }
+}
+
+/**
+ * Helper function to format time until close in human-readable format
+ */
+export function formatTimeUntilClose(ms: number): string {
+  if (ms <= 0) return "Closing now";
+  
+  const hours = Math.floor(ms / (1000 * 60 * 60));
+  const minutes = Math.floor((ms % (1000 * 60 * 60)) / (1000 * 60));
+  
+  if (hours >= 24) {
+    const days = Math.floor(hours / 24);
+    return `${days}d ${hours % 24}h`;
+  }
+  
+  if (hours > 0) {
+    return `${hours}h ${minutes}m`;
+  }
+  
+  return `${minutes}m`;
+}
+
+/**
+ * Fetch all three market lists in parallel for the Markets page
+ * This is the main function for the 3-column layout
+ * Uses Promise.all for parallel fetching (no waterfall)
+ */
+export async function fetchAllMarketColumns(timeframe: "24h" | "7d" | "1m" = "24h"): Promise<{
+  trending: any[];
+  newMarkets: any[];
+  nearlyResolved: any[];
+}> {
+  console.log("Fetching all market columns in parallel...");
+  
+  const [trendingResult, newMarketsResult, nearlyResolvedResult] = await Promise.allSettled([
+    getTrendingMarkets(timeframe),
+    getNewMarkets(30),
+    getNearlyResolvedMarkets(72, 30),
+  ]);
+
+  return {
+    trending: trendingResult.status === 'fulfilled' ? trendingResult.value : [],
+    newMarkets: newMarketsResult.status === 'fulfilled' ? newMarketsResult.value : [],
+    nearlyResolved: nearlyResolvedResult.status === 'fulfilled' ? nearlyResolvedResult.value : [],
+  };
+}

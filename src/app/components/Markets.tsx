@@ -1,8 +1,13 @@
-import { useState, useEffect } from "react";
-import { Bookmark, Loader2 } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { Bookmark, Loader2, TrendingUp, Sparkles, Clock } from "lucide-react";
 import { BookmarkedMarket } from "../App";
 import { MarketDetail } from "./MarketDetail";
-import { getTrendingMarkets } from "../services/polymarketApi";
+import { 
+  getTrendingMarkets, 
+  getNewMarkets, 
+  getNearlyResolvedMarkets,
+  formatTimeUntilClose
+} from "../services/polymarketApi";
 import {
   fetchMarketList,
   prefetchMarketDetail,
@@ -30,7 +35,7 @@ interface MarketsProps {
   isBookmarked: (marketId: string) => boolean;
   onWalletClick?: (address: string) => void;
   onMarketSelect?: (market: { id: string; name: string; probability: number; volume: string } | null) => void;
-  onBack?: () => void;  // Global back function from App
+  onBack?: () => void;
   initialMarketId?: string | null;
   initialMarketData?: {
     id: string;
@@ -51,14 +56,16 @@ interface DisplayMarket {
   volumeUsd?: string;
   volumeNum?: number;
   image?: string | null;
+  createdAt?: string;
+  endDate?: string;
+  timeUntilClose?: number;
 }
 
 type TimeFilter = "24h" | "7d" | "1m";
 
-// LocalStorage cache keys - separate cache per timeFilter for instant switching
-// Version 2: Added yesPriceCents and noPriceCents fields
-const MARKETS_CACHE_PREFIX = "polymarket_markets_v2_";
-const CACHE_EXPIRY_MS = 2 * 60 * 60 * 1000; // 2 hours - longer cache for instant loads
+// LocalStorage cache keys
+const MARKETS_CACHE_PREFIX = "polymarket_markets_v3_";
+const CACHE_EXPIRY_MS = 2 * 60 * 1000; // 2 minutes for faster updates
 
 // Preload images for faster display
 function preloadImages(markets: DisplayMarket[]): void {
@@ -75,13 +82,11 @@ interface CachedData {
   timestamp: number;
 }
 
-// Load cached markets from localStorage for specific timeFilter
-function loadCachedMarkets(timeFilter: TimeFilter): DisplayMarket[] | null {
+function loadCachedMarkets(cacheKey: string): DisplayMarket[] | null {
   try {
-    const cached = localStorage.getItem(MARKETS_CACHE_PREFIX + timeFilter);
+    const cached = localStorage.getItem(cacheKey);
     if (cached) {
       const data: CachedData = JSON.parse(cached);
-      // Check if cache is not expired
       if (Date.now() - data.timestamp < CACHE_EXPIRY_MS) {
         return data.markets;
       }
@@ -92,14 +97,13 @@ function loadCachedMarkets(timeFilter: TimeFilter): DisplayMarket[] | null {
   return null;
 }
 
-// Save markets to localStorage cache for specific timeFilter
-function saveCachedMarkets(markets: DisplayMarket[], timeFilter: TimeFilter): void {
+function saveCachedMarkets(markets: DisplayMarket[], cacheKey: string): void {
   try {
     const data: CachedData = {
       markets,
       timestamp: Date.now(),
     };
-    localStorage.setItem(MARKETS_CACHE_PREFIX + timeFilter, JSON.stringify(data));
+    localStorage.setItem(cacheKey, JSON.stringify(data));
   } catch (e) {
     console.error("Failed to save markets cache:", e);
   }
@@ -115,18 +119,15 @@ function convertApiMarketToDisplay(market: any, timeframe: TimeFilter = "24h"): 
     volumeUsd = market.volume1mo || market.volumeUsd;
   }
 
-  // Use pre-calculated cents from API if available, otherwise calculate from lastPriceUsd
   let yesPriceCents = market.yesPriceCents;
   let noPriceCents = market.noPriceCents;
 
-  // Fallback calculation if API didn't provide cents
   if (yesPriceCents === undefined || yesPriceCents === null) {
     const yesPrice = market.lastPriceUsd ? parseFloat(String(market.lastPriceUsd)) : 0.5;
     yesPriceCents = yesPrice * 100;
     noPriceCents = 100 - yesPriceCents;
   }
 
-  // Calculate probability for display
   const probability = yesPriceCents;
 
   return {
@@ -139,12 +140,13 @@ function convertApiMarketToDisplay(market: any, timeframe: TimeFilter = "24h"): 
     volumeUsd: String(volumeUsd),
     volume: formatVolume(parseFloat(String(volumeUsd || 0))),
     image: market.image || null,
+    createdAt: market.createdAt,
+    endDate: market.endDate,
+    timeUntilClose: market.timeUntilClose,
   };
 }
 
-// Convert V2 MarketCardDTO to DisplayMarket
 function convertV2MarketToDisplay(market: MarketCardDTO, timeframe: TimeFilter = "24h"): DisplayMarket {
-  // V2 API already has pre-calculated volume by timeframe
   let volumeNum = 0;
   if (timeframe === "24h") {
     volumeNum = market.volume24hr || 0;
@@ -154,7 +156,6 @@ function convertV2MarketToDisplay(market: MarketCardDTO, timeframe: TimeFilter =
     volumeNum = market.volume1mo || 0;
   }
 
-  // V2 API returns probability already as 0-100
   const probability = market.probability || 50;
   const yesPriceCents = probability;
   const noPriceCents = 100 - probability;
@@ -182,43 +183,151 @@ function formatVolume(volume: number): string {
 }
 
 // Constants for pagination
-const INITIAL_LOAD = 15;
-const LOAD_MORE_COUNT = 15;
+const INITIAL_LOAD = 10;
+const LOAD_MORE_COUNT = 10;
 
-export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketSelect, onBack, initialMarketId, initialMarketData }: MarketsProps) {
-  // Initialize with initialMarketId - this allows persistence across refreshes
+// ============================================================================
+// Market Card Component - Reusable across all columns
+// ============================================================================
+interface MarketCardProps {
+  market: DisplayMarket;
+  onClick: () => void;
+  onBookmark: () => void;
+  isBookmarked: boolean;
+  showEndDate?: boolean;
+}
+
+function MarketCard({ market, onClick, onBookmark, isBookmarked, showEndDate }: MarketCardProps) {
+  const yesCents = market.yesPriceCents ?? Number(market.probability);
+  const probabilityDisplay = yesCents < 1 ? "<1" : formatCents(yesCents);
+
+  return (
+    <div
+      onClick={onClick}
+      onMouseEnter={() => prefetchMarketDetail(market.id)}
+      className="group flex items-center gap-2 sm:gap-3 p-2.5 sm:p-3 bg-gradient-to-br from-[#111111] to-[#0a0a0a] hover:from-[#151515] hover:to-[#0d0d0d] border border-gray-800/30 hover:border-gray-700/50 rounded-lg cursor-pointer transition-all duration-150"
+    >
+      {/* Market Image */}
+      {market.image ? (
+        <img
+          src={market.image}
+          alt=""
+          className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg object-cover flex-shrink-0"
+          loading="eager"
+          onError={(e) => {
+            (e.target as HTMLImageElement).style.display = 'none';
+          }}
+        />
+      ) : (
+        <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gray-800/50 flex-shrink-0" />
+      )}
+
+      {/* Market Info */}
+      <div className="flex-1 min-w-0">
+        <p className="text-xs sm:text-sm text-gray-200 font-light truncate leading-tight">
+          {market.name || market.title}
+        </p>
+        <div className="flex items-center gap-2 mt-1">
+          <span className="text-sm sm:text-base font-light text-[#4a6fa5]">{probabilityDisplay}%</span>
+          {showEndDate && market.timeUntilClose && (
+            <span className="text-[10px] sm:text-xs text-orange-400/80 bg-orange-900/20 px-1.5 py-0.5 rounded">
+              {formatTimeUntilClose(market.timeUntilClose)}
+            </span>
+          )}
+          {!showEndDate && market.volume && (
+            <span className="text-[10px] sm:text-xs text-gray-500">{market.volume}</span>
+          )}
+        </div>
+      </div>
+
+      {/* Bookmark Button */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          onBookmark();
+        }}
+        className="text-gray-600 hover:text-[#4a6fa5] transition-all duration-200 flex-shrink-0 opacity-0 group-hover:opacity-100"
+      >
+        <Bookmark className={`w-4 h-4 ${isBookmarked ? "fill-current text-[#4a6fa5] opacity-100" : ""}`} />
+      </button>
+    </div>
+  );
+}
+
+// ============================================================================
+// Column Loading Skeleton
+// ============================================================================
+function ColumnSkeleton({ rows = 5 }: { rows?: number }) {
+  return (
+    <div className="space-y-2">
+      {[...Array(rows)].map((_, i) => (
+        <div key={i} className="flex items-center gap-3 p-3 bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-800/30 rounded-lg animate-pulse">
+          <div className="w-10 h-10 bg-gray-800/50 rounded-lg flex-shrink-0" />
+          <div className="flex-1 space-y-2">
+            <div className="h-4 bg-gray-800/50 rounded w-3/4" />
+            <div className="h-3 bg-gray-800/50 rounded w-1/3" />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ============================================================================
+// Main Markets Component
+// ============================================================================
+export function Markets({ 
+  toggleBookmark, 
+  isBookmarked, 
+  onWalletClick, 
+  onMarketSelect, 
+  onBack, 
+  initialMarketId, 
+  initialMarketData 
+}: MarketsProps) {
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(initialMarketId ?? null);
   const [timeFilter, setTimeFilter] = useState<TimeFilter>("24h");
 
-  // Sync selectedMarketId when initialMarketId changes from parent (e.g., from search)
-  // Only update if initialMarketId actually changed and is different from current
+  // State for all three columns
+  const [trendingMarkets, setTrendingMarkets] = useState<DisplayMarket[]>(() => 
+    loadCachedMarkets(MARKETS_CACHE_PREFIX + "trending_" + "24h") || []
+  );
+  const [newMarkets, setNewMarkets] = useState<DisplayMarket[]>(() => 
+    loadCachedMarkets(MARKETS_CACHE_PREFIX + "new") || []
+  );
+  const [nearlyResolvedMarkets, setNearlyResolvedMarkets] = useState<DisplayMarket[]>(() => 
+    loadCachedMarkets(MARKETS_CACHE_PREFIX + "resolved") || []
+  );
+
+  // Loading states for each column
+  const [loadingTrending, setLoadingTrending] = useState(() => 
+    !loadCachedMarkets(MARKETS_CACHE_PREFIX + "trending_" + "24h")
+  );
+  const [loadingNew, setLoadingNew] = useState(() => 
+    !loadCachedMarkets(MARKETS_CACHE_PREFIX + "new")
+  );
+  const [loadingResolved, setLoadingResolved] = useState(() => 
+    !loadCachedMarkets(MARKETS_CACHE_PREFIX + "resolved")
+  );
+
+  // Refresh indicators
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  // Pagination state
+  const [trendingDisplayed, setTrendingDisplayed] = useState(INITIAL_LOAD);
+  const [newDisplayed, setNewDisplayed] = useState(INITIAL_LOAD);
+  const [resolvedDisplayed, setResolvedDisplayed] = useState(INITIAL_LOAD);
+
+  // Sync selectedMarketId when initialMarketId changes
   useEffect(() => {
     if (initialMarketId !== undefined && initialMarketId !== selectedMarketId) {
       setSelectedMarketId(initialMarketId);
     }
   }, [initialMarketId]);
 
-  // Initialize with cached data if available for instant load
-  const [allMarkets, setAllMarkets] = useState<DisplayMarket[]>(() => {
-    const cached = loadCachedMarkets("24h");
-    if (cached) {
-      return cached;
-    }
-    return [];
-  });
-  const [displayedCount, setDisplayedCount] = useState(INITIAL_LOAD);
-  const [loading, setLoading] = useState(() => {
-    // Only show loading if no cached data
-    return loadCachedMarkets("24h") === null;
-  });
-  const [isRefreshing, setIsRefreshing] = useState(false); // Background refresh indicator
-  const [loadingMore, setLoadingMore] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  // Handle clicking on a market from the table
-  const handleTableMarketClick = (market: DisplayMarket) => {
+  // Handle clicking on a market
+  const handleMarketClick = (market: DisplayMarket) => {
     setSelectedMarketId(market.id);
-    // Notify parent component so it can persist the selection
     if (onMarketSelect) {
       onMarketSelect({
         id: market.id,
@@ -229,109 +338,130 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
     }
   };
 
-  // Fetch markets with optimized cache-first strategy
+  // Fetch all market data in parallel
   useEffect(() => {
-    const fetchMarkets = async () => {
-      // Check for cached data first (local cache)
-      const cached = loadCachedMarkets(timeFilter);
+    const fetchAllMarkets = async () => {
+      // Check caches first
+      const cachedTrending = loadCachedMarkets(MARKETS_CACHE_PREFIX + "trending_" + timeFilter);
+      const cachedNew = loadCachedMarkets(MARKETS_CACHE_PREFIX + "new");
+      const cachedResolved = loadCachedMarkets(MARKETS_CACHE_PREFIX + "resolved");
 
-      if (cached && cached.length > 0) {
-        // Use cached data immediately (no loading state)
-        setAllMarkets(cached);
-        setLoading(false);
-        setDisplayedCount(INITIAL_LOAD);
-
-        // Refresh in background
-        setIsRefreshing(true);
-        // Preload cached images immediately
-        preloadImages(cached);
-      } else {
-        // No cache - show loading
-        setLoading(true);
-        setDisplayedCount(INITIAL_LOAD);
+      // Use cached data if available
+      if (cachedTrending && cachedTrending.length > 0) {
+        setTrendingMarkets(cachedTrending);
+        setLoadingTrending(false);
+        preloadImages(cachedTrending);
+      }
+      if (cachedNew && cachedNew.length > 0) {
+        setNewMarkets(cachedNew);
+        setLoadingNew(false);
+        preloadImages(cachedNew);
+      }
+      if (cachedResolved && cachedResolved.length > 0) {
+        setNearlyResolvedMarkets(cachedResolved);
+        setLoadingResolved(false);
+        preloadImages(cachedResolved);
       }
 
-      setError(null);
+      // If any cache was used, show refresh indicator
+      if (cachedTrending || cachedNew || cachedResolved) {
+        setIsRefreshing(true);
+      }
 
+      // Fetch all three columns in parallel (no waterfall!)
       try {
-        // Use optimized V2 endpoint with server-side caching + client deduplication
-        const { markets: data } = await fetchMarketList(timeFilter);
-
-        if (!Array.isArray(data)) {
-          throw new Error("Invalid data format");
-        }
-
-        // V2 API returns MarketCardDTO - map to display format
-        const displayMarkets = data
-          .filter((m: MarketCardDTO) => m && m.question)
-          .map((m: MarketCardDTO) => convertV2MarketToDisplay(m, timeFilter));
-
-        setAllMarkets(displayMarkets);
-
-        // Save to localStorage cache
-        saveCachedMarkets(displayMarkets, timeFilter);
-
-        // Preload images for fast display
-        preloadImages(displayMarkets);
-
-      } catch (err) {
-        // Fallback to legacy API if V2 fails
-        console.warn("V2 API failed, falling back to legacy:", err);
-        try {
-          const data = await getTrendingMarkets(timeFilter);
-          if (Array.isArray(data)) {
-            const displayMarkets = data
+        const [trendingData, newData, resolvedData] = await Promise.all([
+          // Trending Markets - Use V2 API with fallback
+          (async () => {
+            try {
+              const { markets } = await fetchMarketList(timeFilter);
+              if (Array.isArray(markets) && markets.length > 0) {
+                return markets
+                  .filter((m: MarketCardDTO) => m && m.question)
+                  .map((m: MarketCardDTO) => convertV2MarketToDisplay(m, timeFilter));
+              }
+            } catch (e) {
+              console.warn("V2 API failed, using fallback:", e);
+            }
+            // Fallback to legacy API
+            const data = await getTrendingMarkets(timeFilter);
+            return data
               .filter((m: any) => m && m.title)
               .map((m: any) => convertApiMarketToDisplay(m, timeFilter));
-            setAllMarkets(displayMarkets);
-            saveCachedMarkets(displayMarkets, timeFilter);
-            preloadImages(displayMarkets);
-          }
-        } catch (fallbackErr) {
-          const message = fallbackErr instanceof Error ? fallbackErr.message : "Failed to fetch markets";
-          console.error("Error fetching markets:", message);
-          // Only show error if we don't have cached data
-          if (!cached || cached.length === 0) {
-            setError(message);
-            setAllMarkets([]);
-          }
+          })(),
+          // New Markets
+          getNewMarkets(30),
+          // Nearly Resolved Markets
+          getNearlyResolvedMarkets(72, 30),
+        ]);
+
+        // Update trending
+        if (trendingData && trendingData.length > 0) {
+          setTrendingMarkets(trendingData);
+          saveCachedMarkets(trendingData, MARKETS_CACHE_PREFIX + "trending_" + timeFilter);
+          preloadImages(trendingData);
         }
+        setLoadingTrending(false);
+
+        // Update new markets
+        if (newData && newData.length > 0) {
+          const displayNew = newData.map((m: any) => convertApiMarketToDisplay(m, "24h"));
+          setNewMarkets(displayNew);
+          saveCachedMarkets(displayNew, MARKETS_CACHE_PREFIX + "new");
+          preloadImages(displayNew);
+        }
+        setLoadingNew(false);
+
+        // Update nearly resolved
+        if (resolvedData && resolvedData.length > 0) {
+          const displayResolved = resolvedData.map((m: any) => ({
+            ...convertApiMarketToDisplay(m, "24h"),
+            timeUntilClose: m.timeUntilClose,
+            endDate: m.endDate,
+          }));
+          setNearlyResolvedMarkets(displayResolved);
+          saveCachedMarkets(displayResolved, MARKETS_CACHE_PREFIX + "resolved");
+          preloadImages(displayResolved);
+        }
+        setLoadingResolved(false);
+
+      } catch (error) {
+        console.error("Error fetching markets:", error);
+        setLoadingTrending(false);
+        setLoadingNew(false);
+        setLoadingResolved(false);
       } finally {
-        setLoading(false);
         setIsRefreshing(false);
       }
     };
 
-    fetchMarkets();
+    fetchAllMarkets();
   }, [timeFilter]);
 
-  // Prefetch other time filters in background for instant switching
+  // Prefetch other timeframes in background
   useEffect(() => {
-    // Use the optimized prefetch from marketDataClient
-    // This runs in background after initial load
     const prefetchTimeout = setTimeout(() => {
       prefetchOtherTimeframes(timeFilter);
     }, 1500);
-
     return () => clearTimeout(prefetchTimeout);
   }, [timeFilter]);
 
-  // Load more markets handler
-  const handleLoadMore = () => {
-    setLoadingMore(true);
-    setTimeout(() => {
-      setDisplayedCount(prev => Math.min(prev + LOAD_MORE_COUNT, allMarkets.length));
-      setLoadingMore(false);
-    }, 200);
-  };
-
-  // Get markets to display (paginated)
-  const displayedMarkets = allMarkets.slice(0, displayedCount);
-  const hasMoreMarkets = displayedCount < allMarkets.length;
+  // Displayed markets (paginated)
+  const displayedTrending = useMemo(() => 
+    trendingMarkets.slice(0, trendingDisplayed), 
+    [trendingMarkets, trendingDisplayed]
+  );
+  const displayedNew = useMemo(() => 
+    newMarkets.slice(0, newDisplayed), 
+    [newMarkets, newDisplayed]
+  );
+  const displayedResolved = useMemo(() => 
+    nearlyResolvedMarkets.slice(0, resolvedDisplayed), 
+    [nearlyResolvedMarkets, resolvedDisplayed]
+  );
 
   // Show market detail if selected
   if (selectedMarketId) {
-    // Use initialMarketData if it matches, otherwise find from allMarkets
     let selectedMarket: DisplayMarket | undefined;
 
     if (initialMarketData && initialMarketData.id === selectedMarketId) {
@@ -342,12 +472,12 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
         volume: initialMarketData.volume,
       };
     } else {
-      selectedMarket = allMarkets.find((m) => m.id === selectedMarketId);
+      selectedMarket = trendingMarkets.find((m) => m.id === selectedMarketId)
+        || newMarkets.find((m) => m.id === selectedMarketId)
+        || nearlyResolvedMarkets.find((m) => m.id === selectedMarketId);
     }
 
-    // If we have a market ID but no data yet, show loading or use minimal data
     if (!selectedMarket && selectedMarketId) {
-      // Try to create minimal market from just the ID - MarketDetail will fetch the rest
       selectedMarket = {
         id: selectedMarketId,
         name: "Loading...",
@@ -375,12 +505,10 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
             })
           }
           onBack={() => {
-            // Use global back navigation if available, otherwise just clear selection
             if (onBack) {
               onBack();
             } else {
               setSelectedMarketId(null);
-              // Clear parent state too so it doesn't persist on refresh
               if (onMarketSelect) {
                 onMarketSelect(null);
               }
@@ -392,221 +520,204 @@ export function Markets({ toggleBookmark, isBookmarked, onWalletClick, onMarketS
     }
   }
 
+  // Helper for bookmark action
+  const handleBookmark = (market: DisplayMarket) => {
+    toggleBookmark({
+      id: market.id,
+      name: market.name || market.title || "Unknown",
+      probability: Number(market.probability) || 0,
+      image: market.image || null,
+    });
+  };
+
   return (
-    <div className="w-full max-w-[1800px] mx-auto space-y-4 sm:space-y-6 lg:space-y-8 px-4 sm:px-6 lg:px-8">
-      {/* Trending Markets */}
-      <div>
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-3 sm:mb-4">
-          <div className="flex items-center gap-2 sm:gap-3">
-            <h2 className="text-base sm:text-lg lg:text-[19px] font-light tracking-tight text-gray-200 uppercase">
-              Trending Markets
-            </h2>
-            {isRefreshing && (
-              <div className="flex items-center gap-1.5 text-xs sm:text-[14px] text-gray-500">
-                <Loader2 className="w-3 h-3 animate-spin" />
-                <span className="hidden sm:inline">Updating...</span>
-              </div>
+    <div className="w-full max-w-[1920px] mx-auto px-4 sm:px-6 lg:px-8">
+      {/* Time Filter Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0 mb-4 sm:mb-6">
+        <div className="flex items-center gap-2 sm:gap-3">
+          <h1 className="text-lg sm:text-xl lg:text-2xl font-light tracking-tight text-gray-100">
+            Markets
+          </h1>
+          {isRefreshing && (
+            <div className="flex items-center gap-1.5 text-xs text-gray-500">
+              <Loader2 className="w-3 h-3 animate-spin" />
+              <span className="hidden sm:inline">Updating...</span>
+            </div>
+          )}
+        </div>
+        <div className="flex items-center gap-1 sm:gap-2">
+          <button
+            onClick={() => setTimeFilter("24h")}
+            className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-light tracking-wide rounded transition-all ${
+              timeFilter === "24h"
+                ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
+                : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
+            }`}
+          >
+            24H
+          </button>
+          <button
+            onClick={() => setTimeFilter("7d")}
+            className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-light tracking-wide rounded transition-all ${
+              timeFilter === "7d"
+                ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
+                : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
+            }`}
+          >
+            7D
+          </button>
+          <button
+            onClick={() => setTimeFilter("1m")}
+            className={`px-3 sm:px-4 py-1.5 text-xs sm:text-sm font-light tracking-wide rounded transition-all ${
+              timeFilter === "1m"
+                ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
+                : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
+            }`}
+          >
+            1M
+          </button>
+        </div>
+      </div>
+
+      {/* 3-Column Grid Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4 sm:gap-6">
+        
+        {/* Column 1: Trending Markets */}
+        <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl overflow-hidden shadow-xl shadow-black/20">
+          {/* Column Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800/50 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
+            <div className="flex items-center gap-2">
+              <TrendingUp className="w-4 h-4 text-[#4a6fa5]" />
+              <h2 className="text-sm sm:text-base font-light tracking-tight text-gray-200 uppercase">
+                Trending
+              </h2>
+            </div>
+            <span className="text-[10px] sm:text-xs text-gray-500 font-light">
+              By {timeFilter} volume
+            </span>
+          </div>
+
+          {/* Column Content */}
+          <div className="p-3 sm:p-4 space-y-2 max-h-[600px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
+            {loadingTrending ? (
+              <ColumnSkeleton rows={8} />
+            ) : displayedTrending.length === 0 ? (
+              <p className="text-center text-gray-500 py-8 text-sm">No trending markets found</p>
+            ) : (
+              <>
+                {displayedTrending.map((market) => (
+                  <MarketCard
+                    key={market.id}
+                    market={market}
+                    onClick={() => handleMarketClick(market)}
+                    onBookmark={() => handleBookmark(market)}
+                    isBookmarked={isBookmarked(market.id)}
+                  />
+                ))}
+                {trendingDisplayed < trendingMarkets.length && (
+                  <button
+                    onClick={() => setTrendingDisplayed(prev => prev + LOAD_MORE_COUNT)}
+                    className="w-full py-2 text-xs sm:text-sm text-gray-400 hover:text-gray-200 transition-colors"
+                  >
+                    Load more ({trendingMarkets.length - trendingDisplayed} remaining)
+                  </button>
+                )}
+              </>
             )}
           </div>
-          <div className="flex items-center gap-1 sm:gap-2">
-            <button
-              onClick={() => setTimeFilter("24h")}
-              className={`px-3 sm:px-4 py-1.5 text-xs sm:text-[14px] font-light tracking-wide rounded transition-all ${timeFilter === "24h"
-                ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
-                : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
-                }`}
-            >
-              24H
-            </button>
-            <button
-              onClick={() => setTimeFilter("7d")}
-              className={`px-3 sm:px-4 py-1.5 text-xs sm:text-[14px] font-light tracking-wide rounded transition-all ${timeFilter === "7d"
-                ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
-                : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
-                }`}
-            >
-              7D
-            </button>
-            <button
-              onClick={() => setTimeFilter("1m")}
-              className={`px-3 sm:px-4 py-1.5 text-xs sm:text-[14px] font-light tracking-wide rounded transition-all ${timeFilter === "1m"
-                ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
-                : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
-                }`}
-            >
-              1M
-            </button>
-          </div>
         </div>
+
+        {/* Column 2: New Markets */}
         <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl overflow-hidden shadow-xl shadow-black/20">
-          <div className="overflow-x-auto">
-            <table className="w-full text-xs sm:text-[14px] min-w-[500px]">
-              <thead>
-                <tr className="border-b border-gray-800/50 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
-                  <th className="text-left py-3 sm:py-4 px-3 sm:px-5 text-gray-400 font-light tracking-wide uppercase text-xs sm:text-sm">
-                    Market
-                  </th>
-                  <th className="text-center py-3 sm:py-4 px-3 sm:px-5 text-gray-400 font-light tracking-wide uppercase text-xs sm:text-sm">
-                    % Chance
-                  </th>
-                  <th className="text-center py-3 sm:py-4 px-3 sm:px-5 text-gray-400 font-light tracking-wide uppercase text-xs sm:text-sm">
-                    Buy Yes / No
-                  </th>
-                  <th className="text-right py-3 sm:py-4 px-3 sm:px-5 text-gray-400 font-light tracking-wide uppercase text-xs sm:text-sm">
-                    {timeFilter === "24h" ? "24h" : timeFilter === "7d" ? "7d" : "1M"} Vol
-                  </th>
-                  <th className="w-10"></th>
-                </tr>
-              </thead>
-              <tbody>
-                {loading ? (
-                  // Skeleton loading rows - shows instantly, feels faster
-                  [...Array(8)].map((_, i) => (
-                    <tr key={i} className="border-b border-gray-800/30 animate-pulse">
-                      <td className="py-3.5 px-5">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-gray-800/50 rounded-lg flex-shrink-0"></div>
-                          <div className="h-5 bg-gray-800/50 rounded w-3/4"></div>
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-5 text-center">
-                        <div className="h-5 bg-gray-800/50 rounded w-12 mx-auto"></div>
-                      </td>
-                      <td className="py-3.5 px-3 text-center">
-                        <div className="flex items-center justify-center gap-2">
-                          <div className="h-6 bg-gray-800/50 rounded w-16"></div>
-                          <div className="h-6 bg-gray-800/50 rounded w-16"></div>
-                        </div>
-                      </td>
-                      <td className="py-3.5 px-5 text-right">
-                        <div className="h-5 bg-gray-800/50 rounded w-16 ml-auto"></div>
-                      </td>
-                      <td className="py-3.5 px-5 text-right">
-                        <div className="h-5 bg-gray-800/50 rounded w-4 ml-auto"></div>
-                      </td>
-                    </tr>
-                  ))
-                ) : error ? (
-                  <tr>
-                    <td colSpan={5} className="py-8 text-center text-red-400 text-[15px]">
-                      Error: {error}
-                    </td>
-                  </tr>
-                ) : allMarkets.length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="py-8 text-center text-gray-400 text-[15px]">
-                      No active markets found
-                    </td>
-                  </tr>
-                ) : (
-                  displayedMarkets.map((market, index) => {
-                    const yesCents = market.yesPriceCents ?? Number(market.probability);
-                    const noCents = market.noPriceCents ?? (100 - yesCents);
-                    const probabilityDisplay = yesCents < 1 ? "<1" : formatCents(yesCents);
+          {/* Column Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800/50 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
+            <div className="flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-emerald-500" />
+              <h2 className="text-sm sm:text-base font-light tracking-tight text-gray-200 uppercase">
+                New Markets
+              </h2>
+            </div>
+            <span className="text-[10px] sm:text-xs text-gray-500 font-light">
+              Newest first
+            </span>
+          </div>
 
-                    return (
-                      <tr
-                        key={market.id}
-                        onClick={() => handleTableMarketClick(market)}
-                        onMouseEnter={() => prefetchMarketDetail(market.id)}
-                        className={`border-b border-gray-800/30 hover:bg-gradient-to-r hover:from-[#111111] hover:to-transparent transition-all duration-150 cursor-pointer ${index === displayedMarkets.length - 1 ? "border-b-0" : ""
-                          }`}
-                      >
-                        <td className="py-2.5 sm:py-3.5 px-3 sm:px-5 text-gray-200 max-w-[200px] sm:max-w-[400px] font-light">
-                          <div className="flex items-center gap-2 sm:gap-3">
-                            {market.image ? (
-                              <img
-                                src={market.image}
-                                alt=""
-                                className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg object-cover flex-shrink-0"
-                                loading="eager"
-                                decoding="async"
-                                onError={(e) => {
-                                  // Hide broken images
-                                  (e.target as HTMLImageElement).style.display = 'none';
-                                }}
-                              />
-                            ) : (
-                              <div className="w-6 h-6 sm:w-8 sm:h-8 rounded-lg bg-gray-800/50 flex-shrink-0" />
-                            )}
-                            <span className="truncate text-xs sm:text-sm">{market.name || market.title}</span>
-                          </div>
-                        </td>
-                        <td className="py-2.5 sm:py-3.5 px-3 sm:px-5 text-center">
-                          <span className="text-base sm:text-xl font-light text-[#4a6fa5]">{probabilityDisplay}%</span>
-                        </td>
-                        <td className="py-2.5 sm:py-3.5 px-2 sm:px-3 text-center">
-                          <div className="flex items-center justify-center gap-1 sm:gap-2">
-                            <span className="px-1.5 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium bg-green-900/30 border border-green-500/30 rounded text-green-400">
-                              Yes {formatCents(yesCents)}¢
-                            </span>
-                            <span className="px-1.5 sm:px-3 py-1 sm:py-1.5 text-[10px] sm:text-xs font-medium bg-red-900/30 border border-red-500/30 rounded text-red-400">
-                              No {formatCents(noCents)}¢
-                            </span>
-                          </div>
-                        </td>
-                        <td className="py-2.5 sm:py-3.5 px-3 sm:px-5 text-right text-green-500 font-light text-xs sm:text-sm">
-                          {market.volume}
-                        </td>
-                        <td className="py-2.5 sm:py-3.5 px-3 sm:px-5 text-right">
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleBookmark({
-                                id: market.id,
-                                name: market.name || market.title || "Unknown",
-                                probability: Number(market.probability) || 0,
-                                image: market.image || null,
-                              });
-                            }}
-                            className="text-gray-500 hover:text-[#4a6fa5] transition-all duration-200"
-                          >
-                            <Bookmark
-                              className={`w-4 h-4 ${isBookmarked(market.id) ? "fill-current text-[#4a6fa5]" : ""
-                                }`}
-                            />
-                          </button>
-                        </td>
-                      </tr>
-                    )
-                  })
+          {/* Column Content */}
+          <div className="p-3 sm:p-4 space-y-2 max-h-[600px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
+            {loadingNew ? (
+              <ColumnSkeleton rows={8} />
+            ) : displayedNew.length === 0 ? (
+              <p className="text-center text-gray-500 py-8 text-sm">No new markets found</p>
+            ) : (
+              <>
+                {displayedNew.map((market) => (
+                  <MarketCard
+                    key={market.id}
+                    market={market}
+                    onClick={() => handleMarketClick(market)}
+                    onBookmark={() => handleBookmark(market)}
+                    isBookmarked={isBookmarked(market.id)}
+                  />
+                ))}
+                {newDisplayed < newMarkets.length && (
+                  <button
+                    onClick={() => setNewDisplayed(prev => prev + LOAD_MORE_COUNT)}
+                    className="w-full py-2 text-xs sm:text-sm text-gray-400 hover:text-gray-200 transition-colors"
+                  >
+                    Load more ({newMarkets.length - newDisplayed} remaining)
+                  </button>
                 )}
-              </tbody>
-            </table>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Load More Button */}
-        {!loading && hasMoreMarkets && (
-          <div className="flex justify-center mt-4 sm:mt-6">
-            <button
-              onClick={handleLoadMore}
-              disabled={loadingMore}
-              className="px-6 sm:px-8 py-2.5 sm:py-3 bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 rounded-lg text-sm sm:text-[15px] font-light text-gray-200 hover:text-gray-100 hover:border-gray-600/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
-            >
-              {loadingMore ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Loading...
-                </>
-              ) : (
-                <>
-                  Load More Markets
-                  <span className="text-gray-400 text-[11px] sm:text-[13px]">
-                    ({allMarkets.length - displayedCount} remaining)
-                  </span>
-                </>
-              )}
-            </button>
+        {/* Column 3: Nearly Resolved Markets */}
+        <div className="bg-gradient-to-br from-[#0d0d0d] to-[#0b0b0b] border border-gray-800/50 rounded-xl overflow-hidden shadow-xl shadow-black/20 lg:col-span-2 xl:col-span-1">
+          {/* Column Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800/50 bg-gradient-to-b from-[#111111] to-[#0d0d0d]">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-orange-500" />
+              <h2 className="text-sm sm:text-base font-light tracking-tight text-gray-200 uppercase">
+                Closing Soon
+              </h2>
+            </div>
+            <span className="text-[10px] sm:text-xs text-gray-500 font-light">
+              Next 72h
+            </span>
           </div>
-        )}
 
-        {/* All loaded indicator */}
-        {!loading && !hasMoreMarkets && allMarkets.length > INITIAL_LOAD && (
-          <div className="text-center mt-3 sm:mt-4 text-gray-500 text-xs sm:text-[14px]">
-            All {allMarkets.length} markets loaded
+          {/* Column Content */}
+          <div className="p-3 sm:p-4 space-y-2 max-h-[600px] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
+            {loadingResolved ? (
+              <ColumnSkeleton rows={8} />
+            ) : displayedResolved.length === 0 ? (
+              <p className="text-center text-gray-500 py-8 text-sm">No markets closing soon</p>
+            ) : (
+              <>
+                {displayedResolved.map((market) => (
+                  <MarketCard
+                    key={market.id}
+                    market={market}
+                    onClick={() => handleMarketClick(market)}
+                    onBookmark={() => handleBookmark(market)}
+                    isBookmarked={isBookmarked(market.id)}
+                    showEndDate={true}
+                  />
+                ))}
+                {resolvedDisplayed < nearlyResolvedMarkets.length && (
+                  <button
+                    onClick={() => setResolvedDisplayed(prev => prev + LOAD_MORE_COUNT)}
+                    className="w-full py-2 text-xs sm:text-sm text-gray-400 hover:text-gray-200 transition-colors"
+                  >
+                    Load more ({nearlyResolvedMarkets.length - resolvedDisplayed} remaining)
+                  </button>
+                )}
+              </>
+            )}
           </div>
-        )}
+        </div>
+
       </div>
     </div>
   );
