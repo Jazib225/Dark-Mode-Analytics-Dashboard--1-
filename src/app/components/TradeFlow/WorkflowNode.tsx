@@ -60,9 +60,8 @@ export function WorkflowNode({
 
   return (
     <div
-      className={`absolute w-40 rounded-lg border-2 p-4 cursor-grab active:cursor-grabbing transition-all ${baseColor} ${
-        isSelected ? "ring-2 ring-white shadow-lg" : "hover:shadow-md"
-      }`}
+      className={`absolute w-40 rounded-lg border-2 p-4 cursor-grab active:cursor-grabbing transition-all ${baseColor} ${isSelected ? "ring-2 ring-white shadow-lg" : "hover:shadow-md"
+        }`}
       style={{
         left: `${node.position.x}px`,
         top: `${node.position.y}px`,
@@ -84,46 +83,44 @@ export function WorkflowNode({
         </button>
       </div>
       {displayData && <div className="text-xs text-gray-300">{displayData}</div>}
-      
+
       {/* Four connection handles - top, right, bottom, left - all black dots */}
       {/* Larger hit area for easier clicking (w-4 h-4 = 16px) */}
-      
+
       {/* Top handle */}
-      <div 
-        className={`absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full hover:bg-gray-300 hover:scale-125 transition-all cursor-crosshair shadow-lg border border-gray-600 ${
-          highlightedInputHandle
+      <div
+        className={`absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2 w-4 h-4 rounded-full hover:bg-gray-300 hover:scale-125 transition-all cursor-crosshair shadow-lg border border-gray-600 ${highlightedInputHandle
             ? "bg-white scale-150 animate-pulse"
             : "bg-black"
-        }`}
+          }`}
         data-handle-type="input"
         data-handle-id="top"
         data-node-id={node.id}
         title="Connect here"
       />
-      
+
       {/* Right handle */}
-      <div 
+      <div
         className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-4 h-4 bg-black rounded-full hover:bg-gray-300 hover:scale-125 transition-all cursor-crosshair shadow-lg border border-gray-600"
         data-handle-type="output"
         data-handle-id="right"
         data-node-id={node.id}
         title="Drag to connect"
       />
-      
+
       {/* Bottom handle */}
-      <div 
+      <div
         className="absolute bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2 w-4 h-4 bg-black rounded-full hover:bg-gray-300 hover:scale-125 transition-all cursor-crosshair shadow-lg border border-gray-600"
         data-handle-type="output"
         data-handle-id="bottom"
         data-node-id={node.id}
         title="Drag to connect"
       />
-      
+
       {/* Left handle */}
-      <div 
-        className={`absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full hover:bg-gray-300 hover:scale-125 transition-all cursor-crosshair shadow-lg border border-gray-600 ${
-          highlightedInputHandle ? "bg-white scale-150" : "bg-black"
-        }`}
+      <div
+        className={`absolute left-0 top-1/2 -translate-y-1/2 -translate-x-1/2 w-4 h-4 rounded-full hover:bg-gray-300 hover:scale-125 transition-all cursor-crosshair shadow-lg border border-gray-600 ${highlightedInputHandle ? "bg-white scale-150" : "bg-black"
+          }`}
         data-handle-type="input"
         data-handle-id="left"
         data-node-id={node.id}

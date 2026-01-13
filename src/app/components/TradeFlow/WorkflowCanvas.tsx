@@ -80,7 +80,7 @@ function getHandlePosition(nodePos: { x: number; y: number }, handleId: string =
   const nodeHeight = 80; // More accurate based on actual content height
   const centerX = nodePos.x + nodeWidth / 2;
   const centerY = nodePos.y + nodeHeight / 2;
-  
+
   switch (handleId) {
     case "top":
       return { x: centerX, y: nodePos.y };
@@ -104,7 +104,7 @@ function findNearestHandle(
   const handles = ["top", "right", "bottom", "left"];
   let nearestHandle = "right";
   let minDistance = Infinity;
-  
+
   for (const handleId of handles) {
     const pos = getHandlePosition(nodePos, handleId);
     const dist = Math.sqrt((mouseX - pos.x) ** 2 + (mouseY - pos.y) ** 2);
@@ -113,7 +113,7 @@ function findNearestHandle(
       nearestHandle = handleId;
     }
   }
-  
+
   return { handleId: nearestHandle, distance: minDistance };
 }
 
@@ -144,16 +144,16 @@ export function WorkflowCanvas({
   // Handle canvas resize
   useEffect(() => {
     if (!canvasRef.current || !containerRef.current) return;
-    
+
     const resizeCanvas = () => {
       const canvas = canvasRef.current!;
       const container = containerRef.current!;
       const rect = container.getBoundingClientRect();
-      
+
       canvas.width = rect.width;
       canvas.height = rect.height;
     };
-    
+
     resizeCanvas();
     window.addEventListener("resize", resizeCanvas);
     return () => window.removeEventListener("resize", resizeCanvas);
@@ -176,11 +176,11 @@ export function WorkflowCanvas({
     stages.forEach((stage) => {
       const col = getColumnBounds(stage, canvas.width);
       const def = columnDefinitions[stage];
-      
+
       // Draw column background
       ctx.fillStyle = def.bgColor;
       ctx.fillRect(col.startX, 0, col.width, canvas.height);
-      
+
       // Draw column border
       ctx.strokeStyle = "#333333";
       ctx.lineWidth = 2;
@@ -208,16 +208,16 @@ export function WorkflowCanvas({
     stages.forEach((stage) => {
       const col = getColumnBounds(stage, canvas.width);
       const def = columnDefinitions[stage];
-      
+
       // Header background box with darker tint - semi-opaque
       const headerHeight = 50;
       ctx.fillStyle = def.bgColor.replace("0.15", "0.5"); // More opaque for readability
       ctx.fillRect(col.startX, 0, col.width, headerHeight);
-      
+
       // Semi-opaque dark overlay for text contrast
       ctx.fillStyle = "rgba(0, 0, 0, 0.3)";
       ctx.fillRect(col.startX, 0, col.width, headerHeight);
-      
+
       // Header text - bold and bright
       ctx.fillStyle = "#ffffff";
       ctx.font = "bold 16px sans-serif";
@@ -235,15 +235,15 @@ export function WorkflowCanvas({
         // Calculate edge endpoint positions from specific handles
         const sourceHandleId = edge.sourceHandle || "right";
         const targetHandleId = edge.targetHandle || "left";
-        
+
         const fromPos = getHandlePosition(sourceNode.position, sourceHandleId);
         const toPos = getHandlePosition(targetNode.position, targetHandleId);
-        
+
         const fromX = fromPos.x;
         const fromY = fromPos.y;
         const toX = toPos.x;
         const toY = toPos.y;
-        
+
         // Determine line width: base=2, all edges thickened when dragging logic (+1), even more if hovered (+1)
         let lineWidth = 2;
         if (draggingLogicNode) {
@@ -252,7 +252,7 @@ export function WorkflowCanvas({
             lineWidth = 4; // Hovered edge even thicker
           }
         }
-        
+
         // Draw white line with optional glow effect
         if (hoveredEdgeId === edge.id && draggingLogicNode) {
           // Add subtle glow for hovered edge
@@ -265,7 +265,7 @@ export function WorkflowCanvas({
           ctx.lineTo(toX, toY);
           ctx.stroke();
         }
-        
+
         // Draw main white line
         ctx.strokeStyle = "#ffffff";
         ctx.lineWidth = lineWidth;
@@ -275,24 +275,24 @@ export function WorkflowCanvas({
         ctx.moveTo(fromX, fromY);
         ctx.lineTo(toX, toY);
         ctx.stroke();
-        
+
         // Draw AND/OR logic badge on edge if present
         if (edge.data?.logic) {
           const midX = (fromX + toX) / 2;
           const midY = (fromY + toY) / 2;
           const logic = edge.data.logic.toUpperCase();
-          
+
           // Draw circle badge
           ctx.fillStyle = logic === "AND" ? "#4f46e5" : "#f59e0b";
           ctx.beginPath();
           ctx.arc(midX, midY, 12, 0, Math.PI * 2);
           ctx.fill();
-          
+
           // Draw border
           ctx.strokeStyle = "#ffffff";
           ctx.lineWidth = 1.5;
           ctx.stroke();
-          
+
           // Draw text
           ctx.fillStyle = "#ffffff";
           ctx.font = "bold 12px sans-serif";
@@ -334,17 +334,17 @@ export function WorkflowCanvas({
     if (draggingLogicNode) {
       let foundEdge: string | null = null;
       const tolerance = 15;
-      
+
       for (const edge of edges) {
         const sourceNode = nodes.find((n) => n.id === edge.source);
         const targetNode = nodes.find((n) => n.id === edge.target);
-        
+
         if (sourceNode && targetNode) {
           const sourceHandleId = edge.sourceHandle || "right";
           const targetHandleId = edge.targetHandle || "left";
           const fromPos = getHandlePosition(sourceNode.position, sourceHandleId);
           const toPos = getHandlePosition(targetNode.position, targetHandleId);
-          
+
           const dist = distanceToLineSegment(x, y, fromPos.x, fromPos.y, toPos.x, toPos.y);
           if (dist < tolerance) {
             foundEdge = edge.id;
@@ -385,13 +385,13 @@ export function WorkflowCanvas({
 
   const handleMouseDown = (e: React.MouseEvent<HTMLDivElement>) => {
     if (!containerRef.current) return;
-    
+
     // Check if clicked on a handle (any handle can start a connection)
     const target = e.target as HTMLElement;
     const handleType = target.getAttribute("data-handle-type");
     const handleId = target.getAttribute("data-handle-id");
     const nodeId = target.getAttribute("data-node-id");
-    
+
     if ((handleType === "output" || handleType === "input") && nodeId && handleId) {
       // Start connection from any handle - record which handle is being dragged from
       setConnectionStart(nodeId);
@@ -399,7 +399,7 @@ export function WorkflowCanvas({
       e.stopPropagation();
       return;
     }
-    
+
     const rect = containerRef.current.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const y = e.clientY - rect.top;
@@ -434,13 +434,13 @@ export function WorkflowCanvas({
       const rect = containerRef.current.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-      
+
       // First, check if released directly on a handle element
       const target = e.target as HTMLElement;
       const handleType = target.getAttribute("data-handle-type");
       const targetHandleId = target.getAttribute("data-handle-id");
       const targetNodeId = target.getAttribute("data-node-id");
-      
+
       if ((handleType === "input" || handleType === "output") && targetNodeId && targetNodeId !== connectionStart && targetHandleId) {
         // Create edge with handle IDs - directly on handle
         onSetPendingHandles(sourceHandleId, targetHandleId);
@@ -453,13 +453,13 @@ export function WorkflowCanvas({
       // If not on a handle element, check proximity to any node's handles
       const handleSnapDistance = 25; // pixels
       let bestTarget: { nodeId: string; handleId: string; distance: number } | null = null;
-      
+
       for (const node of nodes) {
         if (node.id === connectionStart) continue;
-        
+
         const sourceNode = nodes.find((n) => n.id === connectionStart);
         if (!sourceNode || !canConnect(sourceNode.type, node.type, sourceNode.stage, node.stage)) continue;
-        
+
         const nearest = findNearestHandle(node.position, x, y);
         if (nearest.distance < handleSnapDistance) {
           if (!bestTarget || nearest.distance < bestTarget.distance) {
@@ -467,13 +467,13 @@ export function WorkflowCanvas({
           }
         }
       }
-      
+
       if (bestTarget) {
         // Snap to nearest handle
         onSetPendingHandles(sourceHandleId, bestTarget.handleId);
         onEdgeCreate(connectionStart, bestTarget.nodeId);
       }
-      
+
       // Always clear connection state - mouse disconnects from drag
       setConnectionStart(null);
       setSourceHandleId("right");
@@ -483,14 +483,14 @@ export function WorkflowCanvas({
   const handleDragOver = (e: React.DragEvent<HTMLDivElement>) => {
     e.preventDefault();
     e.dataTransfer.dropEffect = "copy";
-    
+
     // Check if dragging a logic node
     const nodeType = e.dataTransfer.types.includes("text/html") ? null : e.dataTransfer.getData("nodeType");
     if ((nodeType === "and" || nodeType === "or")) {
       setDraggingLogicNode(true);
     }
   };
-  
+
   const handleDragLeave = (e: React.DragEvent<HTMLDivElement>) => {
     if (e.target === containerRef.current) {
       setDraggingLogicNode(false);
@@ -509,24 +509,24 @@ export function WorkflowCanvas({
       const rect = containerRef.current.getBoundingClientRect();
       const x = e.clientX - rect.left;
       const y = e.clientY - rect.top;
-      
+
       // Check if dropping AND/OR (logic node)
       if ((nodeType === "and" || nodeType === "or") && stage === "logic") {
         // Try to find an edge near the drop point
         let closestEdge = null;
         let minDistance = 20; // tolerance for snapping to edge
-        
+
         for (const edge of edges) {
           const sourceNode = nodes.find((n) => n.id === edge.source);
           const targetNode = nodes.find((n) => n.id === edge.target);
-          
+
           if (!sourceNode || !targetNode) continue;
-          
+
           const x1 = sourceNode.position.x + 160 + 8;
           const y1 = sourceNode.position.y + 60;
           const x2 = targetNode.position.x - 8;
           const y2 = targetNode.position.y + 60;
-          
+
           // Calculate distance from point to line segment
           const dist = distanceToLineSegment(x, y, x1, y1, x2, y2);
           if (dist < minDistance) {
@@ -534,7 +534,7 @@ export function WorkflowCanvas({
             closestEdge = edge;
           }
         }
-        
+
         if (closestEdge) {
           // Add logic to the edge
           onEdgeLogicAdd(closestEdge.id, nodeType as "and" | "or");
@@ -543,7 +543,7 @@ export function WorkflowCanvas({
         setHoveredEdgeId(null);
         return;
       }
-      
+
       // Check if drop is within the stage's column
       const col = getColumnBounds(stage as NodeStage, canvasRef.current.width);
       if (x >= col.startX && x < col.startX + col.width) {
