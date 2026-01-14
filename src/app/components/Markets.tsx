@@ -27,7 +27,7 @@ import {
   PopoverContent,
   PopoverTrigger,
 } from "./ui/popover";
-import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
+// RadioGroup no longer used - replaced Yes/No filter with Liquidity filter
 
 // ============================================================================
 // Type Definitions
@@ -41,7 +41,8 @@ interface ColumnFilter {
   volumeMax?: number;
   oddsMin?: number;
   oddsMax?: number;
-  side?: "any" | "yes" | "no";
+  liquidityMin?: number;
+  liquidityMax?: number;
 }
 
 // Format cents with proper precision like Polymarket (e.g., 0.4¢, 99.6¢)
@@ -84,6 +85,7 @@ interface DisplayMarket {
   volume?: string;
   volumeUsd?: string;
   volumeNum?: number;
+  liquidity?: number;
   image?: string | null;
   createdAt?: string;
   endDate?: string;
@@ -185,6 +187,7 @@ function convertMarketSummaryToDisplay(market: MarketSummary): DisplayMarket {
     volumeUsd: String(volumeNum),
     volumeNum: volumeNum,
     volume: formatVolume(volumeNum),
+    liquidity: market.liquidity || 0,
     image: market.image || null,
     category: market.category || undefined,
     createdAt: market.createdAt,
@@ -259,24 +262,21 @@ function applyColumnFilter(markets: DisplayMarket[], filter: ColumnFilter): Disp
   return markets.filter(m => {
     const volume = getMarketVolume(m);
     const oddsPct = getMarketOddsPct(m);
-
-    // Side filter: "yes" = show markets, "no" = show markets (we show both sides per market)
-    // For "yes only" - we filter to show markets and use YES odds
-    // For "no only" - we filter to show markets and use NO odds
-    // Since each market card represents a market (not a position), yes/no affects which odds we consider
-    const sideOk = filter.side === "any" ? true : true; // All markets have both sides
+    const liquidity = m.liquidity || 0; // Use actual liquidity field
 
     const volumeOk =
       (filter.volumeMin == null || volume >= filter.volumeMin) &&
       (filter.volumeMax == null || volume <= filter.volumeMax);
 
-    // For odds filtering, if "no only" is selected, use (100 - oddsPct) for comparison
-    const effectiveOdds = filter.side === "no" ? (100 - oddsPct) : oddsPct;
     const oddsOk =
-      (filter.oddsMin == null || effectiveOdds >= filter.oddsMin) &&
-      (filter.oddsMax == null || effectiveOdds <= filter.oddsMax);
+      (filter.oddsMin == null || oddsPct >= filter.oddsMin) &&
+      (filter.oddsMax == null || oddsPct <= filter.oddsMax);
 
-    return sideOk && volumeOk && oddsOk;
+    const liquidityOk =
+      (filter.liquidityMin == null || liquidity >= filter.liquidityMin) &&
+      (filter.liquidityMax == null || liquidity <= filter.liquidityMax);
+
+    return volumeOk && oddsOk && liquidityOk;
   });
 }
 
@@ -286,7 +286,8 @@ function countActiveFilters(filter: ColumnFilter): number {
   if (filter.volumeMax != null) count++;
   if (filter.oddsMin != null) count++;
   if (filter.oddsMax != null) count++;
-  if (filter.side && filter.side !== "any") count++;
+  if (filter.liquidityMin != null) count++;
+  if (filter.liquidityMax != null) count++;
   return count;
 }
 
@@ -325,7 +326,7 @@ function FilterPopover({ filter, onApply, onClear }: FilterPopoverProps) {
   };
 
   const handleClear = () => {
-    const clearedFilter: ColumnFilter = { side: "any" };
+    const clearedFilter: ColumnFilter = {};
     setLocalFilter(clearedFilter);
     onClear();
     setIsOpen(false);
@@ -431,30 +432,36 @@ function FilterPopover({ filter, onApply, onClear }: FilterPopoverProps) {
           )}
         </div>
 
-        {/* Side Filter */}
+        {/* Liquidity Filter */}
         <div className="space-y-2">
-          <label className="text-[var(--fs-xs)] text-gray-400 font-medium">Side</label>
-          <RadioGroup
-            value={localFilter.side || "any"}
-            onValueChange={(value) => setLocalFilter({
-              ...localFilter,
-              side: value as "any" | "yes" | "no"
-            })}
-            className="flex gap-4"
-          >
-            <div className="flex items-center gap-1.5">
-              <RadioGroupItem value="any" id="side-any" className="border-gray-600" />
-              <label htmlFor="side-any" className="text-[var(--fs-sm)] text-gray-300 cursor-pointer">Any</label>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <RadioGroupItem value="yes" id="side-yes" className="border-gray-600" />
-              <label htmlFor="side-yes" className="text-[var(--fs-sm)] text-green-400 cursor-pointer">Yes</label>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <RadioGroupItem value="no" id="side-no" className="border-gray-600" />
-              <label htmlFor="side-no" className="text-[var(--fs-sm)] text-red-400 cursor-pointer">No</label>
-            </div>
-          </RadioGroup>
+          <label className="text-[var(--fs-xs)] text-gray-400 font-medium">Liquidity ($)</label>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              placeholder="Min"
+              min={0}
+              value={localFilter.liquidityMin ?? ""}
+              onChange={(e) => setLocalFilter({
+                ...localFilter,
+                liquidityMin: e.target.value ? Math.max(0, Number(e.target.value)) : undefined
+              })}
+              className="w-full px-2 py-1.5 text-[var(--fs-sm)] bg-gray-900/50 border border-gray-700/50 
+                       rounded text-gray-200 placeholder-gray-500 focus:outline-none focus:border-[#4a6fa5]"
+            />
+            <span className="text-gray-500">-</span>
+            <input
+              type="number"
+              placeholder="Max"
+              min={0}
+              value={localFilter.liquidityMax ?? ""}
+              onChange={(e) => setLocalFilter({
+                ...localFilter,
+                liquidityMax: e.target.value ? Math.max(0, Number(e.target.value)) : undefined
+              })}
+              className="w-full px-2 py-1.5 text-[var(--fs-sm)] bg-gray-900/50 border border-gray-700/50 
+                       rounded text-gray-200 placeholder-gray-500 focus:outline-none focus:border-[#4a6fa5]"
+            />
+          </div>
         </div>
 
         {/* Actions */}
@@ -586,9 +593,9 @@ export function Markets({
 
   // Per-column filters (independent state for each column)
   const [filtersByColumn, setFiltersByColumn] = useState<Record<ColumnKey, ColumnFilter>>({
-    trending: { side: "any" },
-    new: { side: "any" },
-    resolving: { side: "any" },
+    trending: {},
+    new: {},
+    resolving: {},
   });
 
   // State for all three columns (raw data)

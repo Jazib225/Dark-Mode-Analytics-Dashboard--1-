@@ -351,23 +351,44 @@ export function getNewMarkets(markets: MarketSummary[], limit = 30): MarketSumma
 let lastResolvingInput: MarketSummary[] | null = null;
 let lastResolvingResult: MarketSummary[] | null = null;
 
-export function getResolvingSoonMarkets(markets: MarketSummary[], hoursAhead = 72, limit = 30): MarketSummary[] {
+export function getResolvingSoonMarkets(markets: MarketSummary[], hoursAhead = 168, limit = 30): MarketSummary[] {
+    // Reset memoization if input changed
     if (markets === lastResolvingInput && lastResolvingResult) {
         return lastResolvingResult;
     }
 
     const now = Date.now();
+    // Use 7 days (168 hours) as default cutoff for more results
     const cutoff = now + hoursAhead * 60 * 60 * 1000;
 
+    console.log(`🔍 Filtering ${markets.length} markets for those ending within ${hoursAhead} hours`);
+
+    const filtered = markets.filter(m => {
+        if (!m.endDate) return false;
+
+        // Try to parse the date
+        const endTime = new Date(m.endDate).getTime();
+        if (isNaN(endTime)) return false;
+
+        // Market must end after now and before cutoff
+        return endTime > now && endTime < cutoff;
+    });
+
+    console.log(`📊 Found ${filtered.length} markets resolving soon`);
+
     lastResolvingInput = markets;
-    lastResolvingResult = [...markets]
-        .filter(m => {
-            if (!m.endDate) return false;
-            const endTime = new Date(m.endDate).getTime();
-            return endTime > now && endTime < cutoff;
-        })
+    lastResolvingResult = filtered
         .sort((a, b) => new Date(a.endDate!).getTime() - new Date(b.endDate!).getTime())
         .slice(0, limit);
+
+    // If no markets found, return markets with any endDate (as fallback)
+    if (lastResolvingResult.length === 0) {
+        console.log('⚠️ No markets within time range, showing all markets with endDate');
+        lastResolvingResult = markets
+            .filter(m => m.endDate && !isNaN(new Date(m.endDate).getTime()))
+            .sort((a, b) => new Date(a.endDate!).getTime() - new Date(b.endDate!).getTime())
+            .slice(0, limit);
+    }
 
     return lastResolvingResult;
 }
