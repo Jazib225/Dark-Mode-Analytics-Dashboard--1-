@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Bookmark, Loader2, TrendingUp, Sparkles, Clock } from "lucide-react";
+import { Bookmark, Loader2, Filter, X } from "lucide-react";
 import { BookmarkedMarket } from "../App";
 import { MarketDetail } from "./MarketDetail";
 import {
@@ -14,6 +14,34 @@ import {
   prefetchOtherTimeframes,
   type MarketCardDTO
 } from "../services/marketDataClient";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "./ui/popover";
+import { RadioGroup, RadioGroupItem } from "./ui/radio-group";
+
+// ============================================================================
+// Type Definitions
+// ============================================================================
+
+type MarketCategory = "sports" | "crypto" | "politics" | "finance" | "tech";
+type ColumnKey = "trending" | "new" | "resolving";
+
+interface ColumnFilter {
+  volumeMin?: number;
+  volumeMax?: number;
+  oddsMin?: number;
+  oddsMax?: number;
+  side?: "any" | "yes" | "no";
+}
 
 // Format cents with proper precision like Polymarket (e.g., 0.4¢, 99.6¢)
 function formatCents(cents: number): string {
@@ -59,9 +87,8 @@ interface DisplayMarket {
   createdAt?: string;
   endDate?: string;
   timeUntilClose?: number;
+  category?: string;
 }
-
-type TimeFilter = "24h" | "7d" | "1m";
 
 // LocalStorage cache keys
 const MARKETS_CACHE_PREFIX = "polymarket_markets_v3_";
@@ -109,15 +136,8 @@ function saveCachedMarkets(markets: DisplayMarket[], cacheKey: string): void {
   }
 }
 
-function convertApiMarketToDisplay(market: any, timeframe: TimeFilter = "24h"): DisplayMarket {
-  let volumeUsd = market.volumeUsd;
-  if (timeframe === "24h") {
-    volumeUsd = market.volume24hr || market.volumeUsd;
-  } else if (timeframe === "7d") {
-    volumeUsd = market.volume7d || market.volumeUsd;
-  } else if (timeframe === "1m") {
-    volumeUsd = market.volume1mo || market.volumeUsd;
-  }
+function convertApiMarketToDisplay(market: any): DisplayMarket {
+  const volumeUsd = market.volume24hr || market.volumeUsd;
 
   let yesPriceCents = market.yesPriceCents;
   let noPriceCents = market.noPriceCents;
@@ -138,23 +158,18 @@ function convertApiMarketToDisplay(market: any, timeframe: TimeFilter = "24h"): 
     yesPriceCents,
     noPriceCents,
     volumeUsd: String(volumeUsd),
+    volumeNum: parseFloat(String(volumeUsd || 0)),
     volume: formatVolume(parseFloat(String(volumeUsd || 0))),
     image: market.image || null,
     createdAt: market.createdAt,
     endDate: market.endDate,
     timeUntilClose: market.timeUntilClose,
+    category: market.groupItemTitle || market.category || market.tag,
   };
 }
 
-function convertV2MarketToDisplay(market: MarketCardDTO, timeframe: TimeFilter = "24h"): DisplayMarket {
-  let volumeNum = 0;
-  if (timeframe === "24h") {
-    volumeNum = market.volume24hr || 0;
-  } else if (timeframe === "7d") {
-    volumeNum = market.volume7d || 0;
-  } else if (timeframe === "1m") {
-    volumeNum = market.volume1mo || 0;
-  }
+function convertV2MarketToDisplay(market: MarketCardDTO): DisplayMarket {
+  const volumeNum = market.volume24hr || 0;
 
   const probability = market.probability || 50;
   const yesPriceCents = probability;
@@ -168,8 +183,10 @@ function convertV2MarketToDisplay(market: MarketCardDTO, timeframe: TimeFilter =
     yesPriceCents,
     noPriceCents,
     volumeUsd: String(volumeNum),
+    volumeNum: volumeNum,
     volume: formatVolume(volumeNum),
     image: market.image || null,
+    category: market.category || market.eventTitle,
   };
 }
 
@@ -182,9 +199,284 @@ function formatVolume(volume: number): string {
   return `$${volume.toFixed(2)}`;
 }
 
+// ============================================================================
+// Category Normalization Helper
+// ============================================================================
+
+const normalizeCategory = (raw: string | undefined): MarketCategory | null => {
+  if (!raw) return null;
+  const lower = raw.toLowerCase();
+  
+  // Map common variations to standard categories
+  if (lower.includes("sport") || lower.includes("nfl") || lower.includes("nba") || 
+      lower.includes("soccer") || lower.includes("football") || lower.includes("baseball") ||
+      lower.includes("hockey") || lower.includes("tennis") || lower.includes("golf")) {
+    return "sports";
+  }
+  if (lower.includes("crypto") || lower.includes("bitcoin") || lower.includes("ethereum") || 
+      lower.includes("btc") || lower.includes("eth") || lower.includes("token") ||
+      lower.includes("defi") || lower.includes("blockchain")) {
+    return "crypto";
+  }
+  if (lower.includes("politic") || lower.includes("election") || lower.includes("president") ||
+      lower.includes("senate") || lower.includes("congress") || lower.includes("governor") ||
+      lower.includes("trump") || lower.includes("biden") || lower.includes("vote")) {
+    return "politics";
+  }
+  if (lower.includes("finance") || lower.includes("stock") || lower.includes("market") ||
+      lower.includes("fed") || lower.includes("interest") || lower.includes("gdp") ||
+      lower.includes("inflation") || lower.includes("economy")) {
+    return "finance";
+  }
+  if (lower.includes("tech") || lower.includes("ai") || lower.includes("apple") ||
+      lower.includes("google") || lower.includes("microsoft") || lower.includes("openai") ||
+      lower.includes("software") || lower.includes("startup")) {
+    return "tech";
+  }
+  return null;
+};
+
+// ============================================================================
+// Filtering Helpers
+// ============================================================================
+
+function getMarketVolume(m: DisplayMarket): number {
+  if (m.volumeNum !== undefined) return m.volumeNum;
+  if (m.volumeUsd) return parseFloat(m.volumeUsd) || 0;
+  return 0;
+}
+
+function getMarketOddsPct(m: DisplayMarket): number {
+  if (m.yesPriceCents !== undefined) return m.yesPriceCents;
+  if (typeof m.probability === "number") return m.probability;
+  if (typeof m.probability === "string") return parseFloat(m.probability) || 50;
+  return 50;
+}
+
+function applyColumnFilter(markets: DisplayMarket[], filter: ColumnFilter): DisplayMarket[] {
+  return markets.filter(m => {
+    const volume = getMarketVolume(m);
+    const oddsPct = getMarketOddsPct(m);
+    
+    // Side filter: "yes" = show markets, "no" = show markets (we show both sides per market)
+    // For "yes only" - we filter to show markets and use YES odds
+    // For "no only" - we filter to show markets and use NO odds
+    // Since each market card represents a market (not a position), yes/no affects which odds we consider
+    const sideOk = filter.side === "any" ? true : true; // All markets have both sides
+    
+    const volumeOk =
+      (filter.volumeMin == null || volume >= filter.volumeMin) &&
+      (filter.volumeMax == null || volume <= filter.volumeMax);
+
+    // For odds filtering, if "no only" is selected, use (100 - oddsPct) for comparison
+    const effectiveOdds = filter.side === "no" ? (100 - oddsPct) : oddsPct;
+    const oddsOk =
+      (filter.oddsMin == null || effectiveOdds >= filter.oddsMin) &&
+      (filter.oddsMax == null || effectiveOdds <= filter.oddsMax);
+
+    return sideOk && volumeOk && oddsOk;
+  });
+}
+
+function countActiveFilters(filter: ColumnFilter): number {
+  let count = 0;
+  if (filter.volumeMin != null) count++;
+  if (filter.volumeMax != null) count++;
+  if (filter.oddsMin != null) count++;
+  if (filter.oddsMax != null) count++;
+  if (filter.side && filter.side !== "any") count++;
+  return count;
+}
+
 // Constants for pagination
 const INITIAL_LOAD = 10;
 const LOAD_MORE_COUNT = 10;
+
+// ============================================================================
+// Filter Popover Component
+// ============================================================================
+
+interface FilterPopoverProps {
+  filter: ColumnFilter;
+  onApply: (filter: ColumnFilter) => void;
+  onClear: () => void;
+}
+
+function FilterPopover({ filter, onApply, onClear }: FilterPopoverProps) {
+  const [localFilter, setLocalFilter] = useState<ColumnFilter>(filter);
+  const [isOpen, setIsOpen] = useState(false);
+  
+  // Validation
+  const volumeError = localFilter.volumeMin != null && localFilter.volumeMax != null && 
+                      localFilter.volumeMin > localFilter.volumeMax;
+  const oddsError = localFilter.oddsMin != null && localFilter.oddsMax != null && 
+                    localFilter.oddsMin > localFilter.oddsMax;
+  const hasError = volumeError || oddsError;
+  
+  const activeCount = countActiveFilters(filter);
+  
+  const handleApply = () => {
+    if (!hasError) {
+      onApply(localFilter);
+      setIsOpen(false);
+    }
+  };
+  
+  const handleClear = () => {
+    const clearedFilter: ColumnFilter = { side: "any" };
+    setLocalFilter(clearedFilter);
+    onClear();
+    setIsOpen(false);
+  };
+  
+  // Reset local filter when popover opens
+  useEffect(() => {
+    if (isOpen) {
+      setLocalFilter(filter);
+    }
+  }, [isOpen, filter]);
+
+  return (
+    <Popover open={isOpen} onOpenChange={setIsOpen}>
+      <PopoverTrigger asChild>
+        <button
+          className="relative flex items-center gap-1 px-2 py-1 text-[var(--fs-xs)] text-gray-400 hover:text-gray-200 
+                     bg-gray-800/30 hover:bg-gray-800/50 border border-gray-700/30 rounded-md transition-all"
+        >
+          <Filter className="w-3 h-3" />
+          <span className="hidden sm:inline">Filter</span>
+          {activeCount > 0 && (
+            <span className="absolute -top-1.5 -right-1.5 w-4 h-4 bg-[#4a6fa5] text-white text-[10px] 
+                           font-medium rounded-full flex items-center justify-center">
+              {activeCount}
+            </span>
+          )}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent 
+        className="w-72 bg-[#111111] border border-gray-700/50 p-4 space-y-4"
+        align="end"
+      >
+        {/* Volume Filter */}
+        <div className="space-y-2">
+          <label className="text-[var(--fs-xs)] text-gray-400 font-medium">Volume ($)</label>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              placeholder="Min"
+              min={0}
+              value={localFilter.volumeMin ?? ""}
+              onChange={(e) => setLocalFilter({
+                ...localFilter,
+                volumeMin: e.target.value ? Math.max(0, Number(e.target.value)) : undefined
+              })}
+              className="w-full px-2 py-1.5 text-[var(--fs-sm)] bg-gray-900/50 border border-gray-700/50 
+                       rounded text-gray-200 placeholder-gray-500 focus:outline-none focus:border-[#4a6fa5]"
+            />
+            <span className="text-gray-500">-</span>
+            <input
+              type="number"
+              placeholder="Max"
+              min={0}
+              value={localFilter.volumeMax ?? ""}
+              onChange={(e) => setLocalFilter({
+                ...localFilter,
+                volumeMax: e.target.value ? Math.max(0, Number(e.target.value)) : undefined
+              })}
+              className="w-full px-2 py-1.5 text-[var(--fs-sm)] bg-gray-900/50 border border-gray-700/50 
+                       rounded text-gray-200 placeholder-gray-500 focus:outline-none focus:border-[#4a6fa5]"
+            />
+          </div>
+          {volumeError && (
+            <p className="text-[var(--fs-xs)] text-red-400">Min must be ≤ Max</p>
+          )}
+        </div>
+
+        {/* Odds Filter */}
+        <div className="space-y-2">
+          <label className="text-[var(--fs-xs)] text-gray-400 font-medium">Odds (%)</label>
+          <div className="flex items-center gap-2">
+            <input
+              type="number"
+              placeholder="Min"
+              min={0}
+              max={100}
+              value={localFilter.oddsMin ?? ""}
+              onChange={(e) => setLocalFilter({
+                ...localFilter,
+                oddsMin: e.target.value ? Math.min(100, Math.max(0, Number(e.target.value))) : undefined
+              })}
+              className="w-full px-2 py-1.5 text-[var(--fs-sm)] bg-gray-900/50 border border-gray-700/50 
+                       rounded text-gray-200 placeholder-gray-500 focus:outline-none focus:border-[#4a6fa5]"
+            />
+            <span className="text-gray-500">-</span>
+            <input
+              type="number"
+              placeholder="Max"
+              min={0}
+              max={100}
+              value={localFilter.oddsMax ?? ""}
+              onChange={(e) => setLocalFilter({
+                ...localFilter,
+                oddsMax: e.target.value ? Math.min(100, Math.max(0, Number(e.target.value))) : undefined
+              })}
+              className="w-full px-2 py-1.5 text-[var(--fs-sm)] bg-gray-900/50 border border-gray-700/50 
+                       rounded text-gray-200 placeholder-gray-500 focus:outline-none focus:border-[#4a6fa5]"
+            />
+          </div>
+          {oddsError && (
+            <p className="text-[var(--fs-xs)] text-red-400">Min must be ≤ Max</p>
+          )}
+        </div>
+
+        {/* Side Filter */}
+        <div className="space-y-2">
+          <label className="text-[var(--fs-xs)] text-gray-400 font-medium">Side</label>
+          <RadioGroup
+            value={localFilter.side || "any"}
+            onValueChange={(value) => setLocalFilter({
+              ...localFilter,
+              side: value as "any" | "yes" | "no"
+            })}
+            className="flex gap-4"
+          >
+            <div className="flex items-center gap-1.5">
+              <RadioGroupItem value="any" id="side-any" className="border-gray-600" />
+              <label htmlFor="side-any" className="text-[var(--fs-sm)] text-gray-300 cursor-pointer">Any</label>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <RadioGroupItem value="yes" id="side-yes" className="border-gray-600" />
+              <label htmlFor="side-yes" className="text-[var(--fs-sm)] text-green-400 cursor-pointer">Yes</label>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <RadioGroupItem value="no" id="side-no" className="border-gray-600" />
+              <label htmlFor="side-no" className="text-[var(--fs-sm)] text-red-400 cursor-pointer">No</label>
+            </div>
+          </RadioGroup>
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center gap-2 pt-2 border-t border-gray-800">
+          <button
+            onClick={handleClear}
+            className="flex-1 px-3 py-1.5 text-[var(--fs-sm)] text-gray-400 hover:text-gray-200 
+                     bg-transparent border border-gray-700/50 rounded transition-colors"
+          >
+            Clear
+          </button>
+          <button
+            onClick={handleApply}
+            disabled={hasError}
+            className="flex-1 px-3 py-1.5 text-[var(--fs-sm)] text-white bg-[#4a6fa5] hover:bg-[#5a7fb5] 
+                     rounded transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Apply
+          </button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 // ============================================================================
 // Market Card Component - Reusable across all columns
@@ -286,22 +578,31 @@ export function Markets({
   initialMarketData
 }: MarketsProps) {
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(initialMarketId ?? null);
-  const [timeFilter, setTimeFilter] = useState<TimeFilter>("24h");
+  
+  // Category filter (global for all columns)
+  const [selectedCategory, setSelectedCategory] = useState<"all" | MarketCategory>("all");
+  
+  // Per-column filters (independent state for each column)
+  const [filtersByColumn, setFiltersByColumn] = useState<Record<ColumnKey, ColumnFilter>>({
+    trending: { side: "any" },
+    new: { side: "any" },
+    resolving: { side: "any" },
+  });
 
-  // State for all three columns
-  const [trendingMarkets, setTrendingMarkets] = useState<DisplayMarket[]>(() =>
-    loadCachedMarkets(MARKETS_CACHE_PREFIX + "trending_" + "24h") || []
+  // State for all three columns (raw data)
+  const [trendingMarketsRaw, setTrendingMarketsRaw] = useState<DisplayMarket[]>(() =>
+    loadCachedMarkets(MARKETS_CACHE_PREFIX + "trending_24h") || []
   );
-  const [newMarkets, setNewMarkets] = useState<DisplayMarket[]>(() =>
+  const [newMarketsRaw, setNewMarketsRaw] = useState<DisplayMarket[]>(() =>
     loadCachedMarkets(MARKETS_CACHE_PREFIX + "new") || []
   );
-  const [nearlyResolvedMarkets, setNearlyResolvedMarkets] = useState<DisplayMarket[]>(() =>
+  const [nearlyResolvedMarketsRaw, setNearlyResolvedMarketsRaw] = useState<DisplayMarket[]>(() =>
     loadCachedMarkets(MARKETS_CACHE_PREFIX + "resolved") || []
   );
 
   // Loading states for each column
   const [loadingTrending, setLoadingTrending] = useState(() =>
-    !loadCachedMarkets(MARKETS_CACHE_PREFIX + "trending_" + "24h")
+    !loadCachedMarkets(MARKETS_CACHE_PREFIX + "trending_24h")
   );
   const [loadingNew, setLoadingNew] = useState(() =>
     !loadCachedMarkets(MARKETS_CACHE_PREFIX + "new")
@@ -342,23 +643,23 @@ export function Markets({
   useEffect(() => {
     const fetchAllMarkets = async () => {
       // Check caches first
-      const cachedTrending = loadCachedMarkets(MARKETS_CACHE_PREFIX + "trending_" + timeFilter);
+      const cachedTrending = loadCachedMarkets(MARKETS_CACHE_PREFIX + "trending_24h");
       const cachedNew = loadCachedMarkets(MARKETS_CACHE_PREFIX + "new");
       const cachedResolved = loadCachedMarkets(MARKETS_CACHE_PREFIX + "resolved");
 
       // Use cached data if available
       if (cachedTrending && cachedTrending.length > 0) {
-        setTrendingMarkets(cachedTrending);
+        setTrendingMarketsRaw(cachedTrending);
         setLoadingTrending(false);
         preloadImages(cachedTrending);
       }
       if (cachedNew && cachedNew.length > 0) {
-        setNewMarkets(cachedNew);
+        setNewMarketsRaw(cachedNew);
         setLoadingNew(false);
         preloadImages(cachedNew);
       }
       if (cachedResolved && cachedResolved.length > 0) {
-        setNearlyResolvedMarkets(cachedResolved);
+        setNearlyResolvedMarketsRaw(cachedResolved);
         setLoadingResolved(false);
         preloadImages(cachedResolved);
       }
@@ -374,20 +675,20 @@ export function Markets({
           // Trending Markets - Use V2 API with fallback
           (async () => {
             try {
-              const { markets } = await fetchMarketList(timeFilter);
+              const { markets } = await fetchMarketList("24h");
               if (Array.isArray(markets) && markets.length > 0) {
                 return markets
                   .filter((m: MarketCardDTO) => m && m.question)
-                  .map((m: MarketCardDTO) => convertV2MarketToDisplay(m, timeFilter));
+                  .map((m: MarketCardDTO) => convertV2MarketToDisplay(m));
               }
             } catch (e) {
               console.warn("V2 API failed, using fallback:", e);
             }
             // Fallback to legacy API
-            const data = await getTrendingMarkets(timeFilter);
+            const data = await getTrendingMarkets("24h");
             return data
               .filter((m: any) => m && m.title)
-              .map((m: any) => convertApiMarketToDisplay(m, timeFilter));
+              .map((m: any) => convertApiMarketToDisplay(m));
           })(),
           // New Markets
           getNewMarkets(30),
@@ -397,16 +698,16 @@ export function Markets({
 
         // Update trending
         if (trendingData && trendingData.length > 0) {
-          setTrendingMarkets(trendingData);
-          saveCachedMarkets(trendingData, MARKETS_CACHE_PREFIX + "trending_" + timeFilter);
+          setTrendingMarketsRaw(trendingData);
+          saveCachedMarkets(trendingData, MARKETS_CACHE_PREFIX + "trending_24h");
           preloadImages(trendingData);
         }
         setLoadingTrending(false);
 
         // Update new markets
         if (newData && newData.length > 0) {
-          const displayNew = newData.map((m: any) => convertApiMarketToDisplay(m, "24h"));
-          setNewMarkets(displayNew);
+          const displayNew = newData.map((m: any) => convertApiMarketToDisplay(m));
+          setNewMarketsRaw(displayNew);
           saveCachedMarkets(displayNew, MARKETS_CACHE_PREFIX + "new");
           preloadImages(displayNew);
         }
@@ -415,11 +716,11 @@ export function Markets({
         // Update nearly resolved
         if (resolvedData && resolvedData.length > 0) {
           const displayResolved = resolvedData.map((m: any) => ({
-            ...convertApiMarketToDisplay(m, "24h"),
+            ...convertApiMarketToDisplay(m),
             timeUntilClose: m.timeUntilClose,
             endDate: m.endDate,
           }));
-          setNearlyResolvedMarkets(displayResolved);
+          setNearlyResolvedMarketsRaw(displayResolved);
           saveCachedMarkets(displayResolved, MARKETS_CACHE_PREFIX + "resolved");
           preloadImages(displayResolved);
         }
@@ -436,15 +737,37 @@ export function Markets({
     };
 
     fetchAllMarkets();
-  }, [timeFilter]);
+  }, []);
 
   // Prefetch other timeframes in background
   useEffect(() => {
     const prefetchTimeout = setTimeout(() => {
-      prefetchOtherTimeframes(timeFilter);
+      prefetchOtherTimeframes("24h");
     }, 1500);
     return () => clearTimeout(prefetchTimeout);
-  }, [timeFilter]);
+  }, []);
+
+  // Apply category filter to all columns
+  const applyCategoryFilter = (markets: DisplayMarket[]): DisplayMarket[] => {
+    if (selectedCategory === "all") return markets;
+    return markets.filter(m => normalizeCategory(m.category) === selectedCategory);
+  };
+
+  // Filtered and processed markets
+  const trendingMarkets = useMemo(() => {
+    const categoryFiltered = applyCategoryFilter(trendingMarketsRaw);
+    return applyColumnFilter(categoryFiltered, filtersByColumn.trending);
+  }, [trendingMarketsRaw, selectedCategory, filtersByColumn.trending]);
+
+  const newMarkets = useMemo(() => {
+    const categoryFiltered = applyCategoryFilter(newMarketsRaw);
+    return applyColumnFilter(categoryFiltered, filtersByColumn.new);
+  }, [newMarketsRaw, selectedCategory, filtersByColumn.new]);
+
+  const nearlyResolvedMarkets = useMemo(() => {
+    const categoryFiltered = applyCategoryFilter(nearlyResolvedMarketsRaw);
+    return applyColumnFilter(categoryFiltered, filtersByColumn.resolving);
+  }, [nearlyResolvedMarketsRaw, selectedCategory, filtersByColumn.resolving]);
 
   // Displayed markets (paginated)
   const displayedTrending = useMemo(() =>
@@ -459,6 +782,21 @@ export function Markets({
     nearlyResolvedMarkets.slice(0, resolvedDisplayed),
     [nearlyResolvedMarkets, resolvedDisplayed]
   );
+
+  // Update column filter
+  const updateColumnFilter = (column: ColumnKey, filter: ColumnFilter) => {
+    setFiltersByColumn(prev => ({
+      ...prev,
+      [column]: filter,
+    }));
+  };
+
+  const clearColumnFilter = (column: ColumnKey) => {
+    setFiltersByColumn(prev => ({
+      ...prev,
+      [column]: { side: "any" },
+    }));
+  };
 
   // Show market detail if selected
   if (selectedMarketId) {
@@ -532,7 +870,7 @@ export function Markets({
 
   return (
     <div className="w-full max-w-[var(--container-max)] mx-auto px-[var(--container-pad)]">
-      {/* Time Filter Header */}
+      {/* Header with Category Filter */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-[var(--sp-3)] sm:gap-0 mb-[var(--sp-4)] sm:mb-[var(--sp-5)]">
         <div className="flex items-center gap-[var(--sp-2)] sm:gap-[var(--sp-3)]">
           <h1 className="text-[var(--fs-xl)] sm:text-[var(--fs-2xl)] font-light tracking-tight text-gray-100">
@@ -545,34 +883,26 @@ export function Markets({
             </div>
           )}
         </div>
-        <div className="flex items-center gap-[var(--sp-1)] sm:gap-[var(--sp-2)]">
-          <button
-            onClick={() => setTimeFilter("24h")}
-            className={`px-[var(--sp-3)] sm:px-[var(--sp-4)] py-[var(--sp-2)] text-[var(--fs-xs)] sm:text-[var(--fs-sm)] font-light tracking-wide rounded-[var(--r-md)] transition-all ${timeFilter === "24h"
-              ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
-              : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
-              }`}
+        
+        {/* Category Dropdown */}
+        <div className="flex items-center gap-[var(--sp-2)]">
+          <span className="text-[var(--fs-xs)] text-gray-500">Category:</span>
+          <Select
+            value={selectedCategory}
+            onValueChange={(value) => setSelectedCategory(value as "all" | MarketCategory)}
           >
-            24H
-          </button>
-          <button
-            onClick={() => setTimeFilter("7d")}
-            className={`px-[var(--sp-3)] sm:px-[var(--sp-4)] py-[var(--sp-2)] text-[var(--fs-xs)] sm:text-[var(--fs-sm)] font-light tracking-wide rounded-[var(--r-md)] transition-all ${timeFilter === "7d"
-              ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
-              : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
-              }`}
-          >
-            7D
-          </button>
-          <button
-            onClick={() => setTimeFilter("1m")}
-            className={`px-[var(--sp-3)] sm:px-[var(--sp-4)] py-[var(--sp-2)] text-[var(--fs-xs)] sm:text-[var(--fs-sm)] font-light tracking-wide rounded-[var(--r-md)] transition-all ${timeFilter === "1m"
-              ? "bg-gradient-to-br from-[#1a1a1a] to-[#0d0d0d] border border-gray-700/50 text-gray-200 shadow-sm"
-              : "bg-transparent border border-gray-800/30 text-gray-400 hover:text-gray-300 hover:border-gray-700/50"
-              }`}
-          >
-            1M
-          </button>
+            <SelectTrigger className="w-[140px] h-8 bg-[#111111] border-gray-700/50 text-[var(--fs-sm)] text-gray-200">
+              <SelectValue placeholder="Select category" />
+            </SelectTrigger>
+            <SelectContent className="bg-[#111111] border-gray-700/50">
+              <SelectItem value="all" className="text-gray-200">All</SelectItem>
+              <SelectItem value="sports" className="text-gray-200">Sports</SelectItem>
+              <SelectItem value="crypto" className="text-gray-200">Crypto</SelectItem>
+              <SelectItem value="politics" className="text-gray-200">Politics</SelectItem>
+              <SelectItem value="finance" className="text-gray-200">Finance</SelectItem>
+              <SelectItem value="tech" className="text-gray-200">Tech</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -583,11 +913,15 @@ export function Markets({
         <div className="market-column">
           {/* Column Header */}
           <div className="market-column-header">
-            <h2>
-              <TrendingUp className="w-[var(--icon-sm)] h-[var(--icon-sm)] text-[#4a6fa5]" />
-              Trending
-            </h2>
-            <span>By {timeFilter} volume</span>
+            <h2>Trending Markets</h2>
+            <div className="flex items-center gap-2">
+              <span className="text-[var(--fs-xs)] text-gray-500">By volume</span>
+              <FilterPopover
+                filter={filtersByColumn.trending}
+                onApply={(f) => updateColumnFilter("trending", f)}
+                onClear={() => clearColumnFilter("trending")}
+              />
+            </div>
           </div>
 
           {/* Column Content */}
@@ -624,11 +958,15 @@ export function Markets({
         <div className="market-column">
           {/* Column Header */}
           <div className="market-column-header">
-            <h2>
-              <Sparkles className="w-[var(--icon-sm)] h-[var(--icon-sm)] text-emerald-500" />
-              New Markets
-            </h2>
-            <span>Newest first</span>
+            <h2>New Markets</h2>
+            <div className="flex items-center gap-2">
+              <span className="text-[var(--fs-xs)] text-gray-500">Newest first</span>
+              <FilterPopover
+                filter={filtersByColumn.new}
+                onApply={(f) => updateColumnFilter("new", f)}
+                onClear={() => clearColumnFilter("new")}
+              />
+            </div>
           </div>
 
           {/* Column Content */}
@@ -665,11 +1003,15 @@ export function Markets({
         <div className="market-column">
           {/* Column Header */}
           <div className="market-column-header">
-            <h2>
-              <Clock className="w-[var(--icon-sm)] h-[var(--icon-sm)] text-orange-500" />
-              Closing Soon
-            </h2>
-            <span>Next 72h</span>
+            <h2>Resolving Soon</h2>
+            <div className="flex items-center gap-2">
+              <span className="text-[var(--fs-xs)] text-gray-500">Next 72h</span>
+              <FilterPopover
+                filter={filtersByColumn.resolving}
+                onApply={(f) => updateColumnFilter("resolving", f)}
+                onClear={() => clearColumnFilter("resolving")}
+              />
+            </div>
           </div>
 
           {/* Column Content */}

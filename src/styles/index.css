@@ -898,7 +898,8 @@ body {
 
 /* TradeFlow sidebar (Node Library) */
 .tradeflow-sidebar {
-  width: clamp(200px, 16vw, 280px);
+  width: clamp(220px, 18vw, 300px);
+  min-width: 200px;
   background: #1a1a1a;
   border-right: 1px solid rgba(55, 65, 81, 0.3);
   display: flex;
@@ -910,7 +911,7 @@ body {
 }
 
 .tradeflow-sidebar-header {
-  padding: var(--sp-4);
+  padding: var(--sp-4) var(--sp-5);
   border-bottom: 1px solid rgba(55, 65, 81, 0.3);
 }
 
@@ -923,7 +924,7 @@ body {
 .tradeflow-sidebar-content {
   flex: 1;
   overflow-y: auto;
-  padding: var(--sp-3);
+  padding: var(--sp-4);
 }
 
 /* Node Library section */
@@ -960,7 +961,8 @@ body {
 
 /* Draggable node cards in library */
 .node-card {
-  padding: var(--sp-3);
+  padding: var(--sp-3) var(--sp-4);
+  margin-bottom: var(--sp-2);
   background: rgba(55, 65, 81, 0.25);
   border: 1px solid rgba(75, 85, 99, 0.3);
   border-radius: var(--r-md);
@@ -986,7 +988,8 @@ body {
 .node-card-desc {
   font-size: var(--fs-xs);
   color: rgba(107, 114, 128, 1);
-  margin-top: var(--sp-1);
+  margin-top: var(--sp-2);
+  line-height: 1.4;
 }
 
 /* Logic nodes (AND/OR buttons) */
@@ -1016,7 +1019,8 @@ body {
 
 /* TradeFlow inspector panel */
 .tradeflow-inspector {
-  width: clamp(240px, 20vw, 320px);
+  width: clamp(260px, 22vw, 340px);
+  min-width: 240px;
   background: #1a1a1a;
   border-left: 1px solid rgba(55, 65, 81, 0.3);
   display: flex;
@@ -1028,7 +1032,7 @@ body {
 }
 
 .tradeflow-inspector-header {
-  padding: var(--sp-4);
+  padding: var(--sp-4) var(--sp-5);
   border-bottom: 1px solid rgba(55, 65, 81, 0.3);
 }
 
@@ -1041,19 +1045,19 @@ body {
 .tradeflow-inspector-subtitle {
   font-size: var(--fs-sm);
   color: rgba(107, 114, 128, 1);
-  margin-top: var(--sp-1);
+  margin-top: var(--sp-2);
   text-transform: capitalize;
 }
 
 .tradeflow-inspector-content {
   flex: 1;
   overflow-y: auto;
-  padding: var(--sp-4);
+  padding: var(--sp-5);
 }
 
 /* TradeFlow form fields */
 .tradeflow-field {
-  margin-bottom: var(--sp-4);
+  margin-bottom: var(--sp-5);
 }
 
 .tradeflow-label {
@@ -1061,7 +1065,7 @@ body {
   font-size: var(--fs-sm);
   font-weight: 500;
   color: rgba(209, 213, 219, 1);
-  margin-bottom: var(--sp-2);
+  margin-bottom: var(--sp-3);
 }
 
 .tradeflow-input,
@@ -1091,7 +1095,8 @@ body {
   border-width: 2px;
   padding: var(--sp-3);
   cursor: grab;
-  transition: all 0.15s ease;
+  /* Only animate visual properties, NOT position - this keeps edges in sync with nodes */
+  transition: box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
 }
 
 .workflow-node:active {
