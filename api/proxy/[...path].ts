@@ -127,6 +127,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const data = await response.json();
+
+    // Add cache headers for Vercel edge caching
+    res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=300');
+
+    // Add ETag for conditional requests
+    const hash = Buffer.from(JSON.stringify(data).slice(0, 100)).toString('base64').slice(0, 16);
+    res.setHeader('ETag', `"${hash}"`);
+
     return res.status(200).json(data);
   } catch (error) {
     console.error('Proxy error:', error);

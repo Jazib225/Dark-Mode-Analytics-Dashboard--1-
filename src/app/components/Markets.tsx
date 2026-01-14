@@ -744,6 +744,59 @@ export function Markets({
     fetchAllMarkets();
   }, []);
 
+  // ============================================================================
+  // Intelligent Polling - Auto-refresh every 15s, pause when tab hidden
+  // ============================================================================
+  useEffect(() => {
+    let pollInterval: ReturnType<typeof setInterval> | null = null;
+    let isVisible = true;
+
+    const startPolling = () => {
+      if (pollInterval) return;
+      pollInterval = setInterval(() => {
+        if (isVisible && !isRefreshing) {
+          console.log('🔄 Auto-refreshing markets...');
+          // Trigger a background refresh without showing loading spinners
+          fetchMarketsSummary({ sortBy: 'volume', limit: 100 }).then(result => {
+            if (result.markets.length > 0) {
+              const displayMarkets = result.markets.map(convertMarketSummaryToDisplay);
+              setTrendingMarketsRaw(displayMarkets);
+              saveCachedMarkets(displayMarkets, MARKETS_CACHE_PREFIX + "trending_24h");
+              console.log(`✅ Auto-refreshed ${result.markets.length} trending markets`);
+            }
+          }).catch(() => { });
+        }
+      }, 15000); // Poll every 15 seconds
+    };
+
+    const stopPolling = () => {
+      if (pollInterval) {
+        clearInterval(pollInterval);
+        pollInterval = null;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        isVisible = false;
+        stopPolling();
+        console.log('⏸️ Paused polling (tab hidden)');
+      } else {
+        isVisible = true;
+        startPolling();
+        console.log('▶️ Resumed polling (tab visible)');
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    startPolling();
+
+    return () => {
+      stopPolling();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isRefreshing]);
+
   // Apply category filter to all columns
   const applyCategoryFilter = (markets: DisplayMarket[]): DisplayMarket[] => {
     if (selectedCategory === "all") return markets;

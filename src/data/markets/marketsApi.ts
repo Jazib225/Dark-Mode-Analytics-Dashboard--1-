@@ -108,8 +108,8 @@ interface CacheEntry<T> {
 
 const marketCache = new Map<string, CacheEntry<any>>();
 
-const CACHE_FRESH_MS = 15_000;   // 15s fresh
-const CACHE_STALE_MS = 60_000;   // 60s stale-but-usable
+const CACHE_FRESH_MS = 10_000;   // 10s fresh - synced with server s-maxage
+const CACHE_STALE_MS = 60_000;   // 60s stale-but-usable (matches stale-while-revalidate)
 const CACHE_MAX_MS = 300_000;    // 5m hard expiry
 
 function getCached<T>(key: string): { data: T; isStale: boolean; isExpired: boolean } | null {
