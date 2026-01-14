@@ -430,10 +430,15 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
   const searchInputRef = useRef<HTMLInputElement>(null);
   const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Initialize global market cache on app startup for INSTANT search
+  // Initialize global market cache AFTER app loads (deferred to avoid blocking)
+  // This enables instant search but doesn't block the Markets page from loading
   useEffect(() => {
-    console.log("🚀 App starting - initializing global market cache...");
-    initializeMarketCache();
+    // Defer cache initialization by 3 seconds to let Markets page load first
+    const timeout = setTimeout(() => {
+      console.log("🚀 Deferred market cache initialization starting...");
+      initializeMarketCache();
+    }, 3000);
+    return () => clearTimeout(timeout);
   }, []);
 
   // Load ALL active markets for comprehensive search on mount

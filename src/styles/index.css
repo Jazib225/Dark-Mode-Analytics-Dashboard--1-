@@ -1097,6 +1097,11 @@ body {
   cursor: grab;
   /* Only animate visual properties, NOT position - this keeps edges in sync with nodes */
   transition: box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  /* Prevent text selection from triggering unwanted drag behavior */
+  user-select: none;
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
 }
 
 .workflow-node:active {
