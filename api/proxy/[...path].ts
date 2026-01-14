@@ -6,45 +6,11 @@ const API_BASES: Record<string, string> = {
   data: 'https://data-api.polymarket.com',
 };
 
-// Simple proxy rotation for Vercel serverless functions
-// Note: For production, consider using a proper proxy service
-interface ProxyConfig {
-  url: string;
-  auth?: { username: string; password: string };
-}
-
-function getProxies(): ProxyConfig[] {
-  const proxyList = process.env.PROXY_LIST;
-  if (!proxyList) return [];
-
-  return proxyList.split(',').map(proxy => {
-    try {
-      const url = new URL(proxy.trim());
-      return {
-        url: `${url.protocol}//${url.host}`,
-        auth: url.username ? { username: url.username, password: url.password } : undefined,
-      };
-    } catch {
-      return null;
-    }
-  }).filter((p): p is ProxyConfig => p !== null);
-}
-
-// Round-robin proxy selection
-let proxyIndex = 0;
-function getNextProxy(): ProxyConfig | null {
-  const proxies = getProxies();
-  if (proxies.length === 0) return null;
-  const proxy = proxies[proxyIndex % proxies.length];
-  proxyIndex++;
-  return proxy;
-}
-
 export default async function handler(req: VercelRequest, res: VercelResponse) {
-  // Set CORS headers
+  // Set CORS headers explicitly (backup to vercel.json)
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With');
 
   if (req.method === 'OPTIONS') {
     return res.status(200).end();
@@ -66,42 +32,31 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(400).json({ error: `Unknown service: ${service}` });
     }
 
-    // Build query string from all query params except 'path'
-    const queryParams: Record<string, string> = {};
+    // Build query string correctly handling arrays
+    const queryParams = new URLSearchParams();
     for (const [key, value] of Object.entries(req.query)) {
-      if (key !== 'path' && typeof value === 'string') {
-        queryParams[key] = value;
+      if (key !== 'path') {
+        if (Array.isArray(value)) {
+          value.forEach(v => queryParams.append(key, v));
+        } else if (value !== undefined) {
+          queryParams.append(key, value);
+        }
       }
     }
-    const queryString = new URLSearchParams(queryParams).toString();
 
-    // Build target URL exactly like local server
+    // Build target URL
     let targetUrl = `${baseUrl}/${apiPath}`;
+    const queryString = queryParams.toString();
     if (queryString) {
       targetUrl += `?${queryString}`;
     }
 
-    console.log(`Proxying to: ${targetUrl}`);
+    console.log(`[Proxy] Forwarding to: ${targetUrl}`);
 
-    // Get proxy if configured
-    const proxy = getNextProxy();
-
-    // Build headers
     const headers: HeadersInit = {
       'User-Agent': 'Polymarket-Dashboard/1.0',
       'Accept': 'application/json',
     };
-
-    // Add proxy auth if needed (for some proxy setups in serverless)
-    if (proxy?.auth) {
-      headers['Proxy-Authorization'] = `Basic ${Buffer.from(`${proxy.auth.username}:${proxy.auth.password}`).toString('base64')}`;
-    }
-
-    // Note: Vercel's serverless functions don't support native proxy agents
-    // For full proxy support in Vercel, you would need to:
-    // 1. Use a proxy provider that supports API-based requests (like Bright Data's API)
-    // 2. Or deploy to a platform that supports HTTP agents (like a VPS)
-    // 3. Or use a proxy-as-a-service that accepts your request and forwards it
 
     const response = await fetch(targetUrl, {
       method: req.method || 'GET',
@@ -109,39 +64,37 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     });
 
     if (!response.ok) {
-      console.error(`API error: ${response.status} ${response.statusText}`);
+      console.error(`[Proxy] API error: ${response.status} ${response.statusText} from ${targetUrl}`);
 
-      // Check for rate limiting
-      if (response.status === 429) {
-        return res.status(429).json({
-          error: 'Rate limited by Polymarket API',
-          message: 'Configure PROXY_LIST environment variable for proxy rotation',
-          retryAfter: response.headers.get('retry-after') || '60',
+      // Pass through the error response if possible
+      try {
+        const errorData = await response.json();
+        return res.status(response.status).json(errorData);
+      } catch {
+        return res.status(response.status).json({
+          error: `Upstream API returned ${response.status}`,
+          url: targetUrl
         });
       }
-
-      return res.status(response.status).json({
-        error: `API returned ${response.status}`,
-        url: targetUrl
-      });
     }
 
     const data = await response.json();
 
-    // Add cache headers for Vercel edge caching
+    // Add cache headers for Vercel edge caching (30s fresh, 5m stale)
     res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=300');
 
-    // Add ETag for conditional requests
-    const hash = Buffer.from(JSON.stringify(data).slice(0, 100)).toString('base64').slice(0, 16);
-    res.setHeader('ETag', `"${hash}"`);
+    // Add ETag for conditional requests if not present
+    if (!res.getHeader('ETag')) {
+      const hash = Buffer.from(JSON.stringify(data).slice(0, 100)).toString('base64').slice(0, 16);
+      res.setHeader('ETag', `"${hash}"`);
+    }
 
     return res.status(200).json(data);
   } catch (error) {
-    console.error('Proxy error:', error);
+    console.error('[Proxy] Internal Handler Error:', error);
     return res.status(500).json({
       error: 'Proxy request failed',
       message: error instanceof Error ? error.message : 'Unknown error'
     });
   }
 }
-
