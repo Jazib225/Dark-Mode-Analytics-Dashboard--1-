@@ -1,18 +1,19 @@
 import { useState, useEffect, useMemo } from "react";
-import { Bookmark, Loader2, Filter, X } from "lucide-react";
+import { Bookmark, Loader2, Filter } from "lucide-react";
 import { BookmarkedMarket } from "../App";
 import { MarketDetail } from "./MarketDetail";
 import {
-  getTrendingMarkets,
-  getNewMarkets,
-  getNearlyResolvedMarkets,
+  fetchMarketsSummary,
+  getTrendingMarkets as getTrendingFromSummary,
+  getNewMarkets as getNewFromSummary,
+  getResolvingSoonMarkets,
+  type MarketSummary,
+} from "../../data/markets/marketsApi";
+import {
   formatTimeUntilClose
 } from "../services/polymarketApi";
 import {
-  fetchMarketList,
   prefetchMarketDetail,
-  prefetchOtherTimeframes,
-  type MarketCardDTO
 } from "../services/marketDataClient";
 import {
   Select,
@@ -168,17 +169,16 @@ function convertApiMarketToDisplay(market: any): DisplayMarket {
   };
 }
 
-function convertV2MarketToDisplay(market: MarketCardDTO): DisplayMarket {
+function convertMarketSummaryToDisplay(market: MarketSummary): DisplayMarket {
   const volumeNum = market.volume24hr || 0;
-
-  const probability = market.probability || 50;
+  const probability = market.yesPrice * 100;
   const yesPriceCents = probability;
   const noPriceCents = 100 - probability;
 
   return {
     id: market.id,
-    name: market.question,
-    title: market.question,
+    name: market.title,
+    title: market.title,
     probability: probability,
     yesPriceCents,
     noPriceCents,
@@ -186,7 +186,9 @@ function convertV2MarketToDisplay(market: MarketCardDTO): DisplayMarket {
     volumeNum: volumeNum,
     volume: formatVolume(volumeNum),
     image: market.image || null,
-    category: market.category || market.eventTitle,
+    category: market.category || undefined,
+    createdAt: market.createdAt,
+    endDate: market.endDate || undefined,
   };
 }
 
@@ -206,31 +208,31 @@ function formatVolume(volume: number): string {
 const normalizeCategory = (raw: string | undefined): MarketCategory | null => {
   if (!raw) return null;
   const lower = raw.toLowerCase();
-  
+
   // Map common variations to standard categories
-  if (lower.includes("sport") || lower.includes("nfl") || lower.includes("nba") || 
-      lower.includes("soccer") || lower.includes("football") || lower.includes("baseball") ||
-      lower.includes("hockey") || lower.includes("tennis") || lower.includes("golf")) {
+  if (lower.includes("sport") || lower.includes("nfl") || lower.includes("nba") ||
+    lower.includes("soccer") || lower.includes("football") || lower.includes("baseball") ||
+    lower.includes("hockey") || lower.includes("tennis") || lower.includes("golf")) {
     return "sports";
   }
-  if (lower.includes("crypto") || lower.includes("bitcoin") || lower.includes("ethereum") || 
-      lower.includes("btc") || lower.includes("eth") || lower.includes("token") ||
-      lower.includes("defi") || lower.includes("blockchain")) {
+  if (lower.includes("crypto") || lower.includes("bitcoin") || lower.includes("ethereum") ||
+    lower.includes("btc") || lower.includes("eth") || lower.includes("token") ||
+    lower.includes("defi") || lower.includes("blockchain")) {
     return "crypto";
   }
   if (lower.includes("politic") || lower.includes("election") || lower.includes("president") ||
-      lower.includes("senate") || lower.includes("congress") || lower.includes("governor") ||
-      lower.includes("trump") || lower.includes("biden") || lower.includes("vote")) {
+    lower.includes("senate") || lower.includes("congress") || lower.includes("governor") ||
+    lower.includes("trump") || lower.includes("biden") || lower.includes("vote")) {
     return "politics";
   }
   if (lower.includes("finance") || lower.includes("stock") || lower.includes("market") ||
-      lower.includes("fed") || lower.includes("interest") || lower.includes("gdp") ||
-      lower.includes("inflation") || lower.includes("economy")) {
+    lower.includes("fed") || lower.includes("interest") || lower.includes("gdp") ||
+    lower.includes("inflation") || lower.includes("economy")) {
     return "finance";
   }
   if (lower.includes("tech") || lower.includes("ai") || lower.includes("apple") ||
-      lower.includes("google") || lower.includes("microsoft") || lower.includes("openai") ||
-      lower.includes("software") || lower.includes("startup")) {
+    lower.includes("google") || lower.includes("microsoft") || lower.includes("openai") ||
+    lower.includes("software") || lower.includes("startup")) {
     return "tech";
   }
   return null;
@@ -257,13 +259,13 @@ function applyColumnFilter(markets: DisplayMarket[], filter: ColumnFilter): Disp
   return markets.filter(m => {
     const volume = getMarketVolume(m);
     const oddsPct = getMarketOddsPct(m);
-    
+
     // Side filter: "yes" = show markets, "no" = show markets (we show both sides per market)
     // For "yes only" - we filter to show markets and use YES odds
     // For "no only" - we filter to show markets and use NO odds
     // Since each market card represents a market (not a position), yes/no affects which odds we consider
     const sideOk = filter.side === "any" ? true : true; // All markets have both sides
-    
+
     const volumeOk =
       (filter.volumeMin == null || volume >= filter.volumeMin) &&
       (filter.volumeMax == null || volume <= filter.volumeMax);
@@ -305,30 +307,30 @@ interface FilterPopoverProps {
 function FilterPopover({ filter, onApply, onClear }: FilterPopoverProps) {
   const [localFilter, setLocalFilter] = useState<ColumnFilter>(filter);
   const [isOpen, setIsOpen] = useState(false);
-  
+
   // Validation
-  const volumeError = localFilter.volumeMin != null && localFilter.volumeMax != null && 
-                      localFilter.volumeMin > localFilter.volumeMax;
-  const oddsError = localFilter.oddsMin != null && localFilter.oddsMax != null && 
-                    localFilter.oddsMin > localFilter.oddsMax;
+  const volumeError = localFilter.volumeMin != null && localFilter.volumeMax != null &&
+    localFilter.volumeMin > localFilter.volumeMax;
+  const oddsError = localFilter.oddsMin != null && localFilter.oddsMax != null &&
+    localFilter.oddsMin > localFilter.oddsMax;
   const hasError = volumeError || oddsError;
-  
+
   const activeCount = countActiveFilters(filter);
-  
+
   const handleApply = () => {
     if (!hasError) {
       onApply(localFilter);
       setIsOpen(false);
     }
   };
-  
+
   const handleClear = () => {
     const clearedFilter: ColumnFilter = { side: "any" };
     setLocalFilter(clearedFilter);
     onClear();
     setIsOpen(false);
   };
-  
+
   // Reset local filter when popover opens
   useEffect(() => {
     if (isOpen) {
@@ -353,7 +355,7 @@ function FilterPopover({ filter, onApply, onClear }: FilterPopoverProps) {
           )}
         </button>
       </PopoverTrigger>
-      <PopoverContent 
+      <PopoverContent
         className="w-72 bg-[#111111] border border-gray-700/50 p-4 space-y-4"
         align="end"
       >
@@ -578,10 +580,10 @@ export function Markets({
   initialMarketData
 }: MarketsProps) {
   const [selectedMarketId, setSelectedMarketId] = useState<string | null>(initialMarketId ?? null);
-  
+
   // Category filter (global for all columns)
   const [selectedCategory, setSelectedCategory] = useState<"all" | MarketCategory>("all");
-  
+
   // Per-column filters (independent state for each column)
   const [filtersByColumn, setFiltersByColumn] = useState<Record<ColumnKey, ColumnFilter>>({
     trending: { side: "any" },
@@ -639,15 +641,18 @@ export function Markets({
     }
   };
 
-  // Fetch all market data in parallel
+  // Fetch all market data using optimized API
   useEffect(() => {
     const fetchAllMarkets = async () => {
+      console.log('⏱️ Starting optimized market fetch...');
+      const startTime = performance.now();
+
       // Check caches first
       const cachedTrending = loadCachedMarkets(MARKETS_CACHE_PREFIX + "trending_24h");
       const cachedNew = loadCachedMarkets(MARKETS_CACHE_PREFIX + "new");
       const cachedResolved = loadCachedMarkets(MARKETS_CACHE_PREFIX + "resolved");
 
-      // Use cached data if available
+      // Use cached data immediately for instant render
       if (cachedTrending && cachedTrending.length > 0) {
         setTrendingMarketsRaw(cachedTrending);
         setLoadingTrending(false);
@@ -669,62 +674,55 @@ export function Markets({
         setIsRefreshing(true);
       }
 
-      // Fetch all three columns in parallel (no waterfall!)
+      // Fetch all three columns in parallel using optimized API
       try {
-        const [trendingData, newData, resolvedData] = await Promise.all([
-          // Trending Markets - Use V2 API with fallback
-          (async () => {
-            try {
-              const { markets } = await fetchMarketList("24h");
-              if (Array.isArray(markets) && markets.length > 0) {
-                return markets
-                  .filter((m: MarketCardDTO) => m && m.question)
-                  .map((m: MarketCardDTO) => convertV2MarketToDisplay(m));
-              }
-            } catch (e) {
-              console.warn("V2 API failed, using fallback:", e);
-            }
-            // Fallback to legacy API
-            const data = await getTrendingMarkets("24h");
-            return data
-              .filter((m: any) => m && m.title)
-              .map((m: any) => convertApiMarketToDisplay(m));
-          })(),
-          // New Markets
-          getNewMarkets(30),
-          // Nearly Resolved Markets
-          getNearlyResolvedMarkets(72, 30),
+        const [trendingResult, newResult, resolvingResult] = await Promise.all([
+          // Trending Markets (sorted by volume)
+          fetchMarketsSummary({ sortBy: 'volume', limit: 100 }),
+          // New Markets (sorted by createdAt)
+          fetchMarketsSummary({ sortBy: 'newest', limit: 50 }),
+          // Resolving Soon Markets (sorted by endDate)
+          fetchMarketsSummary({ sortBy: 'endingSoon', limit: 50 }),
         ]);
 
+        const fetchTime = performance.now() - startTime;
+        console.log(`⏱️ All fetches completed in ${fetchTime.toFixed(0)}ms`);
+
         // Update trending
-        if (trendingData && trendingData.length > 0) {
-          setTrendingMarketsRaw(trendingData);
-          saveCachedMarkets(trendingData, MARKETS_CACHE_PREFIX + "trending_24h");
-          preloadImages(trendingData);
+        if (trendingResult.markets.length > 0) {
+          const trending = getTrendingFromSummary(trendingResult.markets, 50);
+          const displayTrending = trending.map(convertMarketSummaryToDisplay);
+          setTrendingMarketsRaw(displayTrending);
+          saveCachedMarkets(displayTrending, MARKETS_CACHE_PREFIX + "trending_24h");
+          preloadImages(displayTrending);
         }
         setLoadingTrending(false);
 
         // Update new markets
-        if (newData && newData.length > 0) {
-          const displayNew = newData.map((m: any) => convertApiMarketToDisplay(m));
+        if (newResult.markets.length > 0) {
+          const newMarketsList = getNewFromSummary(newResult.markets, 30);
+          const displayNew = newMarketsList.map(convertMarketSummaryToDisplay);
           setNewMarketsRaw(displayNew);
           saveCachedMarkets(displayNew, MARKETS_CACHE_PREFIX + "new");
           preloadImages(displayNew);
         }
         setLoadingNew(false);
 
-        // Update nearly resolved
-        if (resolvedData && resolvedData.length > 0) {
-          const displayResolved = resolvedData.map((m: any) => ({
-            ...convertApiMarketToDisplay(m),
-            timeUntilClose: m.timeUntilClose,
-            endDate: m.endDate,
+        // Update resolving soon (filter to only markets ending within 72 hours)
+        if (resolvingResult.markets.length > 0) {
+          const resolving = getResolvingSoonMarkets(resolvingResult.markets, 72, 30);
+          const displayResolved = resolving.map(m => ({
+            ...convertMarketSummaryToDisplay(m),
+            timeUntilClose: m.endDate ? new Date(m.endDate).getTime() - Date.now() : undefined,
           }));
           setNearlyResolvedMarketsRaw(displayResolved);
           saveCachedMarkets(displayResolved, MARKETS_CACHE_PREFIX + "resolved");
           preloadImages(displayResolved);
         }
         setLoadingResolved(false);
+
+        const totalTime = performance.now() - startTime;
+        console.log(`✅ Markets page loaded in ${totalTime.toFixed(0)}ms`);
 
       } catch (error) {
         console.error("Error fetching markets:", error);
@@ -737,14 +735,6 @@ export function Markets({
     };
 
     fetchAllMarkets();
-  }, []);
-
-  // Prefetch other timeframes in background
-  useEffect(() => {
-    const prefetchTimeout = setTimeout(() => {
-      prefetchOtherTimeframes("24h");
-    }, 1500);
-    return () => clearTimeout(prefetchTimeout);
   }, []);
 
   // Apply category filter to all columns
@@ -883,7 +873,7 @@ export function Markets({
             </div>
           )}
         </div>
-        
+
         {/* Category Dropdown */}
         <div className="flex items-center gap-[var(--sp-2)]">
           <span className="text-[var(--fs-xs)] text-gray-500">Category:</span>
