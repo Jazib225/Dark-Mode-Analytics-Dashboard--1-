@@ -10,6 +10,19 @@
   },
   "headers": [
     {
+      "source": "/api/markets/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, s-maxage=15, stale-while-revalidate=60"
+        },
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        }
+      ]
+    },
+    {
       "source": "/api/proxy/(.*)",
       "headers": [
         {

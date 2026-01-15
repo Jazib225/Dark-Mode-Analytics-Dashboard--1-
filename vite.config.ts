@@ -18,6 +18,24 @@ export default defineConfig({
   },
   server: {
     proxy: {
+      // Proxy all /api routes to the Express backend
+      '/api/proxy': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+      '/api/markets': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+      '/api/v2': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+      '/api/bulk': {
+        target: 'http://localhost:3001',
+        changeOrigin: true,
+      },
+      // Direct proxies to Polymarket APIs (fallback, less recommended)
       '/api/gamma': {
         target: 'https://gamma-api.polymarket.com',
         changeOrigin: true,
