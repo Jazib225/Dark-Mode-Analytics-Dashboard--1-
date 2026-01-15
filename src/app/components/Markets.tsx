@@ -118,11 +118,13 @@ function convertMarketSummaryToDisplay(market: MarketSummary): DisplayMarket {
   const volumeNum = market.volume24hr || 0;
 
   // Map outcomes
-  const outcomes = market.outcomes?.map(o => ({
-    name: o.name,
-    price: o.price,
-    tokenId: o.tokenId
-  })) || [];
+  const outcomes = (Array.isArray(market.outcomes) ? market.outcomes : [])
+    .filter(o => !!o) // Filter out nulls
+    .map(o => ({
+      name: o.name || 'Unknown',
+      price: o.price,
+      tokenId: o.tokenId
+    }));
 
   return {
     id: market.id,
@@ -205,21 +207,30 @@ function MarketCard({ market, onClick, onBookmark, isBookmarked, showEndDate }: 
           {market.name || market.title}
         </p>
 
-        {/* Outcomes List */}
+        {/* Outcomes List - Defensive Check */}
         <div className="flex flex-wrap gap-2 mb-2">
-          {market.outcomes.slice(0, 4).map((outcome, idx) => {
-            const price = outcome.price !== null ? outcome.price : 0.5; // Default if null? or hide?
-            const pct = Math.round(price * 100);
-            const colorClass = pct > 50 ? "text-green-400 bg-green-900/10 border-green-900/20" : "text-gray-400 bg-gray-800/30 border-gray-700/30";
+          {Array.isArray(market.outcomes) && market.outcomes.length > 0 ? (
+            market.outcomes.slice(0, 4).map((outcome, idx) => {
+              if (!outcome) return null; // Skip invalid outcomes
+              const price = outcome.price !== null && !isNaN(Number(outcome.price)) ? Number(outcome.price) : 0.5;
+              const pct = Math.round(price * 100);
+              const colorClass = pct > 50 ? "text-green-400 bg-green-900/10 border-green-900/20" : "text-gray-400 bg-gray-800/30 border-gray-700/30";
 
-            return (
-              <div key={idx} className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] border ${colorClass}`}>
-                <span className="font-medium text-gray-300 truncate max-w-[60px]">{outcome.name}</span>
-                <span className="font-bold">{pct}%</span>
-              </div>
-            );
-          })}
-          {market.outcomes.length > 4 && (
+              return (
+                <div key={idx} className={`flex items-center gap-1.5 px-2 py-1 rounded text-[10px] border ${colorClass}`}>
+                  <span className="font-medium text-gray-300 truncate max-w-[60px]">{outcome.name || 'Outcome'}</span>
+                  <span className="font-bold">{pct}%</span>
+                </div>
+              );
+            })
+          ) : (
+            // Fallback if outcomes are missing
+            <div className="px-2 py-1 rounded text-[10px] border text-gray-400 bg-gray-800/30 border-gray-700/30">
+              <span className="font-medium">Open to view details</span>
+            </div>
+          )}
+
+          {Array.isArray(market.outcomes) && market.outcomes.length > 4 && (
             <span className="text-[10px] text-gray-600 self-center">+{market.outcomes.length - 4}</span>
           )}
         </div>

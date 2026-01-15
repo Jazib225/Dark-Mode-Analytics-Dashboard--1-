@@ -209,12 +209,12 @@ function transformApiMarket(raw: any): MarketSummary {
     // If raw outcomes are strings (legacy), we need to fix them?
     // Backend V2 now returns OutcomeDTO objects.
     // We assume backend is deployed and returning correct structure.
-    const outcomes = raw.outcomes || [];
+    const outcomes = Array.isArray(raw.outcomes) ? raw.outcomes : [];
     // Compute probability from first outcome (YES) or best guess
     let probability = 0;
-    if (outcomes.length > 0) {
+    if (outcomes.length > 0 && outcomes[0]) {
         const p = outcomes[0].price; // Binary YES or first outcome
-        if (p !== null && p !== undefined) probability = p * 100;
+        if (p !== null && p !== undefined && !isNaN(p)) probability = p * 100;
     }
 
     return {
