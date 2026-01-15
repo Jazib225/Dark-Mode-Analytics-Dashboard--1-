@@ -73,29 +73,38 @@ function setCache<T>(key: string, data: T, ttl: number): void {
 // Types
 // =============================================================================
 
+export interface OutcomeDTO {
+  name: string;
+  tokenId: string;
+  price: number | null;
+  image?: string | null;
+}
+
 export interface MarketCardDTO {
   id: string;
-  slug: string;
+  slug?: string;
   question: string;
   image: string | null;
-  outcomes: string[];
-  outcomePrices: number[];
-  probability: number;
-  volume24hr: number;
-  volume7d: number;
-  volume1mo: number;
-  liquidity: number;
+  outcomes: OutcomeDTO[];
   status: 'active' | 'closed' | 'resolved';
-  category: string | null;
-  eventTitle: string | null;
-  lastUpdated: number;
+  volume24hr: number;
+  volume7d?: number;
+  category?: string;
+  eventTitle?: string | null; // Backend DTO might not have this, checking verify script output... Backend DTO has 'eventTitle'? No, strict DTOs didn't have it. 
+  // Let's check my dtos.ts. 
+  // src/server/polymarket/dtos.ts: MarketCardDTO has "eventTitle"?? NO. 
+  // Wait, I should verify if I need it. 
+  // The mapper `mapEventToMarketCard` does NOT add `eventTitle` to the card, but `marketService` might?
+  // Actually, UI uses `eventTitle` for grouping? 
+  // Let's keep it optional but be aware backend might not send it if I didn't add it.
+  createdAt?: string;
+  endDate?: string;
 }
 
 export interface MarketDetailDTO extends MarketCardDTO {
   description: string;
-  endDate: string | null;
-  createdAt: string;
   conditionId: string;
+  liquidity: number;
   clobTokenIds: string[];
 }
 

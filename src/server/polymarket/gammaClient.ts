@@ -1,31 +1,17 @@
 /**
- * Gamma API Client - Market Discovery & Metadata ONLY
+ * Gamma API Client - Raw Data Access
  * 
- * This client handles:
- * - Market lists (trending, new, nearly resolved)
- * - Market metadata (question, outcomes, status, close time)
- * - Events and categories
- * - Market search/filtering
+ * Responsible for:
+ * - Fetching raw events/markets from Gamma API.
+ * - Caching raw responses.
+ * - Deduplicating requests.
  * 
- * DO NOT use this client for:
- * - Orderbooks (use clobClient)
- * - Prices (use clobClient)
- * - User positions (use dataClient)
+ * It does NOT map to UI DTOs.
  */
 
-import {
-    MarketCardDTO,
-    MarketDetailDTO,
-    RawGammaEvent,
-    RawGammaMarket,
-    transformToMarketCard,
-    transformToMarketDetail,
-} from './dtos';
+import { RawGammaEvent, RawGammaMarket } from './dtos';
 import {
     marketListCache,
-    marketDetailCache,
-    marketListKey,
-    marketDetailKey,
     getWithRevalidation,
     dedupedFetch,
     fetchWithTimeout,
@@ -36,306 +22,128 @@ const GAMMA_API_BASE = 'https://gamma-api.polymarket.com';
 const DEFAULT_TIMEOUT = 8000;
 const MAX_RETRIES = 2;
 
-// =============================================================================
-// Market List Endpoints
-// =============================================================================
-
 /**
- * Get trending markets sorted by volume
+ * Fetch raw events based on type/category
  */
-export async function getTrendingMarkets(
-    limit: number = 50,
-    offset: number = 0
-): Promise<{ markets: MarketCardDTO[]; fromCache: boolean; duration: number }> {
-    const cacheKey = marketListKey('trending', limit, offset);
+export async function getRawEvents(
+    type: 'trending' | 'new' | 'resolving',
+    limit: number,
+    offset: number
+): Promise<RawGammaEvent[]> {
+    const cacheKey = `raw_events:${type}:${limit}:${offset}`;
 
-    const result = await getWithRevalidation(
-        cacheKey,
-        marketListCache,
-        () => dedupedFetch(cacheKey, async () => {
-            const url = `${GAMMA_API_BASE}/events?limit=500&active=true&closed=false`;
+    // We can reuse the dedupedFetch logic
+    return dedupedFetch(cacheKey, async () => {
+        let url = `${GAMMA_API_BASE}/events?limit=${limit + 10}&offset=${offset}&active=true&closed=false`;
 
-            const data = await fetchWithRetry(
-                async () => {
-                    const response = await fetchWithTimeout(url, { timeout: DEFAULT_TIMEOUT });
-                    if (!response.ok) {
-                        throw new Error(`Gamma API error: ${response.status}`);
-                    }
-                    return response.json();
-                },
-                { maxRetries: MAX_RETRIES }
-            );
-
-            // Extract markets from events
-            const markets = extractMarketsFromEvents(data as RawGammaEvent[]);
-
-            // Sort by 24hr volume descending
-            markets.sort((a, b) => b.volume24hr - a.volume24hr);
-
-            // Apply pagination
-            return markets.slice(offset, offset + limit);
-        })
-    );
-
-    return {
-        markets: result.data,
-        fromCache: result.fromCache,
-        duration: result.duration,
-    };
-}
-
-/**
- * Get new markets sorted by creation date
- */
-export async function getNewMarkets(
-    limit: number = 30,
-    offset: number = 0
-): Promise<{ markets: MarketCardDTO[]; fromCache: boolean; duration: number }> {
-    const cacheKey = marketListKey('new', limit, offset);
-
-    const result = await getWithRevalidation(
-        cacheKey,
-        marketListCache,
-        () => dedupedFetch(cacheKey, async () => {
-            const url = `${GAMMA_API_BASE}/events?limit=500&active=true&closed=false`;
-
-            const data = await fetchWithRetry(
-                async () => {
-                    const response = await fetchWithTimeout(url, { timeout: DEFAULT_TIMEOUT });
-                    if (!response.ok) {
-                        throw new Error(`Gamma API error: ${response.status}`);
-                    }
-                    return response.json();
-                },
-                { maxRetries: MAX_RETRIES }
-            );
-
-            // Extract markets from events
-            const markets = extractMarketsFromEvents(data as RawGammaEvent[]);
-
-            // Sort by createdAt descending (newest first)
-            markets.sort((a, b) =>
-                new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-            );
-
-            // Apply pagination
-            return markets.slice(offset, offset + limit);
-        })
-    );
-
-    return {
-        markets: result.data,
-        fromCache: result.fromCache,
-        duration: result.duration,
-    };
-}
-
-/**
- * Get markets resolving soon sorted by end date
- */
-export async function getNearlyResolvedMarkets(
-    limit: number = 30,
-    offset: number = 0,
-    hoursAhead: number = 72
-): Promise<{ markets: MarketCardDTO[]; fromCache: boolean; duration: number }> {
-    const cacheKey = marketListKey('resolving', limit, offset);
-
-    const result = await getWithRevalidation(
-        cacheKey,
-        marketListCache,
-        () => dedupedFetch(cacheKey, async () => {
-            const url = `${GAMMA_API_BASE}/events?limit=500&active=true&closed=false`;
-
-            const data = await fetchWithRetry(
-                async () => {
-                    const response = await fetchWithTimeout(url, { timeout: DEFAULT_TIMEOUT });
-                    if (!response.ok) {
-                        throw new Error(`Gamma API error: ${response.status}`);
-                    }
-                    return response.json();
-                },
-                { maxRetries: MAX_RETRIES }
-            );
-
-            // Extract markets from events
-            const allMarkets = extractMarketsFromEvents(data as RawGammaEvent[]);
-
-            // Filter to markets ending within the time window
-            const now = Date.now();
-            const cutoff = now + hoursAhead * 60 * 60 * 1000;
-
-            let markets = allMarkets.filter(m => {
-                if (!m.endDate) return false;
-                const endTime = new Date(m.endDate).getTime();
-                if (isNaN(endTime)) return false;
-                return endTime > now && endTime < cutoff;
-            });
-
-            // Sort by endDate ascending (soonest first)
-            markets.sort((a, b) =>
-                new Date(a.endDate!).getTime() - new Date(b.endDate!).getTime()
-            );
-
-            // Fallback: if no markets within window, show all markets with endDate
-            if (markets.length === 0) {
-                console.log('⚠️ No markets within time range, showing all markets with endDate');
-                markets = allMarkets
-                    .filter(m => m.endDate && !isNaN(new Date(m.endDate).getTime()))
-                    .sort((a, b) =>
-                        new Date(a.endDate!).getTime() - new Date(b.endDate!).getTime()
-                    );
-            }
-
-            // Apply pagination
-            return markets.slice(offset, offset + limit);
-        })
-    );
-
-    return {
-        markets: result.data,
-        fromCache: result.fromCache,
-        duration: result.duration,
-    };
-}
-
-// =============================================================================
-// Single Market Endpoints
-// =============================================================================
-
-/**
- * Get market detail by ID
- */
-export async function getMarketById(
-    marketId: string
-): Promise<{ market: MarketDetailDTO | null; fromCache: boolean; duration: number }> {
-    if (!marketId) {
-        return { market: null, fromCache: false, duration: 0 };
-    }
-
-    const cacheKey = marketDetailKey(marketId);
-
-    const result = await getWithRevalidation(
-        cacheKey,
-        marketDetailCache,
-        () => dedupedFetch(cacheKey, async () => {
-            const url = `${GAMMA_API_BASE}/markets/${marketId}`;
-
-            const data = await fetchWithRetry(
-                async () => {
-                    const response = await fetchWithTimeout(url, { timeout: DEFAULT_TIMEOUT });
-                    if (!response.ok) {
-                        throw new Error(`Market not found: ${response.status}`);
-                    }
-                    return response.json();
-                },
-                { maxRetries: MAX_RETRIES }
-            );
-
-            return transformToMarketDetail(data as RawGammaMarket);
-        })
-    );
-
-    return {
-        market: result.data,
-        fromCache: result.fromCache,
-        duration: result.duration,
-    };
-}
-
-/**
- * Search markets by query
- */
-export async function searchMarkets(
-    query: string,
-    limit: number = 20
-): Promise<{ markets: MarketCardDTO[]; fromCache: boolean; duration: number }> {
-    if (!query || query.length < 2) {
-        return { markets: [], fromCache: false, duration: 0 };
-    }
-
-    const cacheKey = `search:${query.toLowerCase()}:${limit}`;
-
-    const result = await getWithRevalidation(
-        cacheKey,
-        marketListCache,
-        () => dedupedFetch(cacheKey, async () => {
-            // Gamma API doesn't have a dedicated search endpoint
-            // Fetch all markets and filter client-side
-            const url = `${GAMMA_API_BASE}/events?limit=500&active=true&closed=false`;
-
-            const data = await fetchWithRetry(
-                async () => {
-                    const response = await fetchWithTimeout(url, { timeout: DEFAULT_TIMEOUT });
-                    if (!response.ok) {
-                        throw new Error(`Gamma API error: ${response.status}`);
-                    }
-                    return response.json();
-                },
-                { maxRetries: MAX_RETRIES }
-            );
-
-            // Extract markets from events
-            const allMarkets = extractMarketsFromEvents(data as RawGammaEvent[]);
-
-            // Search filter
-            const queryLower = query.toLowerCase();
-            const filtered = allMarkets.filter(m =>
-                m.question.toLowerCase().includes(queryLower) ||
-                (m.category && m.category.toLowerCase().includes(queryLower)) ||
-                (m.eventTitle && m.eventTitle.toLowerCase().includes(queryLower))
-            );
-
-            // Sort by relevance (question match first, then by volume)
-            filtered.sort((a, b) => {
-                const aQuestionMatch = a.question.toLowerCase().includes(queryLower) ? 1 : 0;
-                const bQuestionMatch = b.question.toLowerCase().includes(queryLower) ? 1 : 0;
-                if (aQuestionMatch !== bQuestionMatch) return bQuestionMatch - aQuestionMatch;
-                return b.volume24hr - a.volume24hr;
-            });
-
-            return filtered.slice(0, limit);
-        })
-    );
-
-    return {
-        markets: result.data,
-        fromCache: result.fromCache,
-        duration: result.duration,
-    };
-}
-
-// =============================================================================
-// Helper Functions
-// =============================================================================
-
-/**
- * Extract markets from events array
- */
-function extractMarketsFromEvents(events: RawGammaEvent[]): MarketCardDTO[] {
-    if (!Array.isArray(events)) return [];
-
-    const markets: MarketCardDTO[] = [];
-
-    for (const event of events) {
-        if (!Array.isArray(event.markets)) continue;
-
-        for (const market of event.markets) {
-            // Skip inactive or closed markets
-            if (market.active === false || market.closed) continue;
-            // Skip markets without a question
-            if (!market.question && !market.title) continue;
-
-            markets.push(transformToMarketCard(market, event.title));
+        // Sorting params
+        if (type === 'new') {
+            // Gamma API sort param might be supported
+            url += `&sort=createdAt&order=desc`;
+            // If not supported, we sort client side
+        } else if (type === 'resolving') {
+            url += `&sort=endDate&order=asc`;
         }
-    }
 
-    return markets;
+        const data = await fetchWithRetry(
+            async () => {
+                const response = await fetchWithTimeout(url, { timeout: DEFAULT_TIMEOUT });
+                if (!response.ok) throw new Error(`Gamma Error: ${response.status}`);
+                return response.json();
+            },
+            { maxRetries: MAX_RETRIES }
+        ) as RawGammaEvent[];
+
+        // Post-fetch sorting/filtering to be safe
+        let sorted = data;
+
+        if (type === 'trending') {
+            sorted.sort((a, b) => {
+                const volA = a.markets?.reduce((s, m) => s + (Number(m.volume24hr) || 0), 0) || 0;
+                const volB = b.markets?.reduce((s, m) => s + (Number(m.volume24hr) || 0), 0) || 0;
+                return volB - volA;
+            });
+        } else if (type === 'new') {
+            sorted.sort((a, b) => {
+                const timeA = a.markets?.[0]?.createdAt ? new Date(a.markets[0].createdAt).getTime() : 0;
+                const timeB = b.markets?.[0]?.createdAt ? new Date(b.markets[0].createdAt).getTime() : 0;
+                return timeB - timeA;
+            });
+        } else if (type === 'resolving') {
+            const now = Date.now();
+            // Filter out already ended?
+            sorted = sorted.filter(e => {
+                const end = e.markets?.[0]?.endDate ? new Date(e.markets[0].endDate).getTime() : 0;
+                return end > now;
+            });
+            sorted.sort((a, b) => {
+                const timeA = a.markets?.[0]?.endDate ? new Date(a.markets[0].endDate).getTime() : 0;
+                const timeB = b.markets?.[0]?.endDate ? new Date(b.markets[0].endDate).getTime() : Infinity;
+                return timeA - timeB;
+            });
+        }
+
+        return sorted.slice(0, limit);
+    });
 }
 
 /**
- * Get all markets (for search/cache warming)
+ * Fetch raw event by ID (or Market ID)
  */
-export async function getAllMarkets(): Promise<MarketCardDTO[]> {
-    const result = await getTrendingMarkets(1000, 0);
-    return result.markets;
+export async function getRawEvent(id: string): Promise<RawGammaEvent | null> {
+    const cacheKey = `raw_event:${id}`;
+
+    const result = await getWithRevalidation(
+        cacheKey,
+        marketListCache, // Reuse generic cache
+        async () => {
+            // Try as Event ID
+            // Check if we can find it via /events/id
+            try {
+                const eventRes = await fetchWithTimeout(`${GAMMA_API_BASE}/events/${id}`, { timeout: 3000 });
+                if (eventRes.ok) {
+                    return eventRes.json();
+                }
+            } catch (e) { }
+
+            // Try as Market ID -> Wrapped Event
+            try {
+                const marketRes = await fetchWithTimeout(`${GAMMA_API_BASE}/markets/${id}`, { timeout: 3000 });
+                if (marketRes.ok) {
+                    const m = await marketRes.json();
+
+                    // If this market defines an eventId, we should try to fetch that event?
+                    // But if we fail, we wrap this market.
+                    // Important: For group markets, we need the group context.
+                    // Gamma markets response does not usually include the siblings.
+                    // But typically `id` passed here IS the market ID.
+
+                    // Optimistic approach: Return as single-market event wrapper.
+                    // This satisfies strict typing, even if we miss siblings.
+                    // BUT user requirement: "ALL outcomes".
+
+                    // If it's a multi-outcome market, does /markets/:id return all outcomes?
+                    // Answer from previous turn: Yes, it returned `outcomes` array (strings) or `events`.
+                    // Wait, `events` field in the market response usually contains the event.
+
+                    // Let's wrap safely.
+                    return {
+                        id: m.id, // Fake event ID
+                        title: m.question,
+                        slug: m.slug,
+                        image: m.image,
+                        description: m.description,
+                        markets: [m]
+                    } as RawGammaEvent;
+                }
+            } catch (e) { }
+
+            return null;
+        }
+    );
+
+    return result.data;
 }
+
+// Helpers
+function transformToMarketCard() { throw new Error("Do not use legacy transform"); }

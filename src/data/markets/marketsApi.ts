@@ -62,20 +62,29 @@ function perfEnd(label: string): number {
     return 0;
 }
 
+
 // =============================================================================
 // Types - Slim DTOs matching backend
 // =============================================================================
+
+export interface OutcomeDTO {
+    name: string;
+    tokenId: string;
+    price: number | null;
+    image?: string | null;
+}
+
 export interface MarketSummary {
     id: string;
     slug: string;
     question: string;
     image: string | null;
-    outcomes: string[];
-    outcomePrices: number[];
-    probability: number;
+    outcomes: OutcomeDTO[];
+    // outcomePrices removed
+    probability: number; // Keep for sorting/compatibility (usually outcome[0].price)
     volume24hr: number;
     volume7d: number;
-    volume1mo: number;
+    // volume1mo removed from strict backend DTO
     liquidity: number;
     status: 'active' | 'closed' | 'resolved';
     category: string | null;
@@ -85,8 +94,6 @@ export interface MarketSummary {
     lastUpdated: number;
     // Computed fields
     title: string;
-    yesPrice: number;
-    noPrice: number;
 }
 
 export interface MarketDetail extends MarketSummary {
@@ -106,6 +113,7 @@ export interface OrderBook {
     spread: number;
     lastUpdated: number;
 }
+
 
 // =============================================================================
 // Request Deduplication
@@ -194,13 +202,27 @@ async function fastFetch(url: string, timeoutMs = 8000): Promise<Response> {
 // =============================================================================
 // API Response Transformation
 // =============================================================================
+// =============================================================================
+// API Response Transformation
+// =============================================================================
 function transformApiMarket(raw: any): MarketSummary {
+    // If raw outcomes are strings (legacy), we need to fix them?
+    // Backend V2 now returns OutcomeDTO objects.
+    // We assume backend is deployed and returning correct structure.
+    const outcomes = raw.outcomes || [];
+    // Compute probability from first outcome (YES) or best guess
+    let probability = 0;
+    if (outcomes.length > 0) {
+        const p = outcomes[0].price; // Binary YES or first outcome
+        if (p !== null && p !== undefined) probability = p * 100;
+    }
+
     return {
         ...raw,
         // Computed fields for backwards compatibility
         title: raw.question || 'Unknown Market',
-        yesPrice: raw.outcomePrices?.[0] || 0.5,
-        noPrice: raw.outcomePrices?.[1] || 0.5,
+        probability
+        // yesPrice/noPrice removed - components must use outcomes array
     };
 }
 
