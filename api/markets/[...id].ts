@@ -278,6 +278,127 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
                 meta: { duration, cached: false },
             });
 
+        } else if (pathSegments.length > 1 && pathSegments[1] === 'outcomes') {
+            // =================================================================
+            // HANDLE OUTCOMES REQUEST
+            // =================================================================
+            const cacheKey = `outcomes:${marketId}`;
+            const now = Date.now();
+            const cached = detailCache.get(cacheKey) as any; // Reusing detailCache for simplicity
+
+            if (cached && now < cached.staleAt) {
+                const duration = Date.now() - startTime;
+                res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=120');
+                return res.json({
+                    success: true,
+                    data: cached.data,
+                    meta: { duration, cached: true },
+                });
+            }
+
+            // 1. Fetch market first to get event info
+            console.log(`[Market API] Fetching outcomes for market ${marketId}...`);
+            const marketRes = await fetch(`${GAMMA_API}/markets/${marketId}`);
+            if (!marketRes.ok) {
+                return res.status(404).json({ success: false, error: 'Market not found' });
+            }
+            const marketData = await marketRes.json();
+
+            // 2. Fetch all markets for this event (to get all outcomes)
+            // If it's a group market (multi-outcome), we need the event's other markets via event ID or slug
+            // Or if it's a single market, just return its outcomes
+
+            let allOutcomes: any[] = [];
+            let isMultiOutcome = false;
+            let eventTitle = null;
+            let eventSlug = null;
+            let targetIndex = undefined;
+
+            // Strategy: Try to find the event
+            // Use eventId if available, otherwise search by slug or just use the market itself
+            const eventId = marketData.events?.[0]?.id || marketData.conditionId; // Fallback
+
+            if (eventId) {
+                const eventsRes = await fetch(`${GAMMA_API}/events/${eventId}`);
+                if (eventsRes.ok) {
+                    const eventData = await eventsRes.json();
+                    if (eventData && Array.isArray(eventData.markets)) {
+                        allOutcomes = eventData.markets;
+                        isMultiOutcome = eventData.markets.length > 1;
+                        eventTitle = eventData.title;
+                        eventSlug = eventData.slug;
+                    }
+                }
+            }
+
+            // Fallback: Use the market's own outcomes if event fetch failed or returned nothing
+            if (allOutcomes.length === 0) {
+                // Determine if this itself is a multi-outcome market container?
+                // Usually Gamma returns individual markets. 
+                // If we can't find the event, we just return this market as a single outcome (or Yes/No)
+                allOutcomes = [marketData];
+            }
+
+            // 3. Map to OutcomeListItem format
+            const outcomesFormatted = allOutcomes.map((m: any, index: number) => {
+                // Parse image - check various places
+                const image = m.image || m.groupItemImage || m.token?.image || null;
+
+                // Parse outcome prices
+                let yesPrice = 0.5;
+                if (m.outcomePrices) {
+                    try {
+                        const prices = typeof m.outcomePrices === 'string' ? JSON.parse(m.outcomePrices) : m.outcomePrices;
+                        if (Array.isArray(prices)) yesPrice = parseFloat(prices[0]) || 0.5;
+                    } catch (e) { }
+                } else if (m.bestBid) {
+                    yesPrice = parseFloat(m.bestBid);
+                }
+
+                const isTarget = m.id === marketId;
+                if (isTarget) targetIndex = index;
+
+                return {
+                    id: m.id,
+                    name: m.groupItemTitle || m.question || m.title || "Unknown",
+                    question: m.question || m.title,
+                    outcome: m.groupItemTitle || m.outcome || "Yes",
+                    index: index,
+                    probability: yesPrice * 100,
+                    volume: `$${parseFloat(m.volume || 0).toFixed(2)}`,
+                    volumeNum: parseFloat(m.volume || 0),
+                    isTarget,
+                    image: image
+                };
+            });
+
+            // Sort by probability or volume if it's a large list
+            if (outcomesFormatted.length > 2) {
+                outcomesFormatted.sort((a: any, b: any) => b.probability - a.probability);
+            }
+
+            const result = {
+                isMultiOutcome,
+                eventTitle,
+                eventSlug,
+                outcomes: outcomesFormatted,
+                targetIndex
+            };
+
+            // Update cache (borrowing detailCache)
+            detailCache.set(cacheKey, {
+                data: result as any,
+                timestamp: now,
+                staleAt: now + 30000 // 30s TTL
+            });
+
+            res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=60');
+            return res.json({
+                success: true,
+                data: result,
+                meta: { duration: Date.now() - startTime, cached: false }
+            });
+
         } else {
             // Handle market detail request
             const cacheKey = `detail:${marketId}`;

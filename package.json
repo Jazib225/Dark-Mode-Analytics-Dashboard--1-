@@ -11,7 +11,7 @@
     "build:server": "tsc --project tsconfig.server.json",
     "build:frontend": "vite build",
     "dev": "concurrently \"npm run dev:server\" \"npm run dev:frontend\"",
-    "dev:server": "npx tsx src/server/index.ts",
+    "dev:server": "npx tsx --watch src/server/index.ts",
     "dev:frontend": "vite"
   },
   "dependencies": {

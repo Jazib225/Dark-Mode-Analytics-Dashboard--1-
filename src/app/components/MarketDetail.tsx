@@ -325,14 +325,14 @@ export function MarketDetail({
             // Only set basic selection - don't fetch detail yet
             setSelectedOutcome({
               id: target.id,
-              question: target.question,
-              outcome: target.outcome,
+              question: target.question || "",
+              outcome: target.outcome || "",
               yesPrice: target.probability / 100,
               noPrice: 1 - (target.probability / 100),
               yesPriceCents: target.probability,
               noPriceCents: 100 - target.probability,
-              volume: target.volume,
-              volumeNum: target.volumeNum,
+              volume: target.volume || "$0",
+              volumeNum: target.volumeNum || 0,
             });
           }
         } else {
@@ -357,14 +357,14 @@ export function MarketDetail({
     // Immediately update selection with basic data (fast feedback)
     setSelectedOutcome({
       id: outcomeItem.id,
-      question: outcomeItem.question,
-      outcome: outcomeItem.outcome,
+      question: outcomeItem.question || "",
+      outcome: outcomeItem.outcome || "",
       yesPrice: outcomeItem.probability / 100,
       noPrice: 1 - (outcomeItem.probability / 100),
       yesPriceCents: outcomeItem.probability,
       noPriceCents: 100 - outcomeItem.probability,
-      volume: outcomeItem.volume,
-      volumeNum: outcomeItem.volumeNum,
+      volume: outcomeItem.volume || "$0",
+      volumeNum: outcomeItem.volumeNum || 0,
     });
 
     // Now lazy-load the FULL detail (with CLOB prices)
@@ -732,18 +732,35 @@ export function MarketDetail({
                               : "bg-gradient-to-br from-[#111111] to-[#0a0a0a] border border-gray-800/30 hover:border-gray-700/50"
                               }`}
                           >
-                            <div className="flex-1">
-                              <div className={`text-sm font-normal ${isSelected ? "text-gray-100" : "text-gray-300"}`}>
-                                {outcomeItem.outcome || outcomeItem.question}
-                              </div>
-                              <div className="text-xs text-gray-500 mt-0.5">
-                                {outcomeItem.volume} Vol.
-                                {isSelected && outcomeDetailLoading && (
-                                  <span className="ml-2 inline-flex items-center gap-1 text-gray-600">
-                                    <Loader2 className="w-3 h-3 animate-spin" />
-                                    <span>Loading prices...</span>
-                                  </span>
-                                )}
+                            <div className="flex items-center gap-3 flex-1 min-w-0">
+                              {/* Outcome Image */}
+                              {outcomeItem.image ? (
+                                <img
+                                  src={outcomeItem.image}
+                                  alt=""
+                                  className="w-8 h-8 sm:w-10 sm:h-10 rounded-full object-cover bg-gray-800 flex-shrink-0"
+                                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                />
+                              ) : (
+                                // Placeholder if no image but it's a multi-outcome list
+                                <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gray-800/50 flex items-center justify-center flex-shrink-0 text-gray-600 text-[10px]">
+                                  {outcomeItem.index + 1}
+                                </div>
+                              )}
+
+                              <div className="min-w-0">
+                                <div className={`text-sm font-normal truncate ${isSelected ? "text-gray-100" : "text-gray-300"}`}>
+                                  {outcomeItem.outcome || outcomeItem.question}
+                                </div>
+                                <div className="text-xs text-gray-500 mt-0.5 flex items-center gap-2">
+                                  <span>{outcomeItem.volume} Vol.</span>
+                                  {isSelected && outcomeDetailLoading && (
+                                    <span className="inline-flex items-center gap-1 text-gray-600">
+                                      <Loader2 className="w-3 h-3 animate-spin" />
+                                      <span>Loading prices...</span>
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                             </div>
                             <div className="text-right flex items-center gap-4">

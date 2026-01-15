@@ -518,6 +518,9 @@ router.get("/:id/outcomes", async (req: Request, res: Response) => {
             return `$${v.toFixed(0)}`;
           };
 
+          // Parse image - check various places
+          const image = market.image || market.groupItemImage || market.token?.image || null;
+
           return {
             id: market.id,
             name: market.groupItemTitle || market.question || market.outcome || `Outcome ${index + 1}`,
@@ -528,6 +531,7 @@ router.get("/:id/outcomes", async (req: Request, res: Response) => {
             volume: formatVolume(volumeNum),
             volumeNum: volumeNum,
             isTarget: market.id === id,
+            image: image,
           };
         });
 

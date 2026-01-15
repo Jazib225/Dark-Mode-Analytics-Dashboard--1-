@@ -415,6 +415,7 @@ export interface OutcomeListItem {
   volume?: string;     // Formatted volume string
   volumeNum?: number;  // Numeric volume
   isTarget?: boolean;
+  image?: string;      // Outcome image URL
 }
 
 export interface OutcomesList {
@@ -439,6 +440,7 @@ export interface OutcomeDetail {
   volumeNum: number;
   clobTokenIds: string[];
   conditionId: string;
+  image?: string;      // Outcome image URL
 }
 
 const OUTCOMES_LIST_TTL = 60000;  // 60s - outcomes don't change often

@@ -8,6 +8,16 @@
       "maxDuration": 10
     }
   },
+  "rewrites": [
+    {
+      "source": "/api/v2/markets",
+      "destination": "/api/markets"
+    },
+    {
+      "source": "/api/v2/markets/(.*)",
+      "destination": "/api/markets/$1"
+    }
+  ],
   "headers": [
     {
       "source": "/api/markets/(.*)",
