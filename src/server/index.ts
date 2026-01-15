@@ -4,6 +4,8 @@ import type { Express } from "express";
 
 // Optimized markets endpoint with caching
 import marketsV2Router from "./routes/marketsV2";
+// New unified markets API using polymarket data layer
+import marketsRouter from "./routes/markets";
 
 // Proxy infrastructure for bypassing rate limits
 import { proxyManager } from "./proxy/ProxyManager";
@@ -39,6 +41,11 @@ app.use((req, res, next) => {
 
   next();
 });
+
+// =============================================================================
+// New Markets API (using unified polymarket data layer)
+// =============================================================================
+app.use("/api/markets", marketsRouter);
 
 // =============================================================================
 // Optimized Markets V2 API (with server-side caching)

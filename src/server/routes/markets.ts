@@ -1,165 +1,152 @@
-import { Router, Request, Response } from "express";
-import { gammaClient } from "../clients/GammaClient";
+/**
+ * Express Route: /api/markets
+ * 
+ * Handles market list and detail requests for local development.
+ * Mirrors the Vercel API routes: api/markets/index.ts and api/markets/[...id].ts
+ */
+
+import { Router } from 'express';
+import {
+  getTrendingMarkets,
+  getNewMarkets,
+  getNearlyResolvedMarkets,
+  getMarketById,
+  getOrderBook,
+} from '../polymarket';
 
 const router = Router();
 
-/**
- * GET /api/markets
- * List all markets with optional filters
- */
-router.get("/", async (req: Request, res: Response) => {
+// =============================================================================
+// GET /api/markets - List markets (trending, new, nearly-resolved)
+// =============================================================================
+router.get('/', async (req, res) => {
+  const startTime = Date.now();
+
   try {
-    const { limit, offset, order, active, closed, archived, tag } = req.query;
+    const type = (req.query.type as string) || 'trending';
+    const limit = parseInt(String(req.query.limit || '50'), 10);
+    const offset = parseInt(String(req.query.offset || '0'), 10);
+    const hoursAhead = parseInt(String(req.query.hoursAhead || '72'), 10);
 
-    const markets = await gammaClient.listMarkets({
-      limit: limit ? parseInt(limit as string) : 1000,
-      offset: offset ? parseInt(offset as string) : 0,
-      order: order as any,
-      active: active === "true" ? true : active === "false" ? false : undefined,
-      closed: closed === "true" ? true : closed === "false" ? false : undefined,
-      archived: archived === "true" ? true : archived === "false" ? false : undefined,
-      tag: tag as string,
-    });
+    console.log(`[Markets API] Fetching ${type} markets (limit=${limit}, offset=${offset})...`);
 
-    res.json({ success: true, data: markets });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to fetch markets";
-    res.status(500).json({ success: false, error: message });
-  }
-});
+    let result: { markets: any[]; fromCache: boolean; duration: number };
 
-/**
- * GET /api/markets/trending
- * Get trending markets
- */
-router.get("/trending", async (req: Request, res: Response) => {
-  try {
-    const { timeframe } = req.query;
-    const markets = await gammaClient.getTrendingMarkets(
-      (timeframe as "1h" | "24h" | "7d") || "24h"
-    );
-
-    res.json({ success: true, data: markets });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to fetch trending markets";
-    res.status(500).json({ success: false, error: message });
-  }
-});
-
-/**
- * GET /api/markets/top
- * Get top markets by volume
- */
-router.get("/top", async (req: Request, res: Response) => {
-  try {
-    const { limit } = req.query;
-    const markets = await gammaClient.getTopMarkets(limit ? parseInt(limit as string) : 10);
-
-    res.json({ success: true, data: markets });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to fetch top markets";
-    res.status(500).json({ success: false, error: message });
-  }
-});
-
-/**
- * GET /api/markets/search
- * Search for markets by query
- */
-router.get("/search", async (req: Request, res: Response) => {
-  try {
-    const { q, limit, offset } = req.query;
-
-    if (!q) {
-      return res.status(400).json({ success: false, error: "query parameter 'q' is required" });
+    switch (type) {
+      case 'new':
+        result = await getNewMarkets(limit, offset);
+        break;
+      case 'nearly-resolved':
+        result = await getNearlyResolvedMarkets(limit, offset, hoursAhead);
+        break;
+      case 'trending':
+      default:
+        result = await getTrendingMarkets(limit, offset);
+        break;
     }
 
-    const markets = await gammaClient.searchMarkets(q as string, {
-      limit: limit ? parseInt(limit as string) : 50,
-      offset: offset ? parseInt(offset as string) : 0,
+    const duration = Date.now() - startTime;
+    console.log(`[Markets API] ${type}: ${result.markets.length} markets in ${duration}ms (cached: ${result.fromCache})`);
+
+    // Set cache headers
+    res.setHeader('Cache-Control', 'public, s-maxage=15, stale-while-revalidate=60');
+
+    return res.json({
+      success: true,
+      data: result.markets,
+      meta: {
+        count: result.markets.length,
+        type,
+        duration,
+        cached: result.fromCache,
+      },
     });
 
-    res.json({ success: true, data: markets });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to search markets";
-    res.status(500).json({ success: false, error: message });
+    console.error('[Markets API] Error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch markets',
+    });
   }
 });
 
-/**
- * GET /api/markets/categories
- * Get all market categories
- */
-router.get("/categories", async (req: Request, res: Response) => {
-  try {
-    const categories = await gammaClient.listCategories();
+// =============================================================================
+// GET /api/markets/:id - Get market detail
+// =============================================================================
+router.get('/:id', async (req, res) => {
+  const startTime = Date.now();
+  const marketId = req.params.id;
 
-    res.json({ success: true, data: categories });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to fetch categories";
-    res.status(500).json({ success: false, error: message });
+  // Handle orderbook sub-route
+  if (req.path.endsWith('/orderbook')) {
+    // This is handled by the next route
+    return res.status(404).json({ success: false, error: 'Use /api/markets/:id/orderbook' });
   }
-});
 
-/**
- * GET /api/markets/events
- * Get market events
- */
-router.get("/events", async (req: Request, res: Response) => {
   try {
-    const { limit, offset } = req.query;
+    console.log(`[Markets API] Fetching detail for market ${marketId}...`);
 
-    const events = await gammaClient.listEvents({
-      limit: limit ? parseInt(limit as string) : 50,
-      offset: offset ? parseInt(offset as string) : 0,
+    const result = await getMarketById(marketId);
+
+    if (!result.market) {
+      return res.status(404).json({ success: false, error: 'Market not found' });
+    }
+
+    const duration = Date.now() - startTime;
+    console.log(`[Markets API] Detail fetched in ${duration}ms (cached: ${result.fromCache})`);
+
+    res.setHeader('Cache-Control', 'public, s-maxage=30, stale-while-revalidate=120');
+
+    return res.json({
+      success: true,
+      data: result.market,
+      meta: { duration, cached: result.fromCache },
     });
 
-    res.json({ success: true, data: events });
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to fetch events";
-    res.status(500).json({ success: false, error: message });
+    console.error('[Markets API] Error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch market detail',
+    });
   }
 });
 
-/**
- * GET /api/markets/:id
- * Get a single market by ID
- */
-router.get("/:id", async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
+// =============================================================================
+// GET /api/markets/:id/orderbook - Get orderbook for a market
+// =============================================================================
+router.get('/:id/orderbook', async (req, res) => {
+  const startTime = Date.now();
+  const marketId = req.params.id;
+  const tokenId = req.query.tokenId as string;
 
-    if (!id) {
-      return res.status(400).json({ success: false, error: "Market ID is required" });
-    }
-
-    const market = await gammaClient.getMarketById(id);
-
-    res.json({ success: true, data: market });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to fetch market";
-    res.status(404).json({ success: false, error: message });
+  if (!tokenId) {
+    return res.status(400).json({ success: false, error: 'tokenId query param required' });
   }
-});
 
-/**
- * GET /api/markets/:id/stats
- * Get market 24h stats
- */
-router.get("/:id/stats", async (req: Request, res: Response) => {
   try {
-    const { id } = req.params;
+    console.log(`[Markets API] Fetching orderbook for token ${tokenId}...`);
 
-    if (!id) {
-      return res.status(400).json({ success: false, error: "Market ID is required" });
-    }
+    const result = await getOrderBook(marketId, tokenId);
 
-    const stats = await gammaClient.get24HourStats(id);
+    const duration = Date.now() - startTime;
+    console.log(`[Markets API] Orderbook fetched in ${duration}ms (cached: ${result.fromCache})`);
 
-    res.json({ success: true, data: stats });
+    res.setHeader('Cache-Control', 'public, s-maxage=5, stale-while-revalidate=15');
+
+    return res.json({
+      success: true,
+      data: result.orderbook,
+      meta: { duration, cached: result.fromCache },
+    });
+
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Failed to fetch market stats";
-    res.status(500).json({ success: false, error: message });
+    console.error('[Markets API] Error:', error);
+    return res.status(500).json({
+      success: false,
+      error: error instanceof Error ? error.message : 'Failed to fetch orderbook',
+    });
   }
 });
 

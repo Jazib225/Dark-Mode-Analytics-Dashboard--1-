@@ -1,30 +1,37 @@
 /**
- * Optimized Markets API - Uses proxy to avoid CORS, with aggressive caching
+ * Optimized Markets API Client
+ * 
+ * This client fetches market data from our backend endpoints, NOT directly
+ * from Polymarket APIs. The backend handles:
+ * - API routing (Gamma for metadata, CLOB for prices)
+ * - Caching with stale-while-revalidate
+ * - Request deduplication
+ * - Rate limiting protection
  * 
  * Performance optimizations:
- * - Proxy-based API calls (CORS-safe)
- * - Response shaping (only fetch needed fields)
+ * - Client-side caching layer
  * - Request deduplication
- * - Stale-while-revalidate caching
  * - Parallel fetching
  * - Performance instrumentation
  */
 
 const isDev = import.meta.env.DEV;
 
-// Use local proxy for dev, Vercel API routes for production
-// The proxy at /api/proxy/gamma/* forwards requests to gamma-api.polymarket.com
+// =============================================================================
+// API Configuration
+// =============================================================================
 function getApiBase(): string {
     if (isDev) {
-        return "http://localhost:3001/api/proxy/gamma";
+        return "http://localhost:3001/api";
     }
-    return "/api/proxy/gamma";
+    return "/api";
 }
 
-const GAMMA_API_BASE = getApiBase();
+const API_BASE = getApiBase();
+// Note: Legacy proxy removed - now using unified backend API
 
 // =============================================================================
-// PERFORMANCE INSTRUMENTATION
+// Performance Instrumentation
 // =============================================================================
 const DEBUG_PERF = import.meta.env.DEV;
 
@@ -56,28 +63,52 @@ function perfEnd(label: string): number {
 }
 
 // =============================================================================
-// TYPES - Minimal data for market cards
+// Types - Slim DTOs matching backend
 // =============================================================================
 export interface MarketSummary {
     id: string;
-    title: string;
     slug: string;
-    category: string | null;
-    yesPrice: number;
-    noPrice: number;
+    question: string;
+    image: string | null;
+    outcomes: string[];
+    outcomePrices: number[];
+    probability: number;
     volume24hr: number;
     volume7d: number;
     volume1mo: number;
     liquidity: number;
+    status: 'active' | 'closed' | 'resolved';
+    category: string | null;
+    eventTitle: string | null;
     endDate: string | null;
     createdAt: string;
-    status: 'active' | 'closed' | 'resolved';
-    image: string | null;
+    lastUpdated: number;
+    // Computed fields
+    title: string;
+    yesPrice: number;
+    noPrice: number;
+}
+
+export interface MarketDetail extends MarketSummary {
+    description: string;
+    conditionId: string;
+    clobTokenIds: string[];
+}
+
+export interface OrderBook {
+    marketId: string;
+    tokenId: string;
+    bids: Array<{ price: number; size: number }>;
+    asks: Array<{ price: number; size: number }>;
+    bestBid: number;
+    bestAsk: number;
+    mid: number;
+    spread: number;
     lastUpdated: number;
 }
 
 // =============================================================================
-// REQUEST DEDUPLICATION
+// Request Deduplication
 // =============================================================================
 const inflightRequests = new Map<string, Promise<any>>();
 
@@ -97,7 +128,7 @@ async function dedupedFetch<T>(key: string, fetcher: () => Promise<T>): Promise<
 }
 
 // =============================================================================
-// CACHE - Stale-While-Revalidate pattern
+// Client-side Cache - Stale-While-Revalidate pattern
 // =============================================================================
 interface CacheEntry<T> {
     data: T;
@@ -108,8 +139,7 @@ interface CacheEntry<T> {
 
 const marketCache = new Map<string, CacheEntry<any>>();
 
-const CACHE_FRESH_MS = 10_000;   // 10s fresh - synced with server s-maxage
-const CACHE_STALE_MS = 60_000;   // 60s stale-but-usable (matches stale-while-revalidate)
+const CACHE_FRESH_MS = 10_000;   // 10s fresh
 const CACHE_MAX_MS = 300_000;    // 5m hard expiry
 
 function getCached<T>(key: string): { data: T; isStale: boolean; isExpired: boolean } | null {
@@ -147,7 +177,7 @@ export function getCacheStats() {
 }
 
 // =============================================================================
-// FAST FETCH WITH TIMEOUT
+// Fast Fetch with Timeout
 // =============================================================================
 async function fastFetch(url: string, timeoutMs = 8000): Promise<Response> {
     const controller = new AbortController();
@@ -162,22 +192,30 @@ async function fastFetch(url: string, timeoutMs = 8000): Promise<Response> {
 }
 
 // =============================================================================
-// CORE API FUNCTIONS
+// API Response Transformation
+// =============================================================================
+function transformApiMarket(raw: any): MarketSummary {
+    return {
+        ...raw,
+        // Computed fields for backwards compatibility
+        title: raw.question || 'Unknown Market',
+        yesPrice: raw.outcomePrices?.[0] || 0.5,
+        noPrice: raw.outcomePrices?.[1] || 0.5,
+    };
+}
+
+// =============================================================================
+// Main API Functions
 // =============================================================================
 
 /**
- * Fetch markets summary - optimized for list view
- * Returns only fields needed for market cards
+ * Fetch trending markets (sorted by volume)
  */
-export async function fetchMarketsSummary(options: {
-    limit?: number;
-    offset?: number;
-    category?: string;
-    sortBy?: 'volume' | 'newest' | 'endingSoon';
-}): Promise<{ markets: MarketSummary[]; fromCache: boolean; fetchTime: number }> {
-    const { limit = 50, offset = 0, sortBy = 'volume', category } = options;
-
-    const cacheKey = `markets:${sortBy}:${limit}:${offset}:${category || 'all'}`;
+export async function fetchTrendingMarkets(
+    limit: number = 50,
+    offset: number = 0
+): Promise<{ markets: MarketSummary[]; fromCache: boolean; fetchTime: number }> {
+    const cacheKey = `trending:${limit}:${offset}`;
     perfStart(cacheKey);
 
     // Check cache
@@ -187,62 +225,24 @@ export async function fetchMarketsSummary(options: {
         return { markets: cached.data, fromCache: true, fetchTime: 0 };
     }
 
-    // Build URL based on sort
-    let url: string;
-    const params = new URLSearchParams({
-        limit: limit.toString(),
-        offset: offset.toString(),
-        closed: 'false',
-        active: 'true',
-    });
-
-    if (sortBy === 'newest') {
-        params.set('order', 'createdAt');
-        params.set('ascending', 'false');
-        url = `${GAMMA_API_BASE}/markets?${params}`;
-    } else if (sortBy === 'endingSoon') {
-        params.set('order', 'endDate');
-        params.set('ascending', 'true');
-        url = `${GAMMA_API_BASE}/markets?${params}`;
-    } else {
-        // Default: volume (trending) - use events endpoint for richer data
-        url = `${GAMMA_API_BASE}/events?${params}`;
-    }
-
     // Fetch with deduplication
     const fetchPromise = dedupedFetch(cacheKey, async () => {
         const start = performance.now();
-        const response = await fastFetch(url);
+        const url = `${API_BASE}/markets?type=trending&limit=${limit}&offset=${offset}`;
 
+        const response = await fastFetch(url);
         if (!response.ok) {
-            throw new Error(`HTTP ${response.status}`);
+            throw new Error(`API error: ${response.status}`);
         }
 
-        const data = await response.json();
+        const result = await response.json();
         const fetchTime = performance.now() - start;
 
-        // Transform response based on endpoint
-        let markets: MarketSummary[];
-
-        if (sortBy === 'volume') {
-            // Events endpoint returns array of events with nested markets
-            markets = transformEventsResponse(data);
-        } else {
-            // Markets endpoint returns flat array
-            markets = transformMarketsResponse(Array.isArray(data) ? data : data.data || []);
-        }
-
-        // Apply category filter if needed
-        if (category) {
-            markets = markets.filter(m =>
-                m.category?.toLowerCase().includes(category.toLowerCase())
-            );
-        }
-
+        const markets = (result.data || []).map(transformApiMarket);
         return { markets, fetchTime };
     });
 
-    // If stale cache exists, return immediately and refresh in background
+    // Return stale cache while refreshing
     if (cached?.isStale) {
         fetchPromise.then(result => {
             setCache(cacheKey, result.markets);
@@ -252,70 +252,237 @@ export async function fetchMarketsSummary(options: {
         return { markets: cached.data, fromCache: true, fetchTime: 0 };
     }
 
-    // Wait for fresh data
     const result = await fetchPromise;
     setCache(cacheKey, result.markets);
-
     perfEnd(cacheKey);
+
     return { ...result, fromCache: false };
 }
 
 /**
- * Batch fetch market details by IDs
- * Avoids N+1 pattern - fetches all at once
+ * Fetch new markets (sorted by creation date)
  */
-export async function fetchMarketsBatch(ids: string[]): Promise<Map<string, MarketSummary>> {
-    const results = new Map<string, MarketSummary>();
-    if (ids.length === 0) return results;
+export async function fetchNewMarkets(
+    limit: number = 30,
+    offset: number = 0
+): Promise<{ markets: MarketSummary[]; fromCache: boolean; fetchTime: number }> {
+    const cacheKey = `new:${limit}:${offset}`;
+    perfStart(cacheKey);
 
-    perfStart('batch:' + ids.length);
+    const cached = getCached<MarketSummary[]>(cacheKey);
+    if (cached && !cached.isStale) {
+        perfEnd(cacheKey);
+        return { markets: cached.data, fromCache: true, fetchTime: 0 };
+    }
 
-    // Check cache first
-    const uncachedIds: string[] = [];
-    for (const id of ids) {
-        const cached = getCached<MarketSummary>(`market:${id}`);
-        if (cached && !cached.isStale) {
-            results.set(id, cached.data);
-        } else {
-            uncachedIds.push(id);
+    const fetchPromise = dedupedFetch(cacheKey, async () => {
+        const start = performance.now();
+        const url = `${API_BASE}/markets?type=new&limit=${limit}&offset=${offset}`;
+
+        const response = await fastFetch(url);
+        if (!response.ok) {
+            throw new Error(`API error: ${response.status}`);
         }
+
+        const result = await response.json();
+        const fetchTime = performance.now() - start;
+
+        const markets = (result.data || []).map(transformApiMarket);
+        return { markets, fetchTime };
+    });
+
+    if (cached?.isStale) {
+        fetchPromise.then(result => setCache(cacheKey, result.markets)).catch(console.error);
+        perfEnd(cacheKey);
+        return { markets: cached.data, fromCache: true, fetchTime: 0 };
     }
 
-    if (uncachedIds.length === 0) {
-        perfEnd('batch:' + ids.length);
-        return results;
+    const result = await fetchPromise;
+    setCache(cacheKey, result.markets);
+    perfEnd(cacheKey);
+
+    return { ...result, fromCache: false };
+}
+
+/**
+ * Fetch nearly resolved markets (sorted by end date)
+ */
+export async function fetchNearlyResolvedMarkets(
+    limit: number = 30,
+    offset: number = 0,
+    hoursAhead: number = 72
+): Promise<{ markets: MarketSummary[]; fromCache: boolean; fetchTime: number }> {
+    const cacheKey = `resolving:${limit}:${offset}:${hoursAhead}`;
+    perfStart(cacheKey);
+
+    const cached = getCached<MarketSummary[]>(cacheKey);
+    if (cached && !cached.isStale) {
+        perfEnd(cacheKey);
+        return { markets: cached.data, fromCache: true, fetchTime: 0 };
     }
 
-    // Fetch uncached markets in parallel (max 5 concurrent)
-    const batchSize = 5;
-    for (let i = 0; i < uncachedIds.length; i += batchSize) {
-        const batch = uncachedIds.slice(i, i + batchSize);
-        const promises = batch.map(async (id) => {
-            try {
-                const response = await fastFetch(`${GAMMA_API_BASE}/markets/${id}`);
-                if (response.ok) {
-                    const data = await response.json();
-                    const market = transformSingleMarket(data);
-                    if (market) {
-                        setCache(`market:${id}`, market);
-                        results.set(id, market);
-                    }
-                }
-            } catch (e) {
-                console.warn(`Failed to fetch market ${id}:`, e);
-            }
-        });
-        await Promise.all(promises);
+    const fetchPromise = dedupedFetch(cacheKey, async () => {
+        const start = performance.now();
+        const url = `${API_BASE}/markets?type=nearly-resolved&limit=${limit}&offset=${offset}&hoursAhead=${hoursAhead}`;
+
+        const response = await fastFetch(url);
+        if (!response.ok) {
+            throw new Error(`API error: ${response.status}`);
+        }
+
+        const result = await response.json();
+        const fetchTime = performance.now() - start;
+
+        const markets = (result.data || []).map(transformApiMarket);
+        return { markets, fetchTime };
+    });
+
+    if (cached?.isStale) {
+        fetchPromise.then(result => setCache(cacheKey, result.markets)).catch(console.error);
+        perfEnd(cacheKey);
+        return { markets: cached.data, fromCache: true, fetchTime: 0 };
     }
 
-    perfEnd('batch:' + ids.length);
-    return results;
+    const result = await fetchPromise;
+    setCache(cacheKey, result.markets);
+    perfEnd(cacheKey);
+
+    return { ...result, fromCache: false };
+}
+
+/**
+ * Fetch market detail by ID
+ */
+export async function fetchMarketDetail(
+    marketId: string
+): Promise<{ market: MarketDetail | null; fromCache: boolean; fetchTime: number }> {
+    if (!marketId) {
+        return { market: null, fromCache: false, fetchTime: 0 };
+    }
+
+    const cacheKey = `detail:${marketId}`;
+    perfStart(cacheKey);
+
+    const cached = getCached<MarketDetail>(cacheKey);
+    if (cached && !cached.isStale) {
+        perfEnd(cacheKey);
+        return { market: cached.data, fromCache: true, fetchTime: 0 };
+    }
+
+    const fetchPromise = dedupedFetch(cacheKey, async () => {
+        const start = performance.now();
+        const url = `${API_BASE}/markets/${marketId}`;
+
+        const response = await fastFetch(url);
+        if (!response.ok) {
+            throw new Error(`Market not found: ${response.status}`);
+        }
+
+        const result = await response.json();
+        const fetchTime = performance.now() - start;
+
+        const market = result.data ? transformApiMarket(result.data) as MarketDetail : null;
+        return { market, fetchTime };
+    });
+
+    if (cached?.isStale) {
+        fetchPromise.then(result => {
+            if (result.market) setCache(cacheKey, result.market);
+        }).catch(console.error);
+        perfEnd(cacheKey);
+        return { market: cached.data, fromCache: true, fetchTime: 0 };
+    }
+
+    const result = await fetchPromise;
+    if (result.market) setCache(cacheKey, result.market);
+    perfEnd(cacheKey);
+
+    return { ...result, fromCache: false };
+}
+
+/**
+ * Fetch orderbook for a market
+ */
+export async function fetchOrderBook(
+    marketId: string,
+    tokenId: string
+): Promise<{ orderbook: OrderBook | null; fromCache: boolean; fetchTime: number }> {
+    if (!tokenId) {
+        return { orderbook: null, fromCache: false, fetchTime: 0 };
+    }
+
+    const cacheKey = `orderbook:${tokenId}`;
+    perfStart(cacheKey);
+
+    // Shorter cache for orderbook (5s)
+    const cached = getCached<OrderBook>(cacheKey);
+    if (cached && !cached.isStale) {
+        perfEnd(cacheKey);
+        return { orderbook: cached.data, fromCache: true, fetchTime: 0 };
+    }
+
+    const fetchPromise = dedupedFetch(cacheKey, async () => {
+        const start = performance.now();
+        const url = `${API_BASE}/markets/${marketId}/orderbook?tokenId=${tokenId}`;
+
+        const response = await fastFetch(url, 5000); // Shorter timeout for orderbook
+        if (!response.ok) {
+            console.warn(`Orderbook error: ${response.status}`);
+            return { orderbook: null, fetchTime: performance.now() - start };
+        }
+
+        const result = await response.json();
+        const fetchTime = performance.now() - start;
+
+        return { orderbook: result.data || null, fetchTime };
+    });
+
+    if (cached?.isStale) {
+        fetchPromise.then(result => {
+            if (result.orderbook) setCache(cacheKey, result.orderbook);
+        }).catch(console.error);
+        perfEnd(cacheKey);
+        return { orderbook: cached.data, fromCache: true, fetchTime: 0 };
+    }
+
+    const result = await fetchPromise;
+    if (result.orderbook) {
+        setCache(cacheKey, result.orderbook);
+    }
+    perfEnd(cacheKey);
+
+    return { ...result, fromCache: false };
 }
 
 // =============================================================================
-// MEMOIZED SELECTORS
+// Legacy Compatibility Functions
+// These maintain backwards compatibility with existing code
 // =============================================================================
 
+/**
+ * Fetch markets summary - maintains backwards compatibility
+ */
+export async function fetchMarketsSummary(options: {
+    limit?: number;
+    offset?: number;
+    category?: string;
+    sortBy?: 'volume' | 'newest' | 'endingSoon';
+}): Promise<{ markets: MarketSummary[]; fromCache: boolean; fetchTime: number }> {
+    const { limit = 50, offset = 0, sortBy = 'volume' } = options;
+
+    switch (sortBy) {
+        case 'newest':
+            return fetchNewMarkets(limit, offset);
+        case 'endingSoon':
+            return fetchNearlyResolvedMarkets(limit, offset);
+        default:
+            return fetchTrendingMarkets(limit, offset);
+    }
+}
+
+/**
+ * Get trending markets from a list (memoized selector)
+ */
 let lastTrendingInput: MarketSummary[] | null = null;
 let lastTrendingResult: MarketSummary[] | null = null;
 
@@ -332,6 +499,9 @@ export function getTrendingMarkets(markets: MarketSummary[], limit = 30): Market
     return lastTrendingResult;
 }
 
+/**
+ * Get new markets from a list (memoized selector)
+ */
 let lastNewInput: MarketSummary[] | null = null;
 let lastNewResult: MarketSummary[] | null = null;
 
@@ -348,42 +518,34 @@ export function getNewMarkets(markets: MarketSummary[], limit = 30): MarketSumma
     return lastNewResult;
 }
 
+/**
+ * Get resolving soon markets from a list (memoized selector)
+ */
 let lastResolvingInput: MarketSummary[] | null = null;
 let lastResolvingResult: MarketSummary[] | null = null;
 
 export function getResolvingSoonMarkets(markets: MarketSummary[], hoursAhead = 168, limit = 30): MarketSummary[] {
-    // Reset memoization if input changed
     if (markets === lastResolvingInput && lastResolvingResult) {
         return lastResolvingResult;
     }
 
     const now = Date.now();
-    // Use 7 days (168 hours) as default cutoff for more results
     const cutoff = now + hoursAhead * 60 * 60 * 1000;
-
-    console.log(`🔍 Filtering ${markets.length} markets for those ending within ${hoursAhead} hours`);
 
     const filtered = markets.filter(m => {
         if (!m.endDate) return false;
-
-        // Try to parse the date
         const endTime = new Date(m.endDate).getTime();
         if (isNaN(endTime)) return false;
-
-        // Market must end after now and before cutoff
         return endTime > now && endTime < cutoff;
     });
-
-    console.log(`📊 Found ${filtered.length} markets resolving soon`);
 
     lastResolvingInput = markets;
     lastResolvingResult = filtered
         .sort((a, b) => new Date(a.endDate!).getTime() - new Date(b.endDate!).getTime())
         .slice(0, limit);
 
-    // If no markets found, return markets with any endDate (as fallback)
+    // Fallback if no markets within window
     if (lastResolvingResult.length === 0) {
-        console.log('⚠️ No markets within time range, showing all markets with endDate');
         lastResolvingResult = markets
             .filter(m => m.endDate && !isNaN(new Date(m.endDate).getTime()))
             .sort((a, b) => new Date(a.endDate!).getTime() - new Date(b.endDate!).getTime())
@@ -394,91 +556,61 @@ export function getResolvingSoonMarkets(markets: MarketSummary[], hoursAhead = 1
 }
 
 // =============================================================================
-// RESPONSE TRANSFORMERS
-// =============================================================================
-
-function transformEventsResponse(events: any[]): MarketSummary[] {
-    if (!Array.isArray(events)) return [];
-
-    const markets: MarketSummary[] = [];
-
-    for (const event of events) {
-        if (!Array.isArray(event.markets)) continue;
-
-        for (const m of event.markets) {
-            const market = transformSingleMarket(m, event.title);
-            if (market) markets.push(market);
-        }
-    }
-
-    // Sort by volume descending
-    return markets.sort((a, b) => b.volume24hr - a.volume24hr);
-}
-
-function transformMarketsResponse(data: any[]): MarketSummary[] {
-    return data
-        .map(m => transformSingleMarket(m))
-        .filter((m): m is MarketSummary => m !== null);
-}
-
-function transformSingleMarket(m: any, eventTitle?: string): MarketSummary | null {
-    if (!m || (!m.question && !m.title)) return null;
-
-    // Parse outcome prices
-    let yesPrice = 0.5;
-    let noPrice = 0.5;
-
-    if (m.outcomePrices) {
-        try {
-            const prices = typeof m.outcomePrices === 'string'
-                ? JSON.parse(m.outcomePrices)
-                : m.outcomePrices;
-            if (Array.isArray(prices) && prices.length > 0) {
-                yesPrice = parseFloat(prices[0]) || 0.5;
-                noPrice = prices.length > 1 ? parseFloat(prices[1]) : 1 - yesPrice;
-            }
-        } catch (e) {
-            // Use defaults
-        }
-    }
-
-    // Fallback to bestBid
-    if (yesPrice === 0.5 && m.bestBid) {
-        const bid = parseFloat(m.bestBid);
-        if (bid > 0 && bid < 1) {
-            yesPrice = bid;
-            noPrice = 1 - bid;
-        }
-    }
-
-    return {
-        id: m.id || m.conditionId || '',
-        title: m.question || m.title || '',
-        slug: m.slug || '',
-        category: m.groupItemTitle || eventTitle || m.category || null,
-        yesPrice,
-        noPrice,
-        volume24hr: parseFloat(m.volume24hr || 0),
-        volume7d: parseFloat(m.volume1wk || m.volume7d || 0),
-        volume1mo: parseFloat(m.volume1mo || 0),
-        liquidity: parseFloat(m.liquidity || 0),
-        endDate: m.endDate || null,
-        createdAt: m.createdAt || new Date().toISOString(),
-        status: m.closed ? 'closed' : (m.active === false ? 'resolved' : 'active'),
-        image: m.image || null,
-        lastUpdated: Date.now(),
-    };
-}
-
-// =============================================================================
-// PREFETCHING
+// Prefetching
 // =============================================================================
 
 export function prefetchMarkets(): void {
-    // Prefetch trending, new, and resolving in parallel
+    // Prefetch all three column types in parallel
     Promise.all([
-        fetchMarketsSummary({ sortBy: 'volume', limit: 100 }),
-        fetchMarketsSummary({ sortBy: 'newest', limit: 50 }),
-        fetchMarketsSummary({ sortBy: 'endingSoon', limit: 50 }),
+        fetchTrendingMarkets(100, 0),
+        fetchNewMarkets(50, 0),
+        fetchNearlyResolvedMarkets(50, 0),
     ]).catch(console.error);
+}
+
+export function prefetchMarketDetail(marketId: string): void {
+    fetchMarketDetail(marketId).catch(() => { });
+}
+
+// =============================================================================
+// Batch Fetch for Multiple Markets
+// =============================================================================
+
+export async function fetchMarketsBatch(ids: string[]): Promise<Map<string, MarketSummary>> {
+    const results = new Map<string, MarketSummary>();
+    if (ids.length === 0) return results;
+
+    // Check cache first
+    const uncachedIds: string[] = [];
+    for (const id of ids) {
+        const cached = getCached<MarketSummary>(`detail:${id}`);
+        if (cached && !cached.isStale) {
+            results.set(id, cached.data);
+        } else {
+            uncachedIds.push(id);
+        }
+    }
+
+    if (uncachedIds.length === 0) {
+        return results;
+    }
+
+    // Fetch uncached markets in parallel (max 5 concurrent)
+    const batchSize = 5;
+    for (let i = 0; i < uncachedIds.length; i += batchSize) {
+        const batch = uncachedIds.slice(i, i + batchSize);
+        const promises = batch.map(async (id) => {
+            try {
+                const { market } = await fetchMarketDetail(id);
+                if (market) {
+                    results.set(id, market);
+                }
+            } catch (e) {
+                console.warn(`Failed to fetch market ${id}:`, e);
+            }
+        });
+        await Promise.all(promises);
+    }
+
+    return results;
 }

@@ -1,0 +1,46 @@
+﻿src/app/App.tsx(266,23): error TS6133: 'showLoginPage' is declared but its value is never read.
+src/app/App.tsx(267,9): error TS6133: 'login' is declared but its value is never read.
+src/app/App.tsx(277,10): error TS6133: 'navigationHistory' is declared but its value is never read.
+src/app/App.tsx(426,10): error TS6133: 'isLoadingAllMarkets' is declared but its value is never read.
+src/app/App.tsx(551,17): error TS2304: Cannot find name 'formatVolume'.
+src/app/App.tsx(569,37): error TS2339: Property 'description' does not exist on type 'DisplayMarket'.
+src/app/App.tsx(756,9): error TS6133: 'closeWalletProfile' is declared but its value is never read.
+src/app/components/Feed.tsx(2,1): error TS6133: 'portfolioApi' is declared but its value is never read.
+src/app/components/Feed.tsx(35,10): error TS6133: 'loading' is declared but its value is never read.
+src/app/components/Feed.tsx(36,10): error TS6133: 'error' is declared but its value is never read.
+src/app/components/Feed.tsx(69,17): error TS2304: Cannot find name 'initialFeedItems'.
+src/app/components/Feed.tsx(69,61): error TS2304: Cannot find name 'initialFeedItems'.
+src/app/components/MarketDetail.tsx(1,31): error TS6133: 'TrendingUp' is declared but its value is never read.
+src/app/components/MarketDetail.tsx(1,43): error TS6133: 'TrendingDown' is declared but its value is never read.
+src/app/components/MarketDetail.tsx(2,31): error TS6133: 'useMemo' is declared but its value is never read.
+src/app/components/MarketDetail.tsx(7,3): error TS6133: 'getClobPrices' is declared but its value is never read.
+src/app/components/MarketDetail.tsx(13,3): error TS6133: 'getMarketFromCache' is declared but its value is never read.
+src/app/components/MarketDetail.tsx(15,3): error TS6133: 'getCachedOrderBook' is declared but its value is never read.
+src/app/components/MarketDetail.tsx(17,3): error TS6133: 'getCachedTradersCount' is declared but its value is never read.
+src/app/components/MarketDetail.tsx(18,3): error TS6133: 'getCachedTopHolders' is declared but its value is never read.
+src/app/components/MarketDetail.tsx(19,3): error TS6133: 'getCachedTopTraders' is declared but its value is never read.
+src/app/components/MarketDetail.tsx(191,10): error TS6133: 'phase1Complete' is declared but its value is never read.
+src/app/components/MarketDetail.tsx(307,15): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/app/components/MarketDetail.tsx(308,15): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/app/components/MarketDetail.tsx(313,15): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/app/components/MarketDetail.tsx(314,15): error TS2322: Type 'number | undefined' is not assignable to type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+src/app/components/MarketDetail.tsx(339,7): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/app/components/MarketDetail.tsx(340,7): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/app/components/MarketDetail.tsx(345,7): error TS2322: Type 'string | undefined' is not assignable to type 'string'.
+  Type 'undefined' is not assignable to type 'string'.
+src/app/components/MarketDetail.tsx(346,7): error TS2322: Type 'number | undefined' is not assignable to type 'number'.
+  Type 'undefined' is not assignable to type 'number'.
+src/app/components/MarketDetail.tsx(502,9): error TS6133: 'currentVolume24h' is declared but its value is never read.
+src/app/components/TradeFlow/NodeInspector.tsx(1,1): error TS6133: 'React' is declared but its value is never read.
+src/app/hooks/useMarketData.ts(130,9): error TS2769: No overload matches this call.
+  Overload 3 of 3, '(options: UseQueryOptions<PriceHistoryPoint[], Error, PriceHistoryPoint[], readonly ["markets", "detail", string, "priceHistory", string]>, queryClient?: QueryClient | undefined): UseQueryResult<...>', gave the following error.
+    Type '() => any[] | null | undefined' is not assignable to type 'PriceHistoryPoint[] | PlaceholderDataFunction<PriceHistoryPoint[], Error, PriceHistoryPoint[], readonly ["markets", "detail", string, "priceHistory", string]> | undefined'.
+      Type '() => any[] | null | undefined' is not assignable to type 'PlaceholderDataFunction<PriceHistoryPoint[], Error, PriceHistoryPoint[], readonly ["markets", "detail", string, "priceHistory", string]>'.
+        Type 'any[] | null | undefined' is not assignable to type 'PriceHistoryPoint[] | undefined'.
+          Type 'null' is not assignable to type 'PriceHistoryPoint[] | undefined'.

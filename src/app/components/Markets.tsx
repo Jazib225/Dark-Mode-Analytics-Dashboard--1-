@@ -7,14 +7,12 @@ import {
   getTrendingMarkets as getTrendingFromSummary,
   getNewMarkets as getNewFromSummary,
   getResolvingSoonMarkets,
+  prefetchMarketDetail,
   type MarketSummary,
 } from "../../data/markets/marketsApi";
 import {
   formatTimeUntilClose
 } from "../services/polymarketApi";
-import {
-  prefetchMarketDetail,
-} from "../services/marketDataClient";
 import {
   Select,
   SelectContent,
@@ -137,38 +135,6 @@ function saveCachedMarkets(markets: DisplayMarket[], cacheKey: string): void {
   } catch (e) {
     console.error("Failed to save markets cache:", e);
   }
-}
-
-function convertApiMarketToDisplay(market: any): DisplayMarket {
-  const volumeUsd = market.volume24hr || market.volumeUsd;
-
-  let yesPriceCents = market.yesPriceCents;
-  let noPriceCents = market.noPriceCents;
-
-  if (yesPriceCents === undefined || yesPriceCents === null) {
-    const yesPrice = market.lastPriceUsd ? parseFloat(String(market.lastPriceUsd)) : 0.5;
-    yesPriceCents = yesPrice * 100;
-    noPriceCents = 100 - yesPriceCents;
-  }
-
-  const probability = yesPriceCents;
-
-  return {
-    id: market.id,
-    name: market.title || market.name,
-    title: market.title || market.name,
-    probability: probability,
-    yesPriceCents,
-    noPriceCents,
-    volumeUsd: String(volumeUsd),
-    volumeNum: parseFloat(String(volumeUsd || 0)),
-    volume: formatVolume(parseFloat(String(volumeUsd || 0))),
-    image: market.image || null,
-    createdAt: market.createdAt,
-    endDate: market.endDate,
-    timeUntilClose: market.timeUntilClose,
-    category: market.groupItemTitle || market.category || market.tag,
-  };
 }
 
 function convertMarketSummaryToDisplay(market: MarketSummary): DisplayMarket {
