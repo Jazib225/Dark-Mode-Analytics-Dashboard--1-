@@ -88,6 +88,7 @@ interface DisplayMarket {
   title?: string;
   name?: string;
   outcomes: OutcomeDisplay[]; // New strict list
+  probability: number; // ADDED THIS FIELD
   volume?: string;
   volumeUsd?: string;
   volumeNum?: number;
@@ -108,12 +109,6 @@ interface DisplayMarket {
 // We should update the CACHE_PREFIX to invalidate old cache.
 const MARKETS_CACHE_PREFIX = "polymarket_markets_v4_"; // Bump version
 
-// ... preloadImages ... (keep)
-
-// ... loadCachedMarkets ... (keep)
-
-// ... saveCachedMarkets ... (keep)
-
 function convertMarketSummaryToDisplay(market: MarketSummary): DisplayMarket {
   const volumeNum = market.volume24hr || 0;
 
@@ -131,6 +126,7 @@ function convertMarketSummaryToDisplay(market: MarketSummary): DisplayMarket {
     name: market.title,
     title: market.title,
     outcomes,
+    probability: market.probability || 0, // MAP IT HERE
     volumeUsd: String(volumeNum),
     volumeNum: volumeNum,
     volume: formatVolume(volumeNum),
@@ -141,28 +137,178 @@ function convertMarketSummaryToDisplay(market: MarketSummary): DisplayMarket {
     endDate: market.endDate || undefined,
   };
 }
+// ============================================================================
+// Constants & Helpers
+// ============================================================================
+const INITIAL_LOAD = 12;
+const LOAD_MORE_COUNT = 12;
 
-// ... formatVolume ... (keep)
+function formatVolume(val: number): string {
+  if (val >= 1000000) return `$${(val / 1000000).toFixed(1)}m`;
+  if (val >= 1000) return `$${(val / 1000).toFixed(1)}k`;
+  return `$${val.toFixed(0)}`;
+}
 
-// ... normalizeCategory ... (keep)
+function normalizeCategory(cat?: string | null): string {
+  if (!cat) return "other";
+  const c = cat.toLowerCase();
+  if (c.includes("sport") || c.includes("nba") || c.includes("football") || c.includes("soccer")) return "sports";
+  if (c.includes("crypto") || c.includes("bitcoin") || c.includes("eth")) return "crypto";
+  if (c.includes("politic") || c.includes("election") || c.includes("trump")) return "politics";
+  if (c.includes("finance") || c.includes("economy") || c.includes("rate") || c.includes("fed")) return "finance";
+  if (c.includes("tech") || c.includes("ai") || c.includes("science")) return "tech";
+  return "other";
+}
 
-// ... Filtering Helpers ... 
-// We need to update getMarketOddsPct to use the best outcome or implied?
-// Filters currently use "odds". For multi-outcome, maybe max odds?
+function preloadImages(markets: DisplayMarket[]) {
+  markets.forEach(m => {
+    if (m.image) {
+      const img = new Image();
+      img.src = m.image;
+    }
+  });
+}
+
+function loadCachedMarkets(key: string): DisplayMarket[] | null {
+  try {
+    const item = localStorage.getItem(key);
+    if (!item) return null;
+    const parsed = JSON.parse(item);
+    // Simple validation
+    if (Array.isArray(parsed)) return parsed;
+  } catch (e) { }
+  return null;
+}
+
+function saveCachedMarkets(markets: DisplayMarket[], key: string) {
+  try {
+    localStorage.setItem(key, JSON.stringify(markets));
+  } catch (e) {
+    console.warn("Cache quota exceeded");
+  }
+}
+
 function getMarketOddsPct(m: DisplayMarket): number {
+  if (m.probability !== undefined) return m.probability;
   if (m.outcomes && m.outcomes.length > 0) {
-    // Use the highest probability outcome as the proxy?
-    // Or specific one?
-    // Let's use max price * 100
     const prices = m.outcomes.map(o => (o.price || 0) * 100);
     return Math.max(...prices);
   }
   return 50;
 }
 
-// ... applyColumnFilter ... (keep)
+function applyColumnFilter(markets: DisplayMarket[], filter: ColumnFilter): DisplayMarket[] {
+  return markets.filter(m => {
+    // Volume Filter
+    if (filter.volumeMin !== undefined) {
+      const vol = m.volumeNum || 0;
+      if (vol < filter.volumeMin) return false;
+    }
 
-// ... (keep countActiveFilters, FilterPopover) ...
+    // Liquidity Filter
+    if (filter.liquidityMin !== undefined) {
+      const liq = m.liquidity || 0;
+      if (liq < filter.liquidityMin) return false;
+    }
+
+    // Odds Filter (Probability)
+    if (filter.oddsMin !== undefined || filter.oddsMax !== undefined) {
+      const p = m.probability !== undefined ? m.probability : getMarketOddsPct(m);
+      if (filter.oddsMin !== undefined && p < filter.oddsMin) return false;
+      if (filter.oddsMax !== undefined && p > filter.oddsMax) return false;
+    }
+
+    return true;
+  });
+}
+
+function countActiveFilters(f: ColumnFilter): number {
+  let count = 0;
+  if (f.volumeMin !== undefined) count++;
+  if (f.liquidityMin !== undefined) count++;
+  if (f.oddsMin !== undefined || f.oddsMax !== undefined) count++;
+  return count;
+}
+
+// ============================================================================
+// Filter Popover Component
+// ============================================================================
+function FilterPopover({ filter, onApply, onClear }: { filter: ColumnFilter, onApply: (f: ColumnFilter) => void, onClear: () => void }) {
+  const [localFilter, setLocalFilter] = useState<ColumnFilter>(filter);
+  const activeCount = countActiveFilters(filter);
+
+  // Sync when prop changes
+  useEffect(() => setLocalFilter(filter), [filter]);
+
+  const handleApply = () => onApply(localFilter);
+
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <button className={`p-1.5 rounded-md transition-colors ${activeCount > 0 ? "bg-[#4a6fa5]/20 text-[#4a6fa5]" : "hover:bg-gray-800 text-gray-400"}`}>
+          <Filter className="w-3.5 h-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent className="w-64 p-4 bg-[#1a1a1a] border border-gray-800 text-gray-200 shadow-xl" align="end">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between border-b border-gray-800 pb-2">
+            <h4 className="font-medium text-sm">Filter Markets</h4>
+            {activeCount > 0 && (
+              <button onClick={() => { setLocalFilter({}); onClear(); }} className="text-xs text-red-400 hover:text-red-300">
+                Reset
+              </button>
+            )}
+          </div>
+
+          {/* Volume Filter */}
+          <div className="space-y-1.5">
+            <label className="text-xs text-gray-500 uppercase tracking-wider font-medium">Min Volume</label>
+            <div className="grid grid-cols-3 gap-2">
+              {[1000, 10000, 100000].map(v => (
+                <button
+                  key={v}
+                  onClick={() => setLocalFilter(prev => ({ ...prev, volumeMin: prev.volumeMin === v ? undefined : v }))}
+                  className={`px-2 py-1 text-xs rounded border ${localFilter.volumeMin === v ? "bg-[#4a6fa5]/20 border-[#4a6fa5] text-[#4a6fa5]" : "bg-gray-900 border-gray-800 text-gray-400 hover:border-gray-700"}`}
+                >
+                  ${formatVolume(v)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Odds Filter */}
+          <div className="space-y-1.5">
+            <label className="text-xs text-gray-500 uppercase tracking-wider font-medium">Probability</label>
+            <div className="grid grid-cols-3 gap-2">
+              <button
+                onClick={() => setLocalFilter(prev => ({ ...prev, oddsMin: undefined, oddsMax: 10 }))}
+                className={`px-2 py-1 text-xs rounded border ${localFilter.oddsMax === 10 ? "bg-[#4a6fa5]/20 border-[#4a6fa5] text-[#4a6fa5]" : "bg-gray-900 border-gray-800 text-gray-400 hover:border-gray-700"}`}
+              >
+                &lt; 10%
+              </button>
+              <button
+                onClick={() => setLocalFilter(prev => ({ ...prev, oddsMin: 40, oddsMax: 60 }))}
+                className={`px-2 py-1 text-xs rounded border ${localFilter.oddsMin === 40 ? "bg-[#4a6fa5]/20 border-[#4a6fa5] text-[#4a6fa5]" : "bg-gray-900 border-gray-800 text-gray-400 hover:border-gray-700"}`}
+              >
+                40-60%
+              </button>
+              <button
+                onClick={() => setLocalFilter(prev => ({ ...prev, oddsMin: 90, oddsMax: undefined }))}
+                className={`px-2 py-1 text-xs rounded border ${localFilter.oddsMin === 90 ? "bg-[#4a6fa5]/20 border-[#4a6fa5] text-[#4a6fa5]" : "bg-gray-900 border-gray-800 text-gray-400 hover:border-gray-700"}`}
+              >
+                &gt; 90%
+              </button>
+            </div>
+          </div>
+
+          <button onClick={handleApply} className="w-full py-1.5 bg-[#4a6fa5] hover:bg-[#3b5c8d] text-white rounded text-xs font-medium transition-colors">
+            Apply Filters
+          </button>
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
 // ============================================================================
 // Market Card Component - Reusable across all columns
@@ -563,8 +709,9 @@ export function Markets({
       selectedMarket = {
         id: initialMarketData.id,
         name: initialMarketData.name,
-        probability: initialMarketData.probability,
+        probability: initialMarketData.probability, // Redundant but safe
         volume: initialMarketData.volume,
+        outcomes: [], // Default empty
       };
     } else {
       selectedMarket = trendingMarkets.find((m) => m.id === selectedMarketId)
@@ -578,6 +725,7 @@ export function Markets({
         name: "Loading...",
         probability: 50,
         volume: "$0",
+        outcomes: [], // Default empty
       };
     }
 

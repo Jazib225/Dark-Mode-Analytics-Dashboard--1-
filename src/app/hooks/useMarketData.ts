@@ -109,7 +109,7 @@ export function useMarketDetails(marketId: string | null) {
                     clobTokenIds: basicInfo.clobTokenIds,
                 };
             }
-            return getCachedMarketDetail(marketId);
+            return getCachedMarketDetail(marketId) || undefined;
         },
     });
 }
@@ -129,7 +129,7 @@ export function usePriceHistory(marketId: string | null, interval: string = '1d'
         gcTime: 5 * 60 * 1000,
         placeholderData: () => {
             if (!marketId) return undefined;
-            return getCachedPriceHistory(marketId, interval);
+            return getCachedPriceHistory(marketId, interval) || undefined;
         },
     });
 }
@@ -149,7 +149,7 @@ export function useRecentTrades(marketId: string | null, limit: number = 20) {
         gcTime: 2 * 60 * 1000,
         placeholderData: () => {
             if (!marketId) return undefined;
-            return getCachedTrades(marketId, limit);
+            return getCachedTrades(marketId, limit) || undefined; // Fix undefined
         },
     });
 }
@@ -169,7 +169,7 @@ export function useOrderBook(tokenId: string | null) {
         gcTime: 60 * 1000,
         placeholderData: () => {
             if (!tokenId) return undefined;
-            return getCachedOrderBook(tokenId);
+            return getCachedOrderBook(tokenId) || undefined;
         },
     });
 }
