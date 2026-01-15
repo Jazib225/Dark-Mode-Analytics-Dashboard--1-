@@ -180,6 +180,11 @@ export function MarketDetail({
 
     // Otherwise create shell from the market prop data (from card click)
     // This ensures we always have SOMETHING to display immediately
+    function safeStat(val: any) {
+      if (val === undefined || val === null || isNaN(val)) return '—';
+      if (typeof val === 'string' && (val.trim() === '' || val === 'NaN')) return '—';
+      return val;
+    }
     return {
       id: market.id,
       title: market.name || 'Loading...',
@@ -189,7 +194,7 @@ export function MarketDetail({
       outcomePrices: [Number(market.probability) / 100 || 0.5, 1 - (Number(market.probability) / 100 || 0.5)],
       probability: Number(market.probability) || 50,
       image: null,
-      volume: market.volume || '—',
+      volume: safeStat(market.volume),
       volume24hr: '—',
       liquidity: '—',
       endDate: '',
@@ -426,6 +431,11 @@ export function MarketDetail({
 
           // Update shell if we got better data
           if (!marketShell || marketShell.title === 'Unknown Market') {
+            function safeStat(val: any) {
+              if (val === undefined || val === null || isNaN(val)) return '—';
+              if (typeof val === 'string' && (val.trim() === '' || val === 'NaN')) return '—';
+              return val;
+            }
             setMarketShell({
               id: details.id,
               title: details.title || details.name || 'Unknown Market',
@@ -435,9 +445,9 @@ export function MarketDetail({
               outcomePrices: Array.isArray(details.outcomePrices) ? details.outcomePrices : [0.5, 0.5],
               probability: details.probability || 50,
               image: details.image || null,
-              volume: details.volume || '$0',
-              volume24hr: details.volume24hr || '$0',
-              liquidity: details.liquidity || '$0',
+              volume: safeStat(details.volume),
+              volume24hr: safeStat(details.volume24hr),
+              liquidity: safeStat(details.liquidity),
               endDate: details.endDate || '',
               status: details.closed ? 'closed' : 'active',
               category: details.groupItemTitle || null,
