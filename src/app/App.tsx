@@ -13,6 +13,7 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import { QueryProvider } from "./providers/QueryProvider";
 import { Search, X, Clock, TrendingUp, Bookmark, Loader2, LogOut, User, ChevronDown } from "lucide-react";
 import paragonLogo from "../assets/paragon-logo.png";
+import { MobileBlockScreen } from "./components/MobileBlockScreen";
 import { getAllActiveMarkets, searchMarkets, initializeMarketCache, instantSearch, prefetchMarketDetail } from "./services/polymarketApi";
 
 // Helper function to format balance - handles both crypto and USD
@@ -759,6 +760,9 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
 
   return (
     <div className="dark min-h-screen bg-[#0a0a0a] text-gray-100 font-['Inter'] overflow-x-hidden">
+      {/* Mobile Block Screen - shows full-screen overlay on mobile devices, hidden on desktop */}
+      <MobileBlockScreen />
+
       {/* Sticky Header - Uses CSS variable for height */}
       <header className="site-header">
         <nav className="header-nav">
@@ -773,7 +777,7 @@ function AppContent({ showLoginPage, setShowLoginPage }: AppContentProps) {
               className="flex items-center gap-[var(--sp-2)] hover:opacity-80 transition-opacity"
             >
               <img src={paragonLogo} alt="Paragon" className="h-8 w-8 sm:h-10 sm:w-10 lg:h-12 lg:w-12 object-contain drop-shadow-lg" />
-              <div className="text-[var(--fs-md)] sm:text-[var(--fs-lg)] lg:text-[var(--fs-xl)] font-light tracking-tight text-gray-100 hidden sm:block">PARAGON</div>
+              <div className="text-xl sm:text-2xl lg:text-3xl font-semibold tracking-tight text-gray-100 hidden sm:block">PARAGON</div>
             </button>
           </div>
 

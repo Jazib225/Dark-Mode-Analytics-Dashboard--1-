@@ -172,9 +172,30 @@ export function MarketDetail({
   const [selectedOutcome, setSelectedOutcome] = useState<OutcomeMarket | null>(null);
 
   // PHASE 1: Market shell for instant render (title, outcomes, image)
+  // Use the market prop data as immediate shell when cache is empty
   const [marketShell, setMarketShell] = useState<MarketShell | null>(() => {
-    // Initialize synchronously from cache for instant display
-    return getMarketShellFromCache(market.id);
+    // First try to get from cache
+    const cached = getMarketShellFromCache(market.id);
+    if (cached) return cached;
+
+    // Otherwise create shell from the market prop data (from card click)
+    // This ensures we always have SOMETHING to display immediately
+    return {
+      id: market.id,
+      title: market.name || 'Loading...',
+      question: market.name || '',
+      description: '',
+      outcomes: ['Yes', 'No'],
+      outcomePrices: [Number(market.probability) / 100 || 0.5, 1 - (Number(market.probability) / 100 || 0.5)],
+      probability: Number(market.probability) || 50,
+      image: null,
+      volume: market.volume || '—',
+      volume24hr: '—',
+      liquidity: '—',
+      endDate: '',
+      status: 'active' as const,
+      category: null,
+    };
   });
 
   // PHASE 2: Full data states (loaded async, non-blocking)

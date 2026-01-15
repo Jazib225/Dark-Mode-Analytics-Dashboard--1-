@@ -218,16 +218,15 @@ export async function prefetchMarketDetail(marketId: string): Promise<void> {
     return;
   }
 
-  try {
-    // Import dynamically to avoid circular deps, just call getMarketDetails
-    // This will cache the result for when the user actually clicks
-    const { getMarketDetails } = await import('./polymarketApi');
-    await getMarketDetails(marketId);
-    console.log(`Prefetched market detail for: ${marketId}`);
-  } catch (error) {
-    // Silently fail - prefetch is best effort
-    console.log(`Prefetch failed for ${marketId}:`, error);
+  // Skip if already in-flight (deduplication)
+  if (inFlightDetailRequests.has(marketId)) {
+    return;
   }
+
+  // Start prefetch - fire and forget
+  getMarketDetails(marketId).catch(() => {
+    // Silently fail - prefetch is best effort
+  });
 }
 
 /**
@@ -1075,76 +1074,160 @@ function formatVolumeHelper(volume: number): string {
  * Get detailed market data including CLOB prices
  * Uses multiple data sources to ensure accurate pricing
  */
-export async function getMarketDetails(marketId: string) {
-  try {
-    console.log(`Fetching market details for: ${marketId}`);
+// In-flight request tracking for deduplication
+const inFlightDetailRequests = new Map<string, Promise<any>>();
 
-    // Check cache first
+/**
+ * Convert a CachedMarket from global cache to full detail format
+ * This allows instant rendering from cached list data
+ */
+function convertCachedMarketToDetail(m: CachedMarket): any {
+  // Parse clobTokenIds
+  let clobTokenIds: string[] = [];
+  try {
+    clobTokenIds = m.clobTokenIds ? JSON.parse(m.clobTokenIds) : [];
+  } catch {
+    clobTokenIds = [];
+  }
+
+  // Parse outcomePrices
+  let outcomePrices: number[] = [0.5, 0.5];
+  try {
+    const parsed = m.outcomePrices ? JSON.parse(m.outcomePrices) : [];
+    if (parsed.length >= 2) {
+      outcomePrices = [parseFloat(parsed[0]) || 0.5, parseFloat(parsed[1]) || 0.5];
+    }
+  } catch {
+    outcomePrices = [0.5, 0.5];
+  }
+
+  const yesPrice = outcomePrices[0];
+  const noPrice = outcomePrices[1];
+
+  return {
+    id: m.id,
+    title: m.title,
+    name: m.title,
+    question: m.title,
+    description: m.description,
+    slug: m.slug,
+    conditionId: m.conditionId,
+    yesPrice,
+    noPrice,
+    probability: yesPrice * 100,
+    spread: 0,
+    volume: formatVolumeHelper(m.volumeUsd || 0),
+    volumeUsd: m.volumeUsd || 0,
+    volume24hr: formatVolumeHelper(m.volume24hr || 0),
+    volume24hrNum: m.volume24hr || 0,
+    liquidity: formatVolumeHelper(m.liquidity || 0),
+    liquidityNum: m.liquidity || 0,
+    outcomes: ['Yes', 'No'],
+    outcomePrices,
+    endDate: m.endDate,
+    createdAt: m.createdAt,
+    clobTokenIds,
+    tokens: [],
+    uniqueTraders: 0,
+    tradesCount: 0,
+    image: m.image || null,
+    groupItemTitle: m.groupItemTitle,
+    closed: m.closed,
+    active: m.active,
+  };
+}
+
+export async function getMarketDetails(marketId: string) {
+  const startTime = performance.now();
+  console.log(`[getMarketDetails] START: ${marketId}`);
+
+  // Check for in-flight request for this exact marketId (deduplication)
+  const existingRequest = inFlightDetailRequests.get(marketId);
+  if (existingRequest) {
+    console.log(`[getMarketDetails] DEDUP: Reusing in-flight request for ${marketId}`);
+    return existingRequest;
+  }
+
+  const promise = _getMarketDetailsInternal(marketId, startTime);
+  inFlightDetailRequests.set(marketId, promise);
+
+  try {
+    return await promise;
+  } finally {
+    inFlightDetailRequests.delete(marketId);
+  }
+}
+
+async function _getMarketDetailsInternal(marketId: string, startTime: number) {
+  try {
+    // LAYER 1: Check in-memory detail cache (instant)
     const cached = getCachedMarketDetail(marketId);
     if (cached) {
-      console.log(`Using cached market details for: ${marketId}`);
+      console.log(`[getMarketDetails] CACHE HIT in ${(performance.now() - startTime).toFixed(0)}ms`);
       return cached;
     }
 
-    // First get basic market info from Gamma
-    const marketResponse = await fetchWithTimeout(gammaUrl(`/markets/${marketId}`));
-    let marketData: any = null;
-
-    if (marketResponse.ok) {
-      marketData = await marketResponse.json();
-    } else {
-      console.log(`Gamma market fetch failed with status: ${marketResponse.status}`);
+    // LAYER 2: Check global market cache for this market ID
+    const cachedGlobal = globalMarketCache.markets.find(m => m.id === marketId);
+    if (cachedGlobal) {
+      console.log(`[getMarketDetails] Found in GLOBAL CACHE: ${cachedGlobal.title}`);
+      // Convert cached market to detail format
+      const detail = convertCachedMarketToDetail(cachedGlobal);
+      setCachedMarketDetail(marketId, detail);
+      return detail;
     }
 
-    // If direct market lookup failed, try finding it via events
-    if (!marketData || Object.keys(marketData).length === 0) {
-      console.log("Trying to find market via events endpoint...");
-      const eventsResponse = await fetchWithTimeout(
-        gammaUrl("/events", { limit: "500", active: "true", closed: "false" })
-      );
+    // LAYER 3: Try Gamma API direct lookup
+    let marketData: any = null;
+    try {
+      const marketResponse = await fetchWithTimeout(gammaUrl(`/markets/${marketId}`), 8000);
+      if (marketResponse.ok) {
+        const data = await marketResponse.json();
+        if (data && Object.keys(data).length > 0 && (data.question || data.title)) {
+          marketData = data;
+          console.log(`[getMarketDetails] Gamma direct lookup SUCCESS: ${data.question || data.title}`);
+        }
+      } else {
+        console.log(`[getMarketDetails] Gamma direct lookup failed: ${marketResponse.status}`);
+      }
+    } catch (err) {
+      console.warn(`[getMarketDetails] Gamma direct lookup error:`, err);
+    }
 
-      if (eventsResponse.ok) {
-        const events = await eventsResponse.json();
-        if (Array.isArray(events)) {
-          for (const event of events) {
-            if (Array.isArray(event.markets)) {
-              const foundMarket = event.markets.find((m: any) => m.id === marketId);
-              if (foundMarket) {
-                marketData = foundMarket;
-                console.log("Found market in events:", marketData);
-                break;
+    // LAYER 4: Try events endpoint search
+    if (!marketData) {
+      console.log(`[getMarketDetails] Trying events endpoint search...`);
+      try {
+        const eventsResponse = await fetchWithTimeout(
+          gammaUrl("/events", { limit: "500", active: "true", closed: "false" }),
+          15000
+        );
+
+        if (eventsResponse.ok) {
+          const events = await eventsResponse.json();
+          if (Array.isArray(events)) {
+            for (const event of events) {
+              if (Array.isArray(event.markets)) {
+                const foundMarket = event.markets.find((m: any) => m.id === marketId);
+                if (foundMarket) {
+                  marketData = { ...foundMarket, eventTitle: event.title };
+                  console.log(`[getMarketDetails] Found in events: ${foundMarket.question || foundMarket.title}`);
+                  break;
+                }
               }
             }
           }
         }
+      } catch (err) {
+        console.warn(`[getMarketDetails] Events search error:`, err);
       }
     }
 
-    // If still no data, return sensible defaults
+    // LAYER 5: If still no data, return null (NOT "Unknown Market")
+    // The component will handle showing appropriate error state
     if (!marketData) {
-      console.log("No market data found, using defaults");
-      return {
-        id: marketId,
-        title: "Unknown Market",
-        name: "Unknown Market",
-        description: "",
-        yesPrice: 0.5,
-        noPrice: 0.5,
-        probability: 50,
-        spread: 0,
-        volume: "$0",
-        volumeUsd: 0,
-        volume24hr: "$0",
-        volume24hrNum: 0,
-        liquidity: "$0",
-        liquidityNum: 0,
-        outcomes: ["Yes", "No"],
-        outcomePrices: [0.5, 0.5],
-        clobTokenIds: [],
-        tokens: [],
-        uniqueTraders: 0,
-        tradesCount: 0,
-      };
+      console.error(`[getMarketDetails] FAILED: No data found for ${marketId}`);
+      return null;
     }
 
     // Extract prices from market data
