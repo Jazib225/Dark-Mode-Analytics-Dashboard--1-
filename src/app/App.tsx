@@ -47,6 +47,24 @@ function formatProbability(prob: number): string {
   return prob.toFixed(1);
 }
 
+// Format volume (e.g., $1.2M, $500K)
+function formatVolume(amount: string | number | undefined): string {
+  if (amount === undefined || amount === null) return "$0";
+  const num = typeof amount === "string" ? parseFloat(amount.replace(/[^0-9.-]+/g, "")) : amount;
+  if (isNaN(num)) return "$0";
+
+  if (num >= 1000000000) {
+    return `$${(num / 1000000000).toFixed(1)}B`;
+  }
+  if (num >= 1000000) {
+    return `$${(num / 1000000).toFixed(1)}M`;
+  }
+  if (num >= 1000) {
+    return `$${(num / 1000).toFixed(1)}K`;
+  }
+  return `$${num.toFixed(0)}`;
+}
+
 type Page = "discover" | "markets" | "wallets" | "insiderlens" | "portfolio" | "tradeflow" | "search";
 
 export interface BookmarkedMarket {
@@ -76,6 +94,7 @@ interface DisplayMarket {
   id: string;
   title?: string;
   name?: string;
+  description?: string;
   probability?: number | string;
   volume?: string;
   image?: string | null;

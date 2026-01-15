@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { portfolioApi } from "../services/api";
 
 interface FeedItem {
   id: string;
@@ -11,14 +10,23 @@ interface FeedItem {
   probability: number;
 }
 
+
 interface FeedProps {
   onWalletClick: (address: string) => void;
 }
 
+const initialFeedItems = [
+  { market: "Will Bitcoin hit $100k in 2024?" },
+  { market: "Will Ethereum flip Bitcoin?" },
+  { market: "US Presidential Election Winner 2024" },
+  { market: "Fed Interest Rate Cut in March" },
+  { market: "GTA VI Release Date" }
+];
+
 function convertApiActivityToFeedItem(activity: any): FeedItem {
   const sizeStr = activity.quantity ? `$${parseFloat(activity.quantity).toFixed(0)}` : "$0";
   const action = activity.type === "BUY" ? "entry" : activity.type === "SELL" ? "exit" : activity.type;
-  
+
   return {
     id: activity.id,
     timestamp: new Date(activity.timestamp).toLocaleTimeString("en-US", { hour12: false }),
@@ -32,14 +40,10 @@ function convertApiActivityToFeedItem(activity: any): FeedItem {
 
 export function Feed({ onWalletClick }: FeedProps) {
   const [feedItems, setFeedItems] = useState<FeedItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchRecentActivity = async () => {
       try {
-        setLoading(true);
-        setError(null);
         // Fetch recent trades from portfolio API (simulated global activity)
         // In a real scenario, there would be a dedicated recent-trades endpoint
         const data: any[] = [];
@@ -47,10 +51,7 @@ export function Feed({ onWalletClick }: FeedProps) {
       } catch (err) {
         const message = err instanceof Error ? err.message : "Failed to fetch activity";
         console.error("Error fetching activity:", message);
-        setError(message);
         setFeedItems([]);
-      } finally {
-        setLoading(false);
       }
     };
 
@@ -110,9 +111,8 @@ export function Feed({ onWalletClick }: FeedProps) {
             {feedItems.map((item, index) => (
               <tr
                 key={item.id}
-                className={`border-b border-gray-800/30 hover:bg-gradient-to-r hover:from-[#111111] hover:to-transparent transition-all duration-150 animate-fade-in ${
-                  index === feedItems.length - 1 ? "border-b-0" : ""
-                }`}
+                className={`border-b border-gray-800/30 hover:bg-gradient-to-r hover:from-[#111111] hover:to-transparent transition-all duration-150 animate-fade-in ${index === feedItems.length - 1 ? "border-b-0" : ""
+                  }`}
               >
                 <td className="py-3.5 px-5 text-gray-500 font-mono font-light text-[12px]">
                   {item.timestamp}
@@ -128,9 +128,8 @@ export function Feed({ onWalletClick }: FeedProps) {
                 </td>
                 <td className="py-3.5 px-5">
                   <span
-                    className={`font-normal ${
-                      item.action === "entry" ? "text-green-500" : "text-red-500"
-                    }`}
+                    className={`font-normal ${item.action === "entry" ? "text-green-500" : "text-red-500"
+                      }`}
                   >
                     {item.action.toUpperCase()}
                   </span>

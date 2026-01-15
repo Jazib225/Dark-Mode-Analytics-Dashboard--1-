@@ -129,7 +129,8 @@ export function usePriceHistory(marketId: string | null, interval: string = '1d'
         gcTime: 5 * 60 * 1000,
         placeholderData: () => {
             if (!marketId) return undefined;
-            return getCachedPriceHistory(marketId, interval) || undefined;
+            const data = getCachedPriceHistory(marketId, interval);
+            return data ?? undefined;
         },
     });
 }
@@ -149,7 +150,8 @@ export function useRecentTrades(marketId: string | null, limit: number = 20) {
         gcTime: 2 * 60 * 1000,
         placeholderData: () => {
             if (!marketId) return undefined;
-            return getCachedTrades(marketId, limit) || undefined; // Fix undefined
+            const data = getCachedTrades(marketId, limit);
+            return data ?? undefined;
         },
     });
 }
@@ -169,7 +171,8 @@ export function useOrderBook(tokenId: string | null) {
         gcTime: 60 * 1000,
         placeholderData: () => {
             if (!tokenId) return undefined;
-            return getCachedOrderBook(tokenId) || undefined;
+            const data = getCachedOrderBook(tokenId);
+            return data ?? undefined;
         },
     });
 }
