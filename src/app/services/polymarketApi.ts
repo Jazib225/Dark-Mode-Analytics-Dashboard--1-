@@ -1299,18 +1299,25 @@ async function _getMarketDetailsInternal(marketId: string, startTime: number) {
     }
 
     // CLOB API - Only use as LAST RESORT fallback if we still have default prices
-    // clobTokenIds might be a JSON string or array
+    // clobTokenIds might be a JSON string, array, or missing
     let clobTokenIds: string[] = [];
     if (marketData.clobTokenIds) {
       if (typeof marketData.clobTokenIds === 'string') {
         try {
           clobTokenIds = JSON.parse(marketData.clobTokenIds);
+          if (!Array.isArray(clobTokenIds)) clobTokenIds = [];
         } catch (e) {
-          console.log("Failed to parse clobTokenIds string");
+          console.log("Failed to parse clobTokenIds string", marketData.clobTokenIds);
         }
       } else if (Array.isArray(marketData.clobTokenIds)) {
         clobTokenIds = marketData.clobTokenIds;
       }
+    }
+    if (!Array.isArray(clobTokenIds)) clobTokenIds = [];
+    if (clobTokenIds.length === 0) {
+      console.warn(`[getMarketDetails] No clobTokenIds for market ${marketId}`);
+    } else {
+      console.log(`[getMarketDetails] clobTokenIds for ${marketId}:`, clobTokenIds);
     }
 
     // Only fetch CLOB if we don't have valid prices yet (priceSource is still default)
@@ -1366,10 +1373,16 @@ async function _getMarketDetailsInternal(marketId: string, startTime: number) {
       noPrice = 1 - yesPrice;
     }
 
-    // Parse volume and liquidity safely
-    const volumeNum = parseFloat(String(marketData.volume || marketData.volumeNum || 0)) || 0;
-    const volume24hrNum = parseFloat(String(marketData.volume24hr || 0)) || 0;
-    const liquidityNum = parseFloat(String(marketData.liquidity || 0)) || 0;
+    // Parse volume and liquidity safely, use '—' if missing
+    const volumeNum = parseFloat(String(marketData.volume || marketData.volumeNum));
+    const volume24hrNum = parseFloat(String(marketData.volume24hr));
+    const liquidityNum = parseFloat(String(marketData.liquidity));
+
+    function safeStat(val: any) {
+      if (val === undefined || val === null || isNaN(val)) return '—';
+      if (typeof val === 'string' && (val.trim() === '' || val === 'NaN')) return '—';
+      return formatVolumeHelper(Number(val));
+    }
 
     const result = {
       id: marketData.id || marketId,
@@ -1385,16 +1398,17 @@ async function _getMarketDetailsInternal(marketId: string, startTime: number) {
       probability: yesPrice * 100,
       spread: spread,
 
-      // Volume and liquidity
-      volume: formatVolumeHelper(volumeNum),
-      volumeUsd: volumeNum,
-      volume24hr: formatVolumeHelper(volume24hrNum),
-      volume24hrNum: volume24hrNum,
-      liquidity: formatVolumeHelper(liquidityNum),
-      liquidityNum: liquidityNum,
+      // Volume and liquidity (show '—' if missing)
+      volume: safeStat(volumeNum),
+      volumeUsd: isNaN(volumeNum) ? undefined : volumeNum,
+      volume24hr: safeStat(volume24hrNum),
+      volume24hrNum: isNaN(volume24hrNum) ? undefined : volume24hrNum,
+      liquidity: safeStat(liquidityNum),
+      liquidityNum: isNaN(liquidityNum) ? undefined : liquidityNum,
 
       // Market info
-      outcomes: marketData.outcomes || ["Yes", "No"],
+      outcomes: Array.isArray(marketData.outcomes) ? marketData.outcomes :
+        (typeof marketData.outcomes === 'string' ? (() => { try { return JSON.parse(marketData.outcomes); } catch { return ["Yes", "No"]; } })() : ["Yes", "No"]),
       outcomePrices: [yesPrice, noPrice],
       endDate: marketData.endDate,
       createdAt: marketData.createdAt,
